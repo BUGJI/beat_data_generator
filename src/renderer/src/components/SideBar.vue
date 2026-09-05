@@ -46,13 +46,12 @@ const markerRows = computed<Array<{ i: number; track: MarkerTrack }>>(() => {
   return out;
 });
 
-const addTrackTypes = computed(() => [
-  { key: "", label: t("sidebar.addBeatTrack") },
-  ...typedTrackTypes.map((tt) => ({
+const typedAddItems = computed(() =>
+  typedTrackTypes.map((tt) => ({
     key: typeKeyOf(tt.pluginId, tt.def.id),
     label: localeText(tt.def.trackName) || tt.def.id,
   })),
-]);
+);
 
 const addMenuOpen = ref(false);
 
@@ -101,10 +100,16 @@ const renameBusy = ref<string | null>(null);
       </div>
       <div v-if="addMenuOpen" class="add-menu">
         <button
-          v-for="item in addTrackTypes"
+          class="add-item"
+          @click="onPickAdd('')"
+        >
+          {{ t("sidebar.addBeatTrack") }}
+        </button>
+        <div v-if="typedAddItems.length" class="add-sep" />
+        <button
+          v-for="item in typedAddItems"
           :key="item.key"
           class="add-item"
-          :class="{ head: item.key === '' }"
           @click="onPickAdd(item.key)"
         >
           {{ item.label }}
@@ -327,12 +332,11 @@ const renameBusy = ref<string | null>(null);
   background: rgba(56, 189, 248, 0.16);
   color: var(--bdg-accent);
 }
-.add-item.head {
-  font-weight: 700;
-  color: var(--bdg-text);
-}
-.add-item:not(.head) + .add-item:not(.head) {
-  border-top: none;
+.add-sep {
+  flex: none;
+  height: 1px;
+  margin: 4px 6px;
+  background: var(--bdg-border);
 }
 .color-pick {
   width: 20px;
@@ -517,5 +521,38 @@ const renameBusy = ref<string | null>(null);
   justify-content: center;
   color: var(--bdg-text-dim);
   font-size: 12px;
+}
+</style>
+
+<style>
+.head.marker-row .color-pick {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  outline: none;
+}
+.head.marker-row .color-pick .el-color-picker__trigger {
+  width: 20px !important;
+  height: 20px !important;
+  padding: 0 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  background: transparent !important;
+  justify-content: center !important;
+}
+.head.marker-row .color-pick .el-color-picker__color,
+.head.marker-row .color-pick .el-color-picker__color-inner {
+  border-radius: 50% !important;
+}
+.head.marker-row .color-pick .el-color-picker__color {
+  border: none !important;
+}
+.head.marker-row .color-pick .el-color-picker__icon,
+.head.marker-row .color-pick .el-color-picker__empty {
+  display: none !important;
+}
+.head.marker-row .color-pick .el-color-picker__trigger:focus-visible {
+  outline: none;
 }
 </style>
