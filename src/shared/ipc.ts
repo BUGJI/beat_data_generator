@@ -18,9 +18,16 @@ export interface SaveResult {
 
 export type CloseMode = "ask" | "minimize" | "close";
 
+export interface RecentProject {
+  path: string;
+  title: string;
+}
+
 export interface SettingsData {
   closeMode: CloseMode;
   devEnabled: boolean;
+  devFreeInput: boolean;
+  animEnabled: boolean;
   followScroll: boolean;
   followPercent: number;
   followPreset: boolean;
@@ -33,11 +40,12 @@ export interface IpcApi {
   openAudio: () => Promise<AudioFileResult | null>;
   readAudioFile: (filePath: string) => Promise<AudioFileResult | null>;
   openTextFile: () => Promise<TextFileResult>;
-  saveTextFile: (defaultPath: string, content: string) => Promise<SaveResult>;
+  saveTextFile: (defaultPath: string) => Promise<SaveResult>;
   saveProjectFile: (
     defaultPath: string,
     content: string,
   ) => Promise<SaveResult>;
+  saveEDLFile: (defaultPath: string, content: string) => Promise<SaveResult>;
   getFilePath: (title: string) => Promise<string | null>;
   getSettings: () => Promise<SettingsData>;
   updateSettings: (patch: Partial<SettingsData>) => Promise<SettingsData>;
@@ -46,13 +54,13 @@ export interface IpcApi {
   readTextFile: (filePath: string) => Promise<TextFileResult>;
   computeMd5: (filePath: string) => Promise<string | null>;
   notifyAppReady: () => Promise<void>;
-  recordRecent: (filePath: string) => Promise<void>;
-  getRecents: () => Promise<string[]>;
+  recordRecent: (filePath: string, title?: string) => Promise<void>;
+  getRecents: () => Promise<RecentProject[]>;
   welcomeAction: (payload: WelcomeAction) => void;
   onMainAction: (cb: (payload: WelcomeAction) => void) => () => void;
 }
 
 export type WelcomeAction =
-  | { type: "new" }
-  | { type: "open" }
+  | { type: "new"; path?: string | null }
+  | { type: "open"; path?: string | null }
   | { type: "recent"; path: string };

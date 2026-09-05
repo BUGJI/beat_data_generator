@@ -1,8 +1,14 @@
 export default {
   follow: {
     label: "Auto-follow",
-    onTip: "Following: click to disable for this playback run (re-enables on a new play)",
-    offPlayTip: "Not following: auto-follow engages past the threshold; click to follow now",
+    beatTip:
+      "The square lights up (blue, fading out) every time playback passes a marker",
+    overlapTip:
+      "Lights up when two or more markers coincide; colour follows the marker count (yellow→orange→red = more)",
+    onTip:
+      "Following: click to disable for this playback run (re-enables on a new play)",
+    offPlayTip:
+      "Not following: auto-follow engages past the threshold; click to follow now",
     stopTip: "Stopped: toggle on to start the next playback already following",
     pctTip: "Auto-follow trigger position (% from the left of the viewport)",
   },
@@ -18,6 +24,16 @@ export default {
     saveProject: "Save Project",
     saveProjectAs: "Save As…",
     export: "Export Timestamps…",
+    exportEdl: "Export EDL…",
+    edit: "Edit",
+    copy: "Copy",
+    paste: "Paste",
+    cut: "Cut",
+    undo: "Undo",
+    redo: "Redo",
+    select: "Select",
+    selectAll: "Select all markers",
+    exportMenu: "Export",
     view: "View",
     zoomIn: "Zoom In",
     zoomOut: "Zoom Out",
@@ -35,7 +51,7 @@ export default {
     songName: "File",
     noSong: "No audio loaded",
     chooseSong: "Choose audio file…",
-    relink: "Relink audio",
+    relink: "Re-choose audio",
     baseBpm: "Base BPM (beat 0)",
     bpmTooltip: "Spacing of the beat grid",
     offset: "Offset (ms)",
@@ -44,7 +60,7 @@ export default {
     sampleRate: "Sample rate",
     beatAxis: "Beat Axis",
     timeAxis: "Time Axis",
-    snapToGrid: "Snap to beat grid",
+    snapToGrid: "Beat grid",
     snapDiv: "Snap division",
     snapDiv1: "1/1 beat",
     snapDiv2: "1/2 beat",
@@ -52,16 +68,22 @@ export default {
     snapDiv8: "1/8 beat",
     snapDiv16: "1/16 beat",
     snapDiv32: "1/32 beat",
+    snapUnit: "beat",
+    gridShort: "Snap",
+    zoom: "Zoom",
+    followTrigger: "Follow",
     grid: "Grid",
     gridShows: "Grid: bar / beat",
     tracks: "Tracks",
     audioTrack: "Audio",
     markerTrack: "Markers",
     bpmTrack: "BPM Track",
-    bpmTrackHint: "beat 0 anchor · drop BPM points to stretch/shrink following beats",
+    bpmTrackHint: "drag BPM points to adjust following beats",
     addTrack: "Add marker track",
     trackName: "Track name…",
     changeColor: "Change color",
+    lockTip: "Lock track (block content editing)",
+    hideTip: "Hide track: markers greyed, still editable, but excluded from playback/export",
     noTracks: "No marker tracks. Click ＋ top-left to add",
     markers: "Markers",
     count: "Count",
@@ -82,9 +104,11 @@ export default {
     position: "Position",
     bpmReadout: "Live BPM",
     speedRate: "Speed",
-    rateTooltip: "Playback rate (0.1–4)",
+    rateTooltip:
+      "Playback rate (0.1–4): hover and scroll the mouse wheel to speed up / slow down",
     pitchFollow: "Pitch",
-    pitchTooltip: "On: speed changes also shift pitch; Off: speed changes while keeping original pitch",
+    pitchTooltip:
+      "On: speed changes also shift pitch; Off: speed changes while keeping original pitch",
     buffering: "Stretching audio…",
   },
   dialogs: {
@@ -92,12 +116,14 @@ export default {
     ok: "OK",
     cancel: "Cancel",
     exportOk: "Exported {n} markers",
+    exportEdlOk: "Exported {n} markers to EDL",
     exportEmpty: "No markers to export",
     openFail: "Failed to parse project file",
     saveOk: "Project saved",
     saveFail: "Save failed. Check file permissions or disk space.",
     audioMissing: "Audio file not found. Please relink it.",
-    audioMismatch: "Audio does not match the project MD5. Please re-select the song and re-calibrate the offset.",
+    audioMismatch:
+      "Audio does not match the project MD5. Please re-select the song and re-calibrate the offset.",
     audioDecodeFail: "Failed to decode audio. Try another file.",
   },
   settings: {
@@ -107,10 +133,13 @@ export default {
     cats: {
       general: "General",
       shortcuts: "Shortcuts",
+      anim: "Animation",
       dev: "Developer",
       about: "About",
     },
     general: {
+      language: "Language",
+      languageDesc: "Switch UI language (applies immediately)",
       closeMode: "Default window close mode",
       closeModeDesc: "Applies to window X and all quit paths",
       modeAsk: "Ask",
@@ -118,9 +147,11 @@ export default {
       autoFollow: "Auto-scroll while playing",
       autoFollowDesc: "Scroll the timeline to follow the playhead",
       followPercent: "Auto-scroll trigger position",
-      followPercentDesc: "Follow once the playhead passes this % from the left of the viewport",
+      followPercentDesc:
+        "Follow once the playhead passes this % from the left of the viewport",
       rememberWindow: "Remember window size & position",
-      rememberWindowDesc: "Restore the last window size and maximized state on launch",
+      rememberWindowDesc:
+        "Restore the last window size and maximized state on launch",
       autoSave: "Auto-save",
       autoSaveDesc: "Automatically save the project on an interval",
       autoSaveMinutes: "Auto-save interval",
@@ -139,15 +170,25 @@ export default {
       deleteSel: "Delete selected object",
       nudge: "Nudge left/right by snap step (when selected)",
       esc: "Close floating card / clear selection",
+      home: "Back to start (playhead to zero, timeline scrolls to beginning)",
       zoom: "Zoom (Ctrl + wheel)",
       pan: "Scroll vertically / horizontally",
     },
     dev: {
-      master: "Developer options (master switch)",
+      master: "Developer options",
       masterDesc: "When off, devtools are disabled and the entry is hidden",
+      freeInput: "Remove input limits",
+      freeInputDesc:
+        "When on, numeric inputs drop their min/max/precision so any number can be typed",
       openTools: "Open browser DevTools",
       openToolsDesc: "Closes first, then reopens the DevTools window.",
-      disabledNote: "Developer options are off. Enable the switch to use DevTools.",
+      disabledNote:
+        "Developer options are off. Enable the switch to use DevTools.",
+    },
+    anim: {
+      editor: "Editor animations",
+      editorDesc:
+        "Zoom/pan the timeline with an interruptible 0.1s ease-out",
     },
     about: {
       version: "Version",
@@ -172,7 +213,8 @@ export default {
     loop: "Loop fill",
     loopInterval: "Interval (beats)",
     loopCount: "Count",
-    loopHint: "Children repeat after the main marker; they count and export as normal markers",
+    loopHint:
+      "Children repeat after the main marker; they count and export as normal markers",
     delete: "Delete",
   },
 } as const;

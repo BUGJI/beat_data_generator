@@ -16,6 +16,8 @@ export interface MarkerTrack {
   id: string;
   name: string;
   color: string;
+  locked?: boolean;
+  hidden?: boolean;
 }
 
 export type BpmMode = "abs" | "mult";
@@ -33,9 +35,9 @@ export interface BeatProject {
   name: string;
   baseBpm: number;
   offsetMs: number;
-  audioPath: string | null;
   audioName: string | null;
   audioMd5: string | null;
+  bpmLocked?: boolean;
   tracks: MarkerTrack[];
   markers: Marker[];
   bpmPoints: BpmPoint[];

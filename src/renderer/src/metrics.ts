@@ -30,6 +30,7 @@ export const COLORS = {
   waveform: "rgba(52,211,153,0.5)",
   playhead: "#f43f5e",
   marker: "#38bdf8",
+  markerDim: "#5c6470",
   markerSelected: "#fbbf24",
   markerGhostOk: "rgba(251,191,36,0.5)",
   markerGhostBad: "rgba(244,63,94,0.75)",
@@ -38,6 +39,7 @@ export const COLORS = {
   bpmSegmentText: "rgba(245,158,11,0.85)",
   barText: "rgba(52,211,153,0.9)",
   rowLine: "rgba(148,163,184,0.08)",
+  laneLockedBg: "rgba(148,163,184,0.10)",
 } as const;
 
 export const LANE_COLORS = [

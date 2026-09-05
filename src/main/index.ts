@@ -5,6 +5,7 @@ import { readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import type {
   AudioFileResult,
+  RecentProject,
   SaveResult,
   SettingsData,
   TextFileResult,
@@ -17,21 +18,25 @@ const AUDIO_FILTERS = [
     extensions: ["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus"],
   },
 ];
-const PROJECT_FILTERS = [
-  { name: "Beat Project", extensions: ["bdg", "json"] },
-];
+const PROJECT_FILTERS = [{ name: "Beat Project", extensions: ["bdg", "json"] }];
 const TEXT_FILTERS = [{ name: "Text", extensions: ["txt", "csv"] }];
+const EDL_FILTERS = [{ name: "EDL", extensions: ["edl"] }];
 
 let mainWindow: BrowserWindow | null = null;
 let welcomeWindow: BrowserWindow | null = null;
 let mainReady = false;
 const pendingWelcome: WelcomeAction[] = [];
+let welcomeDialogOpen = false;
+let welcomeCreated = false;
+let welcomeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 let allowQuit = false;
-const recents: string[] = [];
-const MAX_RECENTS = 8;
+const recents: RecentProject[] = [];
+const MAX_RECENTS = 9;
 let settings: SettingsData = {
   closeMode: "ask",
   devEnabled: false,
+  devFreeInput: false,
+  animEnabled: true,
   followScroll: true,
   followPercent: 90,
   followPreset: false,
@@ -43,14 +48,52 @@ const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
 const lastDirsPath = (): string =>
   join(app.getPath("userData"), "last-dirs.json");
+const recentsPath = (): string => join(app.getPath("userData"), "recents.json");
+
+function defaultRecentTitle(filePath: string): string {
+  const b = basename(filePath);
+  const dot = b.lastIndexOf(".");
+  return dot > 0 ? b.slice(0, dot) : b;
+}
+
+function loadRecents(): void {
+  try {
+    const raw = JSON.parse(readFileSync(recentsPath(), "utf-8")) as unknown;
+    if (!Array.isArray(raw)) return;
+    recents.length = 0;
+    for (const it of raw) {
+      if (!it || typeof it !== "object") continue;
+      const p = (it as RecentProject).path;
+      const t = (it as RecentProject).title;
+      if (typeof p === "string" && p) {
+        recents.push({
+          path: p,
+          title: typeof t === "string" && t ? t : defaultRecentTitle(p),
+        });
+      }
+    }
+    recents.length = Math.min(recents.length, MAX_RECENTS);
+  } catch {
+    /* no saved recents yet */
+  }
+}
+
+function persistRecents(): void {
+  try {
+    writeFileSync(recentsPath(), JSON.stringify(recents, null, 2), "utf-8");
+  } catch (err) {
+    console.error("persist recents failed", err);
+  }
+}
 
 const lastDirs: { audio?: string; project?: string } = {};
 
 function loadLastDirs(): void {
   try {
-    const raw = JSON.parse(
-      readFileSync(lastDirsPath(), "utf-8"),
-    ) as { audio?: string; project?: string };
+    const raw = JSON.parse(readFileSync(lastDirsPath(), "utf-8")) as {
+      audio?: string;
+      project?: string;
+    };
     if (typeof raw.audio === "string") lastDirs.audio = raw.audio;
     if (typeof raw.project === "string") lastDirs.project = raw.project;
   } catch {
@@ -147,6 +190,8 @@ function sanitize(raw: Partial<SettingsData>): SettingsData {
         ? raw.closeMode
         : "ask",
     devEnabled: raw.devEnabled === true,
+    devFreeInput: raw.devFreeInput === true,
+    animEnabled: raw.animEnabled !== false,
     followScroll: raw.followScroll !== false,
     followPercent: Math.min(
       100,
@@ -197,6 +242,45 @@ async function bytesToAudioResult(filePath: string): Promise<AudioFileResult> {
 
 function closeDevToolsAll(): void {
   for (const w of BrowserWindow.getAllWindows()) w.webContents.closeDevTools();
+}
+
+function deliverWelcomeAction(action: WelcomeAction): void {
+  if (mainReady && mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send("welcome:action", action);
+  } else {
+    pendingWelcome.push(action);
+  }
+}
+
+/** Native "Save new project" dialog. Returns chosen path or null when cancelled. */
+async function showNewProjectDialog(): Promise<string | null> {
+  const w = mainWindow && !mainWindow.isDestroyed() ? mainWindow : win();
+  if (!w || w.isDestroyed()) return null;
+  const base = "untitled.bdg";
+  const dir = lastDirs.project;
+  const r = await dialog.showSaveDialog(w, {
+    title: "Save new project",
+    defaultPath: dir ? join(dir, base) : base,
+    filters: PROJECT_FILTERS,
+  });
+  if (r.canceled || !r.filePath) return null;
+  rememberDir("project", r.filePath);
+  return r.filePath;
+}
+
+/** Native "Open project" dialog. Returns chosen path or null when cancelled. */
+async function showOpenProjectDialog(): Promise<string | null> {
+  const w = mainWindow && !mainWindow.isDestroyed() ? mainWindow : win();
+  if (!w || w.isDestroyed()) return null;
+  const r = await dialog.showOpenDialog(w, {
+    title: "Open project",
+    defaultPath: lastDirs.project,
+    filters: PROJECT_FILTERS,
+    properties: ["openFile"],
+  });
+  if (r.canceled || r.filePaths.length === 0) return null;
+  rememberDir("project", r.filePaths[0]);
+  return r.filePaths[0];
 }
 
 function requestQuit(w: BrowserWindow): void {
@@ -295,22 +379,33 @@ function registerIpc(): void {
       filters,
     });
     if (r.canceled || !r.filePath) return { canceled: true };
-    if (kind !== "export")
-      rememberDir(kind as "audio" | "project", r.filePath);
+    if (kind !== "export") rememberDir(kind as "audio" | "project", r.filePath);
     await writeFile(r.filePath, content, "utf-8");
     return { canceled: false, filePath: r.filePath };
   }
 
   ipcMain.handle(
     "text:save",
-    (_e, defaultPath: string, content: string): Promise<SaveResult> =>
-      saveViaDialog(
-        "project",
-        "Save project",
-        defaultPath,
-        PROJECT_FILTERS,
-        content,
-      ),
+    async (_e, defaultPath: string): Promise<SaveResult> => {
+      // show the save dialog only; the caller writes afterwards so it can store
+      // an audio name that is relative to the finally chosen folder.
+      const slash = Math.max(
+        defaultPath.lastIndexOf("/"),
+        defaultPath.lastIndexOf("\\"),
+      );
+      const dirFromPath = slash > 0 ? defaultPath.slice(0, slash) : "";
+      const proposed = joinDefaultDir("project", defaultPath, dirFromPath);
+      const w = win();
+      if (!w) return { canceled: true };
+      const r = await dialog.showSaveDialog(w, {
+        title: "Save project",
+        defaultPath: proposed,
+        filters: PROJECT_FILTERS,
+      });
+      if (r.canceled || !r.filePath) return { canceled: true };
+      rememberDir("project", r.filePath);
+      return { canceled: false, filePath: r.filePath };
+    },
   );
 
   ipcMain.handle(
@@ -321,6 +416,18 @@ function registerIpc(): void {
         "Export timestamps",
         defaultPath,
         TEXT_FILTERS,
+        content,
+      ),
+  );
+
+  ipcMain.handle(
+    "text:saveEdl",
+    (_e, defaultPath: string, content: string): Promise<SaveResult> =>
+      saveViaDialog(
+        "export",
+        "Export EDL",
+        defaultPath,
+        EDL_FILTERS,
         content,
       ),
   );
@@ -349,15 +456,27 @@ function registerIpc(): void {
     },
   );
 
-  ipcMain.handle("recents:add", (_e, filePath: string): void => {
-    if (typeof filePath !== "string" || !filePath) return;
-    const i = recents.indexOf(filePath);
-    if (i >= 0) recents.splice(i, 1);
-    recents.unshift(filePath);
-    recents.length = Math.min(recents.length, MAX_RECENTS);
-  });
+  ipcMain.handle(
+    "recents:add",
+    (_e, filePath: string, title?: string): void => {
+      if (typeof filePath !== "string" || !filePath) return;
+      const i = recents.findIndex((r) => r.path === filePath);
+      if (i >= 0) recents.splice(i, 1);
+      recents.unshift({
+        path: filePath,
+        title:
+          typeof title === "string" && title.trim()
+            ? title.trim()
+            : defaultRecentTitle(filePath),
+      });
+      recents.length = Math.min(recents.length, MAX_RECENTS);
+      persistRecents();
+    },
+  );
 
-  ipcMain.handle("recents:get", (): string[] => [...recents]);
+  ipcMain.handle("recents:get", (): RecentProject[] =>
+    recents.map((r) => ({ ...r })),
+  );
 
   ipcMain.on("welcome:action", (_e, payload: WelcomeAction) => {
     if (!(payload && typeof payload === "object" && "type" in payload)) {
@@ -366,22 +485,46 @@ function registerIpc(): void {
       mainWindow?.focus();
       return;
     }
-    if (!mainReady || !mainWindow) {
-      pendingWelcome.push(payload);
-    } else {
-      mainWindow.webContents.send("welcome:action", payload);
-    }
+    // close & focus first so any native dialog never stacks under the welcome
     welcomeWindow?.close();
     welcomeWindow = null;
     mainWindow?.focus();
+    if (welcomeDialogOpen) return;
+    if (payload.type === "new") {
+      // keep the save dialog in main: guaranteed to appear, defaults to the
+      // last used project folder and remembers the new one on success.
+      welcomeDialogOpen = true;
+      void showNewProjectDialog()
+        .then((path) => {
+          if (path) deliverWelcomeAction({ type: "new", path });
+        })
+        .finally(() => {
+          welcomeDialogOpen = false;
+        });
+      return;
+    }
+    if (payload.type === "open") {
+      // the open picker is also main-side so it always shows, even if the
+      // renderer has not mounted / bound its welcome listener yet.
+      welcomeDialogOpen = true;
+      void showOpenProjectDialog()
+        .then((path) => {
+          if (path) deliverWelcomeAction({ type: "open", path });
+        })
+        .finally(() => {
+          welcomeDialogOpen = false;
+        });
+      return;
+    }
+    // recent -> the renderer reads that file itself
+    deliverWelcomeAction(payload);
   });
 
   ipcMain.handle("app:ready", (): void => {
     mainReady = true;
-    if (mainWindow && pendingWelcome.length) {
+    if (pendingWelcome.length) {
       const pending = pendingWelcome.splice(0, pendingWelcome.length);
-      for (const payload of pending)
-        mainWindow.webContents.send("welcome:action", payload);
+      for (const payload of pending) deliverWelcomeAction(payload);
     }
   });
 
@@ -434,8 +577,28 @@ function registerIpc(): void {
   });
 }
 
+function scheduleWelcomeWindow(): void {
+  if (welcomeCreated) return;
+  const poll = setInterval(() => {
+    if (mainReady) {
+      clearInterval(poll);
+      if (welcomeFallbackTimer) {
+        clearTimeout(welcomeFallbackTimer);
+        welcomeFallbackTimer = null;
+      }
+      createWelcomeWindow();
+    }
+  }, 200);
+  welcomeFallbackTimer = setTimeout(() => {
+    clearInterval(poll);
+    welcomeFallbackTimer = null;
+    createWelcomeWindow();
+  }, 5000);
+}
+
 function createWelcomeWindow(): void {
-  if (welcomeWindow) return;
+  if (welcomeCreated || welcomeWindow) return;
+  welcomeCreated = true;
   welcomeWindow = new BrowserWindow({
     width: 660,
     height: 520,
@@ -487,16 +650,7 @@ function createWindow(): void {
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
     if (state?.maximized) mainWindow?.maximize();
-    const t = setInterval(() => {
-      if (mainReady) {
-        clearInterval(t);
-        createWelcomeWindow();
-      }
-    }, 200);
-    setTimeout(() => {
-      clearInterval(t);
-      createWelcomeWindow();
-    }, 5000);
+    scheduleWelcomeWindow();
   });
 
   mainWindow.on("close", (e) => {
@@ -507,6 +661,15 @@ function createWindow(): void {
   });
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+
+  mainWindow.webContents.on(
+    "render-process-gone",
+    (_e, details: { reason: string; exitCode: number }) => {
+      console.log(
+        `[main] renderer gone: reason=${details.reason} exitCode=${details.exitCode}`,
+      );
+    },
+  );
 
   if (process.env["ELECTRON_RENDERER_URL"]) {
     mainWindow.webContents.on("console-message", ((...args: unknown[]) => {
@@ -539,6 +702,7 @@ function createWindow(): void {
 app.whenReady().then(() => {
   loadSettings();
   loadLastDirs();
+  loadRecents();
   registerIpc();
   createWindow();
 

@@ -12,10 +12,12 @@ const api: IpcApi = {
   readAudioFile: (filePath: string) =>
     ipcRenderer.invoke("audio:read", filePath),
   openTextFile: () => ipcRenderer.invoke("text:open"),
-  saveTextFile: (defaultPath: string, content: string) =>
-    ipcRenderer.invoke("text:save", defaultPath, content),
+  saveTextFile: (defaultPath: string) =>
+    ipcRenderer.invoke("text:save", defaultPath),
   saveProjectFile: (defaultPath: string, content: string) =>
     ipcRenderer.invoke("text:saveAsTxt", defaultPath, content),
+  saveEDLFile: (defaultPath: string, content: string) =>
+    ipcRenderer.invoke("text:saveEdl", defaultPath, content),
   getFilePath: (title: string) => ipcRenderer.invoke("file:path", title),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
@@ -25,8 +27,8 @@ const api: IpcApi = {
   computeMd5: (filePath: string) => ipcRenderer.invoke("audio:md5", filePath),
   notifyAppReady: () => ipcRenderer.invoke("app:ready"),
   readTextFile: (filePath: string) => ipcRenderer.invoke("text:read", filePath),
-  recordRecent: (filePath: string) =>
-    ipcRenderer.invoke("recents:add", filePath),
+  recordRecent: (filePath: string, title?: string) =>
+    ipcRenderer.invoke("recents:add", filePath, title),
   getRecents: () => ipcRenderer.invoke("recents:get"),
   welcomeAction: (payload: WelcomeAction) =>
     ipcRenderer.send("welcome:action", payload),

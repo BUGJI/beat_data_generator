@@ -19,6 +19,10 @@ import {
   seekTo,
   formatTime,
   select,
+  closeCard,
+  selectSingleMarker,
+  toggleMarkerSelect,
+  markerSelectionIds,
   resolveMainMarker,
   updateMarkerLoop,
   historyGestureBegin,
@@ -63,12 +67,8 @@ let raf = 0;
 let ro: ResizeObserver | null = null;
 
 let mode:
-  | "idle"
-  | "scrub"
-  | "placeBpm"
-  | "placeMarker"
-  | "dragBpm"
-  | "dragMarker" = "idle";
+  "idle" | "scrub" | "placeBpm" | "placeMarker" | "dragBpm" | "dragMarker" =
+  "idle";
 let activePointer = -1;
 let gestureOn = false;
 let downX = 0;
@@ -76,10 +76,17 @@ let downY = 0;
 let moved = false;
 let dragId: string | null = null;
 let dragTrackId: string | null = null;
+let dragGroupIds = new Set<string>();
 
 const hover = { x: -1, y: -1 };
 
 const trackAt = (i: number): MarkerTrack | undefined => store.project.tracks[i];
+
+function loopGroupIds(mainId: string): Set<string> {
+  const s = new Set<string>([mainId]);
+  for (const c of store.project.markers) if (c.parentId === mainId) s.add(c.id);
+  return s;
+}
 
 // ---- geometry ----
 
@@ -102,8 +109,15 @@ function doSnap(raw: number): number {
     : raw;
 }
 
-function markerOccupy(trackId: string, beat: number): boolean {
-  return markersInTrack(trackId).some((m) => Math.abs(m.beat - beat) < 1 / 256);
+function markerOccupy(
+  trackId: string,
+  beat: number,
+  except?: Set<string>,
+): boolean {
+  return markersInTrack(trackId).some(
+    (m) =>
+      (except ? !except.has(m.id) : true) && Math.abs(m.beat - beat) < 1 / 256,
+  );
 }
 
 function bpmOccupy(beat: number): boolean {
@@ -289,6 +303,10 @@ function drawLaneBacks(
         ? COLORS.laneMarkerBg
         : COLORS.laneMarkerAlt;
     ctx.fillRect(0, r.y, W, r.h);
+    if (!r.bpm && store.project.tracks[r.i]?.locked) {
+      ctx.fillStyle = COLORS.laneLockedBg;
+      ctx.fillRect(0, r.y, W, r.h);
+    }
   }
   // outer top separator under ruler
   ctx.fillStyle = COLORS.rowLine;
@@ -454,21 +472,12 @@ function drawMarkerLanesContent(
   X: (t: number) => number,
 ): void {
   const rows = visibleRows(H).filter((r) => !r.bpm);
-  // group highlight set: selecting a main marker lights up its children too
+  // highlight set: every selected main marker lights up together with its children
   const selGroup = new Set<string>();
-  if (store.ui.selected.kind === "marker" && store.ui.selected.id) {
-    const m0 = store.project.markers.find(
-      (mk) => mk.id === store.ui.selected.id,
-    );
-    const main =
-      m0 && m0.parentId
-        ? store.project.markers.find((mk) => mk.id === m0!.parentId) ?? m0
-        : m0;
-    if (main) {
-      selGroup.add(main.id);
-      for (const c of store.project.markers)
-        if (c.parentId === main.id) selGroup.add(c.id);
-    }
+  for (const mid of markerSelectionIds()) {
+    selGroup.add(mid);
+    for (const c of store.project.markers)
+      if (c.parentId === mid) selGroup.add(c.id);
   }
   for (const r of rows) {
     const track = trackAt(r.i);
@@ -479,9 +488,14 @@ function drawMarkerLanesContent(
       const sel =
         store.ui.selected.kind === "marker" && store.ui.selected.id === m.id;
       const inGroup = selGroup.has(m.id) && !sel;
+      const color = sel
+        ? COLORS.markerSelected
+        : track.hidden
+          ? COLORS.markerDim
+          : track.color;
       const cy = r.y + r.h / 2;
       // faint vertical stem
-      ctx.fillStyle = sel ? COLORS.markerSelected : track.color;
+      ctx.fillStyle = color;
       ctx.globalAlpha = 0.35;
       ctx.fillRect(x - 1, r.y + 4, 2, r.h - 8);
       ctx.globalAlpha = 1;
@@ -617,6 +631,7 @@ function hitBpmAt(x: number, y: number): BpmPoint | null {
 
 const cardPos = ref({ x: 0, y: 0 });
 const openCard = (x: number, y: number): void => {
+  store.ui.cardOpen = true;
   cardPos.value = { x, y };
 };
 
@@ -630,20 +645,22 @@ function onContext(e: MouseEvent): void {
   const mk = hitMarkerAt(x, y);
   if (mk) {
     removeMarker(mk.id);
-    select(null, null);
+    closeCard();
     ghostState.value = null;
     return;
   }
   const bp = hitBpmAt(x, y);
   if (bp) {
     removeBpmPoint(bp.id);
-    select(null, null);
+    closeCard();
     ghostState.value = null;
   }
 }
 
 function onPointerDown(e: PointerEvent): void {
   if (e.button !== 0) return;
+  // a fresh press dismisses the card; it reopens only on a clean click/release
+  store.ui.cardOpen = false;
   const rect = rootEl.value!.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
@@ -676,15 +693,21 @@ function onPointerDown(e: PointerEvent): void {
   if (mkHit) {
     const main = resolveMainMarker(mkHit);
     if (!main) return;
+    if (e.ctrlKey || e.metaKey) {
+      toggleMarkerSelect(main.id);
+      mode = "idle";
+      return;
+    }
     mode = "dragMarker";
     dragId = main.id;
     dragTrackId = main.trackId;
-    select("marker", main.id);
+    dragGroupIds = loopGroupIds(main.id);
+    selectSingleMarker(main.id);
     return;
   }
   const lane = laneKindAt(y);
   mode = lane.kind === "bpm" ? "placeBpm" : "placeMarker";
-  if (lane.kind === "marker") select(null, null);
+  if (lane.kind === "marker") closeCard();
 }
 
 function onPointerMove(e: PointerEvent): void {
@@ -709,7 +732,7 @@ function onPointerMove(e: PointerEvent): void {
     if (!e.altKey && !bpmOccupy(raw)) updateBpmPoint(dragId, { beat: raw });
   } else if (mode === "dragMarker" && dragId && dragTrackId) {
     const raw = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
-    const ok = !e.altKey ? !markerOccupy(dragTrackId, raw) : true;
+    const ok = !e.altKey ? !markerOccupy(dragTrackId, raw, dragGroupIds) : true;
     if (ok) moveMarker(dragId, raw, true);
   } else if ((mode === "placeBpm" || mode === "placeMarker") && lane) {
     updateGhost(lane);
@@ -769,6 +792,7 @@ function onPointerUp(e: PointerEvent): void {
   mode = "idle";
   dragId = null;
   dragTrackId = null;
+  dragGroupIds = new Set<string>();
   activePointer = -1;
   ghostState.value = null;
 }
@@ -781,6 +805,7 @@ function onPointerCancel(): void {
   mode = "idle";
   dragId = null;
   dragTrackId = null;
+  dragGroupIds = new Set<string>();
   activePointer = -1;
   ghostState.value = null;
 }
@@ -800,26 +825,64 @@ function updateGhost(lane: { kind: "bpm" | "marker"; index: number }): void {
   ghostState.value = { beat, ok, y0: laneRow.y + 4, y1: laneRow.y + laneRow.h };
 }
 
+const ANIM_MS = 100;
+let wheelAnimRaf = 0;
+
+function cancelWheelAnim(): void {
+  cancelAnimationFrame(wheelAnimRaf);
+  wheelAnimRaf = 0;
+}
+
+/** interruptible ease-out animator over `durMs`; apply receives 0→1 eased progress */
+function animWheel(durMs: number, apply: (k: number) => void): void {
+  cancelWheelAnim();
+  const t0 = performance.now();
+  const step = (): void => {
+    const k = Math.min(1, (performance.now() - t0) / durMs);
+    apply(1 - Math.pow(1 - k, 3));
+    if (k < 1) wheelAnimRaf = requestAnimationFrame(step);
+    else wheelAnimRaf = 0;
+  };
+  wheelAnimRaf = requestAnimationFrame(step);
+}
+
 function onWheel(e: WheelEvent): void {
-  const root = rootEl.value!;
   e.preventDefault();
-  const rect = root.getBoundingClientRect();
-  const mx = e.clientX - rect.left;
+  const anim = store.ui.settings.animEnabled;
   if (e.ctrlKey || e.metaKey) {
-    const t = screenToTime(mx);
-    const f = e.deltaY < 0 ? 1.25 : 1 / 1.25;
-    const next = Math.min(
+    // zoom anchored on the currently visible centre of the timeline
+    const cx = view.vw / 2;
+    const from = store.ui.pxPerSec;
+    const target = Math.min(
       MAX_PX_PER_SEC,
-      Math.max(MIN_PX_PER_SEC, store.ui.pxPerSec * f),
+      Math.max(MIN_PX_PER_SEC, store.ui.pxPerSec * (e.deltaY < 0 ? 1.25 : 1 / 1.25)),
     );
-    const tx = (t / 1000) * next;
-    store.ui.pxPerSec = next;
-    setScroll(Math.max(0, tx - mx), view.y);
+    const tc = screenToTime(cx); // time currently at the viewport centre
+    const applyZoom = (k: number): void => {
+      const p = from + (target - from) * k;
+      store.ui.pxPerSec = p;
+      setScroll(Math.max(0, (tc / 1000) * p - cx), view.y);
+    };
+    if (anim) animWheel(ANIM_MS, applyZoom);
+    else {
+      store.ui.pxPerSec = target;
+      setScroll(Math.max(0, (tc / 1000) * target - cx), view.y);
+    }
     return;
   }
   const dx = e.deltaX !== 0 ? e.deltaX : e.shiftKey ? e.deltaY : 0;
   const dy = e.deltaX !== 0 || e.shiftKey ? 0 : e.deltaY;
-  setScroll(view.x + (dx || 0), view.y + dy);
+  if (anim) {
+    const x0 = view.x;
+    const y0 = view.y;
+    const x1 = x0 + (dx || 0);
+    const y1 = y0 + dy;
+    animWheel(ANIM_MS, (k) => {
+      setScroll(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k);
+    });
+  } else {
+    setScroll(view.x + (dx || 0), view.y + dy);
+  }
 }
 
 // ---- scrollbars ----
@@ -894,7 +957,8 @@ const selBpm = computed<BpmPoint | null>(() =>
       null)
     : null,
 );
-const cardVisible = computed(() => store.ui.selected.kind !== null);
+const cardVisible = computed(() => store.ui.cardOpen);
+const freeInput = computed(() => store.ui.settings.devFreeInput);
 
 const markerBeat = computed({
   get: () => selMarker.value?.beat ?? 0,
@@ -916,7 +980,16 @@ const loopOn = computed({
   set: (v: boolean) => {
     const m = selMarker.value;
     if (!m) return;
-    updateMarkerLoop(m.id, v ? { interval: m.loop?.interval ?? 1, count: m.loop?.count ?? 4, exclude: m.loop?.exclude } : null);
+    updateMarkerLoop(
+      m.id,
+      v
+        ? {
+            interval: m.loop?.interval ?? 1,
+            count: m.loop?.count ?? 4,
+            exclude: m.loop?.exclude,
+          }
+        : null,
+    );
   },
 });
 const loopInterval = computed({
@@ -927,6 +1000,31 @@ const loopCount = computed({
   get: () => selMarker.value?.loop?.count ?? 4,
   set: (v: number) => applyLoopPatch({ count: Math.max(1, Math.floor(v)) }),
 });
+const LOOP_INT_MIN = 0.0625;
+const LOOP_INT_MAX = 256;
+
+const loopIntervalText = computed({
+  get: () => String(loopInterval.value),
+  set: (s: string) => {
+    if (s.trim() === "") return;
+    const v = Number(s);
+    if (!Number.isFinite(v)) return;
+    applyLoopPatch({ interval: clampLoopInterval(v) });
+  },
+});
+
+const canHalve = computed(() => loopInterval.value > LOOP_INT_MIN);
+const canDouble = computed(() => loopInterval.value < LOOP_INT_MAX);
+
+function clampLoopInterval(v: number): number {
+  const c = Math.min(LOOP_INT_MAX, Math.max(LOOP_INT_MIN, v));
+  return Math.round(c * 1e4) / 1e4;
+}
+
+/** +/- buttons multiply / divide the interval by `factor` (e.g. ×2 or ÷2). */
+function scaleLoopInterval(factor: number): void {
+  applyLoopPatch({ interval: clampLoopInterval(loopInterval.value * factor) });
+}
 const bpmBeat = computed({
   get: () => selBpm.value?.beat ?? 0,
   set: (v: number) => {
@@ -939,6 +1037,37 @@ const bpmValue = computed({
     if (selBpm.value) updateBpmPoint(selBpm.value.id, { value: v });
   },
 });
+const bpmMin = computed(() => (bpmMode.value === "mult" ? 0.01 : 20));
+const bpmMax = computed(() => (bpmMode.value === "mult" ? 100 : 999));
+const bpmDecimals = computed(() => (bpmMode.value === "mult" ? 3 : 1));
+
+function roundValue(v: number, decimals: number): number {
+  const p = 10 ** decimals;
+  return Math.round(v * p) / p;
+}
+
+const bpmValueText = computed({
+  get: () => String(roundValue(bpmValue.value, bpmDecimals.value)),
+  set: (s: string) => {
+    if (s.trim() === "") return;
+    const v = Number(s);
+    if (!Number.isFinite(v)) return;
+    bpmValue.value = clampValue(v);
+  },
+});
+
+const canHalveBpm = computed(() => bpmValue.value > bpmMin.value + 1e-9);
+const canDoubleBpm = computed(() => bpmValue.value < bpmMax.value - 1e-9);
+
+function clampValue(v: number): number {
+  const c = Math.min(bpmMax.value, Math.max(bpmMin.value, v));
+  return roundValue(c, bpmDecimals.value);
+}
+
+/** +/- buttons multiply / divide the BPM value (or multiplier) by `factor`. */
+function scaleBpmValue(factor: number): void {
+  bpmValue.value = clampValue(bpmValue.value * factor);
+}
 const effBpm = computed(() =>
   selBpm.value ? effectiveBpmFor(selBpm.value) : 0,
 );
@@ -971,7 +1100,7 @@ const bpmTime = computed(() =>
 function onCardKey(e: KeyboardEvent): void {
   if ((e.target as HTMLElement)?.tagName === "INPUT") return;
   if (e.key === "Escape") {
-    select(null, null);
+    closeCard();
     ghostState.value = null;
   }
 }
@@ -980,7 +1109,7 @@ function deleteSelected(): void {
   const sel = store.ui.selected;
   if (sel.kind === "marker" && sel.id) removeMarker(sel.id);
   else if (sel.kind === "bpm" && sel.id) removeBpmPoint(sel.id);
-  select(null, null);
+  closeCard();
   ghostState.value = null;
 }
 
@@ -1063,13 +1192,13 @@ const summary = computed(() => {
         <div class="pc-head">
           <span class="pc-dot" :style="{ background: markerColor }" />
           <b>{{ t("keys.marker") }}</b>
-          <button class="pc-x" @click="select(null, null)">✕</button>
+          <button class="pc-x" @click="closeCard()">✕</button>
         </div>
         <label class="pc-field">
           <span>{{ t("prop.beatPos") }}</span>
           <el-input-number
             v-model="markerBeat"
-            :min="0"
+            :min="freeInput ? undefined : 0"
             :step="1 / store.ui.snapDiv"
             :precision="4"
             size="small"
@@ -1100,23 +1229,36 @@ const summary = computed(() => {
           <div class="pc-loop-fields">
             <label class="pc-field">
               <span>{{ t("prop.loopInterval") }}</span>
-              <el-input-number
-                v-model="loopInterval"
-                :min="0.0625"
-                :max="256"
-                :step="0.5"
-                :precision="4"
-                size="small"
-                controls-position="right"
-                class="num"
-              />
+              <div class="pc-stepper num">
+                <button
+                  type="button"
+                  class="pc-step"
+                  :disabled="!canHalve"
+                  @click="scaleLoopInterval(1 / 2)"
+                >
+                  −
+                </button>
+                <el-input
+                  v-model="loopIntervalText"
+                  size="small"
+                  class="pc-step-input"
+                />
+                <button
+                  type="button"
+                  class="pc-step"
+                  :disabled="!canDouble"
+                  @click="scaleLoopInterval(2)"
+                >
+                  ＋
+                </button>
+              </div>
             </label>
             <label class="pc-field">
               <span>{{ t("prop.loopCount") }}</span>
               <el-input-number
                 v-model="loopCount"
-                :min="1"
-                :max="512"
+                :min="freeInput ? undefined : 1"
+                :max="freeInput ? undefined : 512"
                 :step="1"
                 size="small"
                 controls-position="right"
@@ -1132,13 +1274,13 @@ const summary = computed(() => {
         <div class="pc-head">
           <span class="pc-dot bpm" />
           <b>{{ t("keys.bpmPoint") }}</b>
-          <button class="pc-x" @click="select(null, null)">✕</button>
+          <button class="pc-x" @click="closeCard()">✕</button>
         </div>
         <label class="pc-field">
           <span>{{ t("prop.beatPos") }}</span>
           <el-input-number
             v-model="bpmBeat"
-            :min="0"
+            :min="freeInput ? undefined : 0"
             :step="1 / store.ui.snapDiv"
             :precision="4"
             size="small"
@@ -1164,16 +1306,29 @@ const summary = computed(() => {
           <span>{{
             bpmMode === "mult" ? t("prop.multValue") : t("prop.absValue")
           }}</span>
-          <el-input-number
-            v-model="bpmValue"
-            :min="bpmMode === 'mult' ? 0.01 : 20"
-            :max="bpmMode === 'mult' ? 100 : 999"
-            :step="bpmMode === 'mult' ? 0.05 : 1"
-            :precision="bpmMode === 'mult' ? 3 : 1"
-            size="small"
-            controls-position="right"
-            class="num"
-          />
+          <div class="pc-stepper num">
+            <button
+              type="button"
+              class="pc-step"
+              :disabled="!canHalveBpm"
+              @click="scaleBpmValue(1 / 2)"
+            >
+              −
+            </button>
+            <el-input
+              v-model="bpmValueText"
+              size="small"
+              class="pc-step-input"
+            />
+            <button
+              type="button"
+              class="pc-step"
+              :disabled="!canDoubleBpm"
+              @click="scaleBpmValue(2)"
+            >
+              ＋
+            </button>
+          </div>
         </label>
         <div class="pc-sub num">
           {{ t("prop.effective") }}: {{ effBpm.toFixed(1) }} BPM
@@ -1352,5 +1507,35 @@ const summary = computed(() => {
   grid-template-columns: 1fr 1fr;
   gap: 8px;
 }
-
+.pc-stepper {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+}
+.pc-step-input {
+  width: 100%;
+}
+.pc-step {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 5px;
+  border: 1px solid var(--bdg-border-strong);
+  background: rgba(148, 163, 184, 0.08);
+  color: var(--bdg-text);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.pc-step:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.2);
+  color: var(--bdg-accent);
+}
+.pc-step:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
 </style>

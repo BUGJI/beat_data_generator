@@ -1,46 +1,65 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { ElMessageBox } from "element-plus";
 import {
   DocumentAdd,
-  Headset,
   FolderOpened,
+  Files,
   Download,
+  Collection,
+  Document,
+  CopyDocument,
+  RefreshLeft,
+  RefreshRight,
+  Remove,
+  Select,
   ZoomIn,
   ZoomOut,
   FullScreen,
-  QuestionFilled,
   Setting,
   CaretBottom,
 } from "@element-plus/icons-vue";
-import { setLocale, LOCALES } from "../i18n";
 import {
   newProject,
-  openAudioDialog,
   openProject,
   saveProject,
   saveProjectQuick,
   exportTimestamps,
+  exportEDL,
   store,
   zoomBy,
   fitZoom,
   setSettingsOpen,
+  copyMarkerGroup,
+  pasteMarkerGroup,
+  removeSelectedMarkers,
+  selectAllMarkers,
+  undo,
+  redo,
 } from "../store";
 
-const { t, locale } = useI18n();
+const { t } = useI18n();
 
 const dirtyTitle = computed(() =>
-  store.project.dirty ? ` • ${t('toolbar.unsavedDot')}` : "",
+  store.project.dirty ? ` • ${t("toolbar.unsavedDot")}` : "",
 );
 
-function onFileCmd(cmd: string): void {
+const recents = ref<Array<{ path: string; title: string }>>([]);
+
+async function loadRecents(): Promise<void> {
+  recents.value = await window.api.getRecents();
+}
+
+function onCmd(cmd: string): void {
+  if (cmd.startsWith("recent-")) {
+    const idx = Number(cmd.slice("recent-".length));
+    const item = recents.value[idx];
+    if (item) void openProject(item.path);
+    return;
+  }
   switch (cmd) {
     case "new":
       newProject();
-      break;
-    case "open-audio":
-      void openAudioDialog();
       break;
     case "open-project":
       void openProject();
@@ -51,8 +70,29 @@ function onFileCmd(cmd: string): void {
     case "save-as":
       void saveProject(true);
       break;
+    case "undo":
+      undo();
+      break;
+    case "redo":
+      redo();
+      break;
+    case "copy":
+      copyMarkerGroup();
+      break;
+    case "cut":
+      if (copyMarkerGroup()) removeSelectedMarkers();
+      break;
+    case "paste":
+      pasteMarkerGroup();
+      break;
+    case "select-all":
+      selectAllMarkers();
+      break;
     case "export":
       void exportTimestamps();
+      break;
+    case "export-edl":
+      void exportEDL();
       break;
   }
 }
@@ -61,62 +101,114 @@ function onFit(): void {
   fitZoom(window.innerWidth * 0.62);
 }
 
-function onAbout(): void {
-  void ElMessageBox.alert(
-    `${t('app.name')} v0.2.0\n\n${t('app.hint')}`,
-    t('menu.about'),
-    {
-      confirmButtonText: t('dialogs.ok'),
-      customStyle: { whiteSpace: "pre-line" },
-    },
-  );
-}
-
 const zoomInDisabled = computed(() => store.ui.pxPerSec >= 4000);
 const zoomOutDisabled = computed(() => store.ui.pxPerSec <= 6);
-const pxLabel = computed(() => `${store.ui.pxPerSec.toFixed(1)} px/s`);
+onMounted(() => {
+  void loadRecents();
+});
 </script>
 
 <template>
   <header class="topbar">
-    <div class="brand">
-      <span class="brand-dot" />
-      <span class="brand-name">{{ t('app.name') }}</span>
-      <span class="brand-sub num" :title="pxLabel">{{ pxLabel }}</span>
-      <span
-        v-if="dirtyTitle"
-        class="brand-sub dirty"
-        :title="t('toolbar.unsavedDot')"
-        >●</span
-      >
-    </div>
-
-    <el-dropdown trigger="click" @command="onFileCmd">
+    <el-dropdown
+      trigger="click"
+      @command="onCmd"
+      @visible-change="(v: boolean) => v && loadRecents()"
+    >
       <button class="menu-btn">
-        <el-icon><DocumentAdd /></el-icon>{{ t('menu.file') }}
+        <el-icon><DocumentAdd /></el-icon>{{ t("menu.file") }}
         <el-icon class="caret"><CaretBottom /></el-icon>
       </button>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item command="new">{{ t('menu.new') }}</el-dropdown-item>
-          <el-dropdown-item command="open-audio" divided>
-            <el-icon><Headset /></el-icon>{{ t('menu.openAudio') }}
+          <el-dropdown-item command="new">
+            <el-icon><DocumentAdd /></el-icon>{{ t("menu.new") }}
           </el-dropdown-item>
           <el-dropdown-item command="open-project">
-            <el-icon><FolderOpened /></el-icon>{{ t('menu.openProject') }}
+            <el-icon><FolderOpened /></el-icon>{{ t("menu.openProject") }}
           </el-dropdown-item>
-          <el-dropdown-item command="save" divided>{{
-            t('menu.saveProject')
-          }}</el-dropdown-item>
-          <el-dropdown-item command="save-as">{{
-            t('menu.saveProjectAs')
-          }}</el-dropdown-item>
-          <el-dropdown-item command="export" divided>
-            <el-icon><Download /></el-icon>{{ t('menu.export') }}
+          <el-dropdown-item
+            v-for="(r, i) in recents"
+            :key="r.path"
+            :command="`recent-${i}`"
+            class="recent-item"
+          >
+            <el-icon><Files /></el-icon>
+            <span class="recent-title" :title="r.path">{{ r.title }}</span>
+          </el-dropdown-item>
+          <el-dropdown-item command="save" divided>
+            <el-icon><Document /></el-icon>{{ t("menu.saveProject") }}
+          </el-dropdown-item>
+          <el-dropdown-item command="save-as">
+            <el-icon><CopyDocument /></el-icon>{{ t("menu.saveProjectAs") }}
           </el-dropdown-item>
         </el-dropdown-menu>
       </template>
     </el-dropdown>
+
+    <el-dropdown trigger="click" @command="onCmd">
+      <button class="menu-btn">
+        <el-icon><CopyDocument /></el-icon>{{ t("menu.edit") }}
+        <el-icon class="caret"><CaretBottom /></el-icon>
+      </button>
+      <template #dropdown>
+        <el-dropdown-menu>
+          <el-dropdown-item command="undo">
+            <el-icon><RefreshLeft /></el-icon>{{ t("menu.undo") }}
+          </el-dropdown-item>
+          <el-dropdown-item command="redo">
+            <el-icon><RefreshRight /></el-icon>{{ t("menu.redo") }}
+          </el-dropdown-item>
+          <el-dropdown-item command="cut" divided>
+            <el-icon><Remove /></el-icon>{{ t("menu.cut") }}
+          </el-dropdown-item>
+          <el-dropdown-item command="copy">
+            <el-icon><CopyDocument /></el-icon>{{ t("menu.copy") }}
+          </el-dropdown-item>
+          <el-dropdown-item command="paste">
+            <el-icon><Files /></el-icon>{{ t("menu.paste") }}
+          </el-dropdown-item>
+        </el-dropdown-menu>
+      </template>
+    </el-dropdown>
+
+    <el-dropdown trigger="click" @command="onCmd">
+      <button class="menu-btn">
+        <el-icon><Select /></el-icon>{{ t("menu.select") }}
+        <el-icon class="caret"><CaretBottom /></el-icon>
+      </button>
+      <template #dropdown>
+        <el-dropdown-menu>
+          <el-dropdown-item command="select-all">
+            <el-icon><Select /></el-icon>{{ t("menu.selectAll") }}
+          </el-dropdown-item>
+        </el-dropdown-menu>
+      </template>
+    </el-dropdown>
+
+    <el-dropdown trigger="click" @command="onCmd">
+      <button class="menu-btn">
+        <el-icon><Download /></el-icon>{{ t("menu.exportMenu") }}
+        <el-icon class="caret"><CaretBottom /></el-icon>
+      </button>
+      <template #dropdown>
+        <el-dropdown-menu>
+          <el-dropdown-item command="export">
+            <el-icon><Download /></el-icon>{{ t("menu.export") }}
+          </el-dropdown-item>
+          <el-dropdown-item command="export-edl">
+            <el-icon><Collection /></el-icon>{{ t("menu.exportEdl") }}
+          </el-dropdown-item>
+        </el-dropdown-menu>
+      </template>
+    </el-dropdown>
+
+    <span
+      v-if="dirtyTitle"
+      class="top-dirty"
+      :title="t('toolbar.unsavedDot')"
+      >●</span
+    >
 
     <div class="grow" />
 
@@ -148,37 +240,11 @@ const pxLabel = computed(() => `${store.ui.pxPerSec.toFixed(1)} px/s`);
       </el-tooltip>
     </div>
 
-    <el-dropdown
-      trigger="click"
-      @command="(cmd: string) => setLocale(cmd as 'zh' | 'en')"
-    >
-      <button class="menu-btn">
-        {{ LOCALES.find((l) => l.value === locale)?.label ?? "中文" }}
-        <el-icon class="caret"><CaretBottom /></el-icon>
-      </button>
-      <template #dropdown>
-        <el-dropdown-menu>
-          <el-dropdown-item
-            v-for="l in LOCALES"
-            :key="l.value"
-            :command="l.value"
-            :disabled="l.value === locale"
-          >
-            {{ l.label }}
-          </el-dropdown-item>
-        </el-dropdown-menu>
-      </template>
-    </el-dropdown>
-
     <el-tooltip :content="t('settings.title')" placement="bottom">
       <el-button class="help-btn" size="small" text @click="setSettingsOpen(true)">
         <el-icon><Setting /></el-icon>
       </el-button>
     </el-tooltip>
-
-    <el-button class="help-btn" size="small" text @click="onAbout">
-      <el-icon><QuestionFilled /></el-icon>
-    </el-button>
   </header>
 </template>
 
@@ -187,57 +253,37 @@ const pxLabel = computed(() => `${store.ui.pxPerSec.toFixed(1)} px/s`);
   height: var(--bdg-toolbar-h);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding: 0 10px;
   background: linear-gradient(180deg, #1a1f27, #161a21);
   border-bottom: 1px solid var(--bdg-border);
   flex: none;
 }
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-right: 14px;
-  margin-right: 4px;
-  border-right: 1px solid var(--bdg-border);
-}
-.brand-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--bdg-accent), var(--bdg-accent-2));
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
-}
-.brand-name {
-  font-weight: 700;
-  letter-spacing: 0.2px;
-}
-.brand-sub {
-  color: var(--bdg-text-dim);
-  font-size: 11px;
-}
-.brand-sub.dirty {
+.top-dirty {
   color: #fbbf24;
-  font-size: 9px;
+  font-size: 10px;
+  line-height: 1;
+  cursor: default;
 }
 .menu-btn {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
   background: transparent;
   color: var(--bdg-text);
   border: none;
   border-radius: 6px;
-  padding: 6px 10px;
-  font-size: 13px;
+  padding: 6px 8px;
+  font-size: 12.5px;
   cursor: pointer;
   font-family: inherit;
+  white-space: nowrap;
 }
 .menu-btn:hover {
   background: rgba(148, 163, 184, 0.12);
 }
 .caret {
-  font-size: 10px;
+  font-size: 9px;
 }
 .grow {
   flex: 1;
@@ -251,5 +297,16 @@ const pxLabel = computed(() => `${store.ui.pxPerSec.toFixed(1)} px/s`);
 }
 .help-btn {
   margin-left: 2px;
+}
+.recent-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.recent-title {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

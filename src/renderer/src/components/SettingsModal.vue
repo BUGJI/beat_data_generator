@@ -2,16 +2,18 @@
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { store, setSettingsOpen, patchSettings, openDevTools } from "../store";
+import { setLocale, LOCALES } from "../i18n";
 import type { CloseMode } from "../../../shared/ipc";
 
-const { t } = useI18n();
-const cat = ref<"general" | "shortcuts" | "dev" | "about">("general");
+const { t, locale } = useI18n();
+const cat = ref<"general" | "shortcuts" | "anim" | "dev" | "about">("general");
 
-type CatKey = "general" | "shortcuts" | "dev" | "about";
+type CatKey = "general" | "shortcuts" | "anim" | "dev" | "about";
 
 const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "general", icon: "⚙" },
   { key: "shortcuts", icon: "⌨" },
+  { key: "anim", icon: "✺" },
   { key: "dev", icon: "⬢" },
   { key: "about", icon: "ⓘ" },
 ];
@@ -27,6 +29,27 @@ const devEnabled = computed({
   get: () => store.ui.settings.devEnabled,
   set: (v: boolean) => {
     void patchSettings({ devEnabled: v });
+  },
+});
+
+const devFreeInput = computed({
+  get: () => store.ui.settings.devFreeInput,
+  set: (v: boolean) => {
+    void patchSettings({ devFreeInput: v });
+  },
+});
+
+const language = computed<string>({
+  get: () => locale.value,
+  set: (v: string) => {
+    setLocale(v === "en" ? "en" : "zh");
+  },
+});
+
+const animEnabled = computed({
+  get: () => store.ui.settings.animEnabled,
+  set: (v: boolean) => {
+    void patchSettings({ animEnabled: v });
   },
 });
 
@@ -74,6 +97,7 @@ const shortcutRows = computed(() => [
   { label: t("settings.shortcuts.deleteSel"), keys: ["Delete", "Backspace"] },
   { label: t("settings.shortcuts.nudge"), keys: ["←", "→"] },
   { label: t("settings.shortcuts.esc"), keys: ["Esc"] },
+  { label: t("settings.shortcuts.home"), keys: ["Home"] },
   { label: t("settings.shortcuts.zoom"), keys: ["Ctrl", "滚轮 / Scroll"] },
   { label: t("settings.shortcuts.pan"), keys: ["滚轮 / Shift+Scroll"] },
 ]);
@@ -124,6 +148,25 @@ function catLabel(key: string): string {
             <!-- 常规 -->
             <section v-if="cat === 'general'">
               <h3>{{ t("settings.cats.general") }}</h3>
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.general.language")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.general.languageDesc")
+                  }}</span>
+                </div>
+                <el-radio-group v-model="language">
+                  <el-radio-button
+                    v-for="l in LOCALES"
+                    :key="l.value"
+                    :value="l.value"
+                    >{{ l.label }}</el-radio-button
+                  >
+                </el-radio-group>
+              </div>
+
               <div class="field-row">
                 <div class="field-info">
                   <span class="field-name">{{
@@ -242,6 +285,22 @@ function catLabel(key: string): string {
               </table>
             </section>
 
+            <!-- 动画 -->
+            <section v-if="cat === 'anim'">
+              <h3>{{ t("settings.cats.anim") }}</h3>
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.anim.editor")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.anim.editorDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="animEnabled" size="small" />
+              </div>
+            </section>
+
             <!-- 开发者 -->
             <section v-if="cat === 'dev'">
               <h3>{{ t("settings.cats.dev") }}</h3>
@@ -255,6 +314,22 @@ function catLabel(key: string): string {
                 <el-switch v-model="devEnabled" size="small" />
               </div>
 
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.dev.freeInput")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.dev.freeInputDesc")
+                  }}</span>
+                </div>
+                <el-switch
+                  v-model="devFreeInput"
+                  size="small"
+                  :disabled="!devEnabled"
+                />
+              </div>
+
               <div class="dev-block" :class="{ off: !devEnabled }">
                 <el-button
                   type="primary"
@@ -265,9 +340,6 @@ function catLabel(key: string): string {
                   {{ t("settings.dev.openTools") }}
                 </el-button>
                 <p class="muted">{{ t("settings.dev.openToolsDesc") }}</p>
-                <p v-if="!devEnabled" class="muted">
-                  {{ t("settings.dev.disabledNote") }}
-                </p>
               </div>
             </section>
 

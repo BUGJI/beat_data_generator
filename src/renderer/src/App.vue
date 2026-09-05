@@ -6,18 +6,20 @@ import SideBar from "./components/SideBar.vue";
 import Timeline from "./components/Timeline.vue";
 import TransportBar from "./components/TransportBar.vue";
 import SettingsModal from "./components/SettingsModal.vue";
+import { setScroll } from "./editorView";
 import {
   store,
   loadSettings,
   togglePlay,
-  removeMarker,
   removeBpmPoint,
+  removeSelectedMarkers,
   moveMarker,
   updateBpmPoint,
   findMarker,
   findBpmPoint,
-  select,
+  closeCard,
   saveProjectQuick,
+  seekTo,
   undo,
   redo,
   copyMarkerGroup,
@@ -75,8 +77,14 @@ function onKeydown(e: KeyboardEvent): void {
     togglePlay();
     return;
   }
+  if (code === "Home") {
+    e.preventDefault();
+    seekTo(0);
+    setScroll(0, 0);
+    return;
+  }
   if (code === "Escape") {
-    select(null, null);
+    closeCard();
     return;
   }
   const sel = store.ui.selected;
@@ -89,8 +97,7 @@ function onKeydown(e: KeyboardEvent): void {
     if (!m) return;
     if (code === "Delete" || code === "Backspace") {
       e.preventDefault();
-      removeMarker(m.id);
-      select(null, null);
+      removeSelectedMarkers();
     } else if (
       (delta && code === "ArrowLeft") ||
       (delta && code === "ArrowRight")
@@ -104,7 +111,7 @@ function onKeydown(e: KeyboardEvent): void {
     if (code === "Delete" || code === "Backspace") {
       e.preventDefault();
       removeBpmPoint(p.id);
-      select(null, null);
+      closeCard();
     } else if (delta !== 0) {
       e.preventDefault();
       updateBpmPoint(p.id, { beat: Math.max(0, p.beat + delta) });

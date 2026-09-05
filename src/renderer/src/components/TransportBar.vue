@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   store,
@@ -32,11 +32,42 @@ const speed = computed({
     applySpeed(v ?? 1, store.ui.pitchFollow);
   },
 });
+const freeInput = computed(() => store.ui.settings.devFreeInput);
 const pitchFollow = computed({
   get: () => store.ui.pitchFollow,
   set: (v: boolean) => {
     applySpeed(store.ui.rate, v);
   },
+});
+
+// ---- rate control: hover + mouse wheel (wheel up faster, down slower) ----
+
+let wheelAcc = 0;
+let wheelRaf = 0;
+
+function onRateWheel(e: WheelEvent): void {
+  e.preventDefault();
+  wheelAcc += e.deltaY;
+  if (wheelRaf) return;
+  wheelRaf = requestAnimationFrame(() => {
+    wheelRaf = 0;
+    const d = wheelAcc;
+    wheelAcc = 0;
+    if (!d) return;
+    const steps = Math.round(d / 100); // each wheel notch ≈ 0.05
+    // snap onto the 0.05 grid first so values like 1.00 stay reachable
+    const cur = store.ui.rate;
+    const grid = Math.round(cur / 0.05) * 0.05;
+    let v = grid - steps * 0.05;
+    v = Math.min(4, Math.max(0.1, v));
+    const next = Math.round(v * 100) / 100;
+    if (next !== cur) applySpeed(next, store.ui.pitchFollow);
+  });
+}
+
+onBeforeUnmount(() => {
+  cancelAnimationFrame(wheelRaf);
+  wheelRaf = 0;
 });
 </script>
 
@@ -47,14 +78,18 @@ const pitchFollow = computed({
         <span class="bpm-dot" />
         BPM {{ bpmLabel }}
       </div>
-      <div class="rate-ctl" :title="t('transport.rateTooltip')">
-        <span class="rate-label">{{ t('transport.speedRate') }}</span>
+      <div
+        class="rate-ctl"
+        :title="t('transport.rateTooltip')"
+        @wheel="onRateWheel"
+      >
+        <span class="rate-label">{{ t("transport.speedRate") }}</span>
         <el-input-number
           v-model="speed"
-          :min="0.1"
-          :max="4"
+          :min="freeInput ? undefined : 0.1"
+          :max="freeInput ? undefined : 4"
           :step="0.05"
-          :precision="2"
+          :precision="freeInput ? undefined : 2"
           size="small"
           controls-position="right"
           class="num rate-input"
@@ -62,7 +97,7 @@ const pitchFollow = computed({
       </div>
       <div class="rate-ctl" :title="t('transport.pitchTooltip')">
         <el-switch v-model="pitchFollow" size="small" />
-        <span class="rate-label">{{ t('transport.pitchFollow') }}</span>
+        <span class="rate-label">{{ t("transport.pitchFollow") }}</span>
       </div>
     </div>
 
@@ -109,7 +144,9 @@ const pitchFollow = computed({
 
       <div class="tr-divider" />
 
-      <span v-if="store.ui.buffering" class="buffering">{{ t('transport.buffering') }}</span>
+      <span v-if="store.ui.buffering" class="buffering">{{
+        t("transport.buffering")
+      }}</span>
       <div class="tr-time num">
         <span class="cur">{{ formatTime(store.ui.positionMs) }}</span>
         <span class="sep">/</span>
@@ -118,7 +155,7 @@ const pitchFollow = computed({
     </div>
 
     <div class="tr-right">
-      <span class="vol-label">{{ t('transport.volume') }}</span>
+      <span class="vol-label">{{ t("transport.volume") }}</span>
       <el-slider
         v-model="vol"
         :min="0"
@@ -168,6 +205,14 @@ const pitchFollow = computed({
   display: flex;
   align-items: center;
   gap: 7px;
+  border-radius: 6px;
+  padding: 2px 4px;
+}
+.rate-ctl:hover {
+  background: rgba(148, 163, 184, 0.08);
+}
+.rate-ctl:hover .rate-label {
+  color: var(--bdg-text);
 }
 .rate-label {
   font-size: 11px;

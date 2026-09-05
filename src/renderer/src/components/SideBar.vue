@@ -9,12 +9,15 @@ import {
   renameTrack,
   moveTrack,
   colorTrack,
-  select,
+  setTrackLocked,
+  setTrackHidden,
+  setBpmLocked,
+  closeCard,
   timeOfBeat,
   formatTime,
 } from "../store";
 import { view, lanesTotalH } from "../editorView";
-import { RULER_H, BPM_LANE_H, MARKER_LANE_H, LANE_COLORS } from "../metrics";
+import { RULER_H, BPM_LANE_H, MARKER_LANE_H } from "../metrics";
 import type { MarkerTrack } from "../types";
 
 const { t } = useI18n();
@@ -48,14 +51,8 @@ function lastFor(trackId: string): string {
   return formatTime(timeOfBeat(arr[arr.length - 1].beat));
 }
 
-function bumpColor(track: MarkerTrack): void {
-  const i = LANE_COLORS.indexOf(track.color);
-  const next = LANE_COLORS[(i + 1) % LANE_COLORS.length] ?? LANE_COLORS[0];
-  colorTrack(track.id, next);
-}
-
 function clickTrack(_id: string): void {
-  select(null, null);
+  closeCard();
 }
 
 const addBtnText = computed(() => t("sidebar.addTrack"));
@@ -93,6 +90,14 @@ const renameBusy = ref<string | null>(null);
             </span>
           </span>
           <span class="h-count num">{{ store.project.bpmPoints.length }}</span>
+          <button
+            class="mini icon"
+            :class="{ on: store.project.bpmLocked }"
+            :title="t('sidebar.lockTip')"
+            @click="setBpmLocked(!store.project.bpmLocked)"
+          >
+            🔒
+          </button>
         </div>
 
         <!-- 踩点轨头（虚拟滚动子集） -->
@@ -104,12 +109,13 @@ const renameBusy = ref<string | null>(null);
           @pointerdown="clickTrack(row.track.id)"
         >
           <span class="accent" :style="{ background: row.track.color }" />
-          <button
-            class="color-chip"
-            :style="{ background: row.track.color }"
+          <el-color-picker
+            class="color-pick"
+            :model-value="row.track.color"
+            :disabled="!!row.track.locked"
             :title="t('sidebar.changeColor')"
             @pointerdown.stop
-            @click.stop="bumpColor(row.track)"
+            @change="(c: string | null) => { if (c) colorTrack(row.track.id, c); }"
           />
           <span class="t-body">
             <input
@@ -138,6 +144,24 @@ const renameBusy = ref<string | null>(null);
             </span>
           </span>
           <span class="h-actions">
+            <button
+              class="mini icon"
+              :class="{ on: row.track.locked }"
+              :title="t('sidebar.lockTip')"
+              @pointerdown.stop
+              @click.stop="setTrackLocked(row.track.id, !row.track.locked)"
+            >
+              🔒
+            </button>
+            <button
+              class="mini icon"
+              :class="{ hide: row.track.hidden }"
+              :title="t('sidebar.hideTip')"
+              @pointerdown.stop
+              @click.stop="setTrackHidden(row.track.id, !row.track.hidden)"
+            >
+              {{ row.track.hidden ? "🙈" : "👁" }}
+            </button>
             <button
               class="mini"
               :disabled="row.i === 0"
@@ -210,12 +234,39 @@ const renameBusy = ref<string | null>(null);
   width: 20px;
   height: 20px;
   border-radius: 6px;
-  font-size: 13px;
-  line-height: 1;
+  font-size: 14px;
   cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
 }
 .add-btn:hover {
   background: rgba(56, 189, 248, 0.3);
+}
+.color-pick {
+  width: 20px;
+  height: 20px;
+  flex: none;
+}
+.color-pick :deep(.el-color-picker__trigger) {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  overflow: hidden;
+}
+.color-pick :deep(.el-color-picker__color) {
+  border: none;
+  border-radius: 50%;
+}
+.color-pick :deep(.el-color-picker__color-inner) {
+  border-radius: 50%;
+}
+.color-pick :deep(.el-color-picker__icon) {
+  display: none;
 }
 .rows {
   position: relative;
@@ -343,10 +394,21 @@ const renameBusy = ref<string | null>(null);
   font-size: 9px;
   cursor: pointer;
   padding: 0;
+  line-height: 1;
+}
+.mini.icon {
+  font-size: 11px;
 }
 .mini:hover:not(:disabled) {
   background: rgba(148, 163, 184, 0.16);
   color: var(--bdg-text);
+}
+.mini.on:not(:disabled) {
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+}
+.mini.hide:not(:disabled) {
+  opacity: 0.45;
 }
 .mini.danger:hover:not(:disabled) {
   color: var(--bdg-danger);
