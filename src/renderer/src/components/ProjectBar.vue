@@ -316,6 +316,31 @@ const snapDiv = computed({
           :title="t('follow.overlapTip')"
         />
         <button
+          class="quick-icon"
+          :class="{ on: store.ui.glowEnabled }"
+          :title="t('follow.glowTip')"
+          @click="store.ui.glowEnabled = !store.ui.glowEnabled"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M12 2.5l1.9 5.1 5.1 1.9-5.1 1.9-1.9 5.1-1.9-5.1L5 9.5l5.1-1.9z"
+              fill="currentColor"
+              stroke="none"
+            />
+            <circle cx="18.6" cy="5.4" r="1.4" fill="currentColor" />
+            <circle cx="5.4" cy="18.6" r="1.4" fill="currentColor" />
+          </svg>
+        </button>
+        <button
           class="follow-btn"
           :class="{ on: followOn }"
           :title="followTip"

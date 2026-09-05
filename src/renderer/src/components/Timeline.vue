@@ -203,6 +203,7 @@ function draw(): void {
 
   drawRulers(ctx, W, t0, t1, X, endMs);
   drawLaneBacks(ctx, W, H);
+  drawLaneGlow(ctx, W, H);
   drawGridLines(ctx, W, H, t0, t1, X, endMs);
   drawBpmLaneContent(ctx, W, H, t0, t1, X);
   drawMarkerLanesContent(ctx, W, H, t0, t1, X);
@@ -320,6 +321,39 @@ function drawLaneBacks(
   // outer top separator under ruler
   ctx.fillStyle = COLORS.rowLine;
   ctx.fillRect(0, RULER_H - 1, W, 1);
+}
+
+// ---- per-track lane glow (same detection as the beat indicator) ----
+
+const LANE_GLOW_MS = 100;
+let glowSeqSeen: Record<string, number> = {};
+let glowEndAt: Record<string, number> = {};
+
+function drawLaneGlow(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+): void {
+  if (!store.ui.glowEnabled) return;
+  const now = performance.now();
+  const rows = visibleRows(H);
+  for (const r of rows) {
+    if (r.bpm) continue;
+    const track = store.project.tracks[r.i];
+    if (!track) continue;
+    const seq = store.ui.glowSeqs[track.id];
+    if (seq !== glowSeqSeen[track.id]) {
+      glowSeqSeen[track.id] = seq;
+      glowEndAt[track.id] = now + LANE_GLOW_MS;
+    }
+    const left = (glowEndAt[track.id] ?? 0) - now;
+    if (left <= 0) continue;
+    const k = left / LANE_GLOW_MS;
+    ctx.fillStyle = track.color;
+    ctx.globalAlpha = 0.1 + 0.34 * k;
+    ctx.fillRect(0, r.y, W, r.h);
+    ctx.globalAlpha = 1;
+  }
 }
 
 function drawGridLines(

@@ -10,6 +10,8 @@ export default {
     offPlayTip:
       "Not following: auto-follow engages past the threshold; click to follow now",
     stopTip: "Stopped: toggle on to start the next playback already following",
+    glowTip:
+      "Glow: when on, the lane header and track lane briefly light up each time that track has a marker pass (same detection as the beat light)",
     pctTip: "Auto-follow trigger position (% from the left of the viewport)",
   },
   app: {

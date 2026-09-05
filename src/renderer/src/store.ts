@@ -76,6 +76,10 @@ interface UIState {
   beatPulse: number;
   overlapPulse: number;
   overlapCount: number;
+  /** master switch for per-track lane/header glow on marker pass. */
+  glowEnabled: boolean;
+  /** per-track pulse sequence used to re-trigger 0.1s glow effects. */
+  glowSeqs: Record<string, number>;
 }
 
 export const store = reactive<{ project: ProjectState; ui: UIState }>({
@@ -131,6 +135,8 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     beatPulse: 0,
     overlapPulse: 0,
     overlapCount: 0,
+    glowEnabled: false,
+    glowSeqs: {},
   },
 });
 
@@ -151,6 +157,7 @@ engine.setVolume(store.ui.volume);
 interface FlashEvent {
   t: number;
   n: number;
+  ids: string[];
 }
 
 let flashEvents: FlashEvent[] = [];
@@ -170,15 +177,22 @@ function firstEventAtOrAfter(arr: FlashEvent[], pos: number): number {
 
 function refreshBeatFlash(posMs: number): void {
   // refreshed on play/seek/stop events (not per-frame), so recompute freely
-  const groups = new Map<string, { beat: number; count: number }>();
+  const groups = new Map<
+    string,
+    { beat: number; count: number; ids: string[] }
+  >();
   for (const m of visibleMarkers()) {
-    const key = Math.round(m.beat * 1e6).toString();
+    const key = `${Math.round(m.beat * 1e6)}`;
     const g = groups.get(key);
-    if (g) g.count++;
-    else groups.set(key, { beat: m.beat, count: 1 });
+    if (g) {
+      g.count++;
+      if (!g.ids.includes(m.trackId)) g.ids.push(m.trackId);
+    } else {
+      groups.set(key, { beat: m.beat, count: 1, ids: [m.trackId] });
+    }
   }
   flashEvents = [...groups.values()]
-    .map((g) => ({ t: timeOfBeat(g.beat), n: g.count }))
+    .map((g) => ({ t: timeOfBeat(g.beat), n: g.count, ids: g.ids }))
     .sort((a, b) => a.t - b.t);
   flashIdx = firstEventAtOrAfter(flashEvents, posMs);
   flashReady = flashIdx < flashEvents.length;
@@ -197,6 +211,11 @@ function tickBeatFlash(): void {
     if (ev.n >= 2) {
       store.ui.overlapPulse++;
       store.ui.overlapCount = ev.n;
+    }
+    if (store.ui.glowEnabled) {
+      for (const id of ev.ids) {
+        store.ui.glowSeqs[id] = (store.ui.glowSeqs[id] ?? 0) + 1;
+      }
     }
   }
   if (flashIdx >= flashEvents.length) flashReady = false;

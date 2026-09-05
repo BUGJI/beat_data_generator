@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   store,
@@ -82,6 +82,44 @@ function clickTrack(_id: string): void {
 
 const addBtnText = computed(() => t("sidebar.addTrack"));
 const renameBusy = ref<string | null>(null);
+
+const glowSeqSeen: Record<string, number> = {};
+const glowOn = reactive<Record<string, boolean>>({});
+const glowTimers: Record<string, number> = {};
+
+function pulseHeaderGlow(id: string): void {
+  glowOn[id] = true;
+  const prev = glowTimers[id];
+  if (prev) window.clearTimeout(prev);
+  glowTimers[id] = window.setTimeout(() => {
+    glowOn[id] = false;
+    delete glowTimers[id];
+  }, 110);
+}
+
+watch(
+  () => store.ui.glowSeqs,
+  (seqs) => {
+    for (const id of Object.keys(seqs)) {
+      const seq = seqs[id];
+      if (glowSeqSeen[id] === undefined) {
+        glowSeqSeen[id] = seq;
+        continue;
+      }
+      if (seq !== glowSeqSeen[id]) {
+        glowSeqSeen[id] = seq;
+        pulseHeaderGlow(id);
+      }
+    }
+  },
+  { deep: true, immediate: true },
+);
+
+onBeforeUnmount(() => {
+  for (const id of Object.keys(glowTimers)) {
+    window.clearTimeout(glowTimers[id] as number);
+  }
+});
 </script>
 
 <template>
@@ -234,6 +272,12 @@ const renameBusy = ref<string | null>(null);
               ✕
             </button>
           </span>
+          <span
+            v-if="store.ui.glowEnabled && glowOn[row.track.id]"
+            :key="'g' + (store.ui.glowSeqs[row.track.id] ?? 0)"
+            class="row-glow"
+            :style="{ background: row.track.color }"
+          />
         </div>
       </div>
       <div v-if="store.project.tracks.length === 0" class="empty-tracks">
@@ -512,6 +556,22 @@ const renameBusy = ref<string | null>(null);
 .mini:disabled {
   opacity: 0.25;
   cursor: default;
+}
+.row-glow {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  animation: row-glow-fade 0.1s ease-out forwards;
+  border-radius: 0;
+}
+@keyframes row-glow-fade {
+  from {
+    opacity: 0.38;
+  }
+  to {
+    opacity: 0;
+  }
 }
 .empty-tracks {
   position: absolute;
