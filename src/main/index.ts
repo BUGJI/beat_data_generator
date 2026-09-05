@@ -7,6 +7,7 @@ import type {
   SaveResult,
   SettingsData,
   TextFileResult,
+  WelcomeAction,
 } from "../shared/ipc";
 
 const AUDIO_FILTERS = [
@@ -19,7 +20,10 @@ const PROJECT_FILTERS = [{ name: "Beat Project", extensions: ["json"] }];
 const TEXT_FILTERS = [{ name: "Text", extensions: ["txt", "csv"] }];
 
 let mainWindow: BrowserWindow | null = null;
+let welcomeWindow: BrowserWindow | null = null;
 let allowQuit = false;
+const recents: string[] = [];
+const MAX_RECENTS = 8;
 let settings: SettingsData = {
   closeMode: "ask",
   devEnabled: false,
@@ -27,6 +31,8 @@ let settings: SettingsData = {
   followPercent: 90,
   followPreset: false,
   rememberWindow: true,
+  autoSave: true,
+  autoSaveMinutes: 5,
 };
 const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
@@ -101,6 +107,11 @@ function sanitize(raw: Partial<SettingsData>): SettingsData {
     ),
     followPreset: raw.followPreset === true,
     rememberWindow: raw.rememberWindow !== false,
+    autoSave: raw.autoSave !== false,
+    autoSaveMinutes: Math.min(
+      60,
+      Math.max(1, Math.round(raw.autoSaveMinutes ?? 5)),
+    ),
   };
 }
 
@@ -239,6 +250,50 @@ function registerIpc(): void {
   );
 
   ipcMain.handle(
+    "text:read",
+    async (_e, filePath: string): Promise<TextFileResult> => {
+      try {
+        const content = await readFile(filePath, "utf-8");
+        return { canceled: false, filePath, content };
+      } catch {
+        return { canceled: true };
+      }
+    },
+  );
+
+  ipcMain.handle(
+    "text:write",
+    async (_e, filePath: string, content: string): Promise<boolean> => {
+      try {
+        await writeFile(filePath, content, "utf-8");
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  );
+
+  ipcMain.handle("recents:add", (_e, filePath: string): void => {
+    if (typeof filePath !== "string" || !filePath) return;
+    const i = recents.indexOf(filePath);
+    if (i >= 0) recents.splice(i, 1);
+    recents.unshift(filePath);
+    recents.length = Math.min(recents.length, MAX_RECENTS);
+  });
+
+  ipcMain.handle("recents:get", (): string[] => [...recents]);
+
+  ipcMain.on("welcome:action", (_e, payload: WelcomeAction) => {
+    if (payload && typeof payload === "object" && "type" in payload) {
+      const wc = mainWindow?.webContents;
+      wc?.send("welcome:action", payload);
+    }
+    welcomeWindow?.close();
+    welcomeWindow = null;
+    mainWindow?.focus();
+  });
+
+  ipcMain.handle(
     "file:path",
     async (_e, title: string): Promise<string | null> => {
       const r = await dialog.showOpenDialog(win()!, {
@@ -272,6 +327,36 @@ function registerIpc(): void {
   });
 }
 
+function createWelcomeWindow(): void {
+  if (welcomeWindow) return;
+  welcomeWindow = new BrowserWindow({
+    width: 660,
+    height: 520,
+    resizable: false,
+    minimizable: false,
+    maximizable: false,
+    fullscreenable: false,
+    autoHideMenuBar: true,
+    backgroundColor: "#101318",
+    title: "Beat Data Generator",
+    webPreferences: {
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: true,
+      contextIsolation: true,
+    },
+  });
+  welcomeWindow.on("closed", () => {
+    welcomeWindow = null;
+  });
+  if (process.env["ELECTRON_RENDERER_URL"]) {
+    welcomeWindow.loadURL(
+      `${process.env["ELECTRON_RENDERER_URL"]}/welcome.html`,
+    );
+  } else {
+    welcomeWindow.loadFile(join(__dirname, "../renderer/welcome.html"));
+  }
+}
+
 function createWindow(): void {
   const state = loadWindowState();
   mainWindow = new BrowserWindow({
@@ -295,6 +380,7 @@ function createWindow(): void {
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
     if (state?.maximized) mainWindow?.maximize();
+    setTimeout(() => createWelcomeWindow(), 700);
   });
 
   mainWindow.on("close", (e) => {

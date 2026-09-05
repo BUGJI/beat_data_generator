@@ -16,6 +16,14 @@ export default defineConfig({
         "@shared": resolve("src/shared"),
       },
     },
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve("src/renderer/index.html"),
+          welcome: resolve("src/renderer/welcome.html"),
+        },
+      },
+    },
     plugins: [vue()],
   },
 });

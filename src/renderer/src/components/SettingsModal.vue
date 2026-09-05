@@ -48,8 +48,28 @@ const rememberWindow = computed({
     void patchSettings({ rememberWindow: v });
   },
 });
+const autoSave = computed({
+  get: () => store.ui.settings.autoSave,
+  set: (v: boolean) => {
+    void patchSettings({ autoSave: v });
+  },
+});
+const autoSaveMinutes = computed({
+  get: () => store.ui.settings.autoSaveMinutes,
+  set: (v: number) => {
+    void patchSettings({ autoSaveMinutes: v });
+  },
+});
 
 const shortcutRows = computed(() => [
+  { label: t("settings.shortcuts.save"), keys: ["Ctrl", "S"] },
+  { label: t("settings.shortcuts.copy"), keys: ["Ctrl", "C"] },
+  { label: t("settings.shortcuts.paste"), keys: ["Ctrl", "V"] },
+  { label: t("settings.shortcuts.undo"), keys: ["Ctrl", "Z"] },
+  {
+    label: t("settings.shortcuts.redo"),
+    keys: ["Ctrl", "Y", "/", "Ctrl+Shift+Z"],
+  },
   { label: t("settings.shortcuts.playPause"), keys: ["Space"] },
   { label: t("settings.shortcuts.deleteSel"), keys: ["Delete", "Backspace"] },
   { label: t("settings.shortcuts.nudge"), keys: ["←", "→"] },
@@ -128,29 +148,79 @@ function catLabel(key: string): string {
 
               <div class="field-row">
                 <div class="field-info">
-                  <span class="field-name">{{ t("settings.general.autoFollow") }}</span>
-                  <span class="field-desc">{{ t("settings.general.autoFollowDesc") }}</span>
+                  <span class="field-name">{{
+                    t("settings.general.autoFollow")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.general.autoFollowDesc")
+                  }}</span>
                 </div>
                 <el-switch v-model="followScroll" size="small" />
               </div>
 
               <div v-if="followScroll" class="field-row col">
                 <div class="field-info">
-                  <span class="field-name">{{ t("settings.general.followPercent") }}</span>
-                  <span class="field-desc">{{ t("settings.general.followPercentDesc") }}</span>
+                  <span class="field-name">{{
+                    t("settings.general.followPercent")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.general.followPercentDesc")
+                  }}</span>
                 </div>
                 <div class="pct-row">
-                  <el-slider v-model="followPercent" :min="0" :max="100" class="pct-slider" />
+                  <el-slider
+                    v-model="followPercent"
+                    :min="0"
+                    :max="100"
+                    class="pct-slider"
+                  />
                   <span class="num pct-value">{{ followPercent }}%</span>
                 </div>
               </div>
 
               <div class="field-row">
                 <div class="field-info">
-                  <span class="field-name">{{ t("settings.general.rememberWindow") }}</span>
-                  <span class="field-desc">{{ t("settings.general.rememberWindowDesc") }}</span>
+                  <span class="field-name">{{
+                    t("settings.general.rememberWindow")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.general.rememberWindowDesc")
+                  }}</span>
                 </div>
                 <el-switch v-model="rememberWindow" size="small" />
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.general.autoSave")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.general.autoSaveDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="autoSave" size="small" />
+              </div>
+
+              <div v-if="autoSave" class="field-row col">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.general.autoSaveMinutes")
+                  }}</span>
+                </div>
+                <div class="pct-row">
+                  <el-input-number
+                    v-model="autoSaveMinutes"
+                    :min="1"
+                    :max="60"
+                    :step="1"
+                    size="small"
+                    class="num minutes-input"
+                  />
+                  <span class="muted">{{
+                    t("settings.general.autoSaveMinutesUnit")
+                  }}</span>
+                </div>
               </div>
             </section>
 
@@ -195,7 +265,9 @@ function catLabel(key: string): string {
                   {{ t("settings.dev.openTools") }}
                 </el-button>
                 <p class="muted">{{ t("settings.dev.openToolsDesc") }}</p>
-                <p v-if="!devEnabled" class="muted">{{ t("settings.dev.disabledNote") }}</p>
+                <p v-if="!devEnabled" class="muted">
+                  {{ t("settings.dev.disabledNote") }}
+                </p>
               </div>
             </section>
 
@@ -430,9 +502,28 @@ function catLabel(key: string): string {
   font-size: 11px;
   color: var(--bdg-text-dim);
 }
-.dev-block.off { opacity: 0.5; }
-.field-row.col { flex-direction: column; align-items: stretch; }
-.pct-row { display: flex; align-items: center; gap: 14px; }
-.pct-slider { flex: 1 1 0%; min-width: 0; --el-slider-main-bg-color: var(--bdg-accent); --el-slider-runway-bg-color: rgba(148,163,184,0.2); }
-.pct-value { font-size: 12px; min-width: 34px; text-align: right; color: var(--bdg-accent); }
+.dev-block.off {
+  opacity: 0.5;
+}
+.field-row.col {
+  flex-direction: column;
+  align-items: stretch;
+}
+.pct-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.pct-slider {
+  flex: 1 1 0%;
+  min-width: 0;
+  --el-slider-main-bg-color: var(--bdg-accent);
+  --el-slider-runway-bg-color: rgba(148, 163, 184, 0.2);
+}
+.pct-value {
+  font-size: 12px;
+  min-width: 34px;
+  text-align: right;
+  color: var(--bdg-accent);
+}
 </style>

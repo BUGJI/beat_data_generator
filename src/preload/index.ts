@@ -1,5 +1,11 @@
 import { contextBridge, ipcRenderer } from "electron";
-import type { IpcApi } from "../shared/ipc";
+import type { IpcApi, WelcomeAction } from "../shared/ipc";
+
+function onMainAction(cb: (payload: WelcomeAction) => void): () => void {
+  const listener = (_e: unknown, payload: WelcomeAction): void => cb(payload);
+  ipcRenderer.on("welcome:action", listener);
+  return () => ipcRenderer.removeListener("welcome:action", listener);
+}
 
 const api: IpcApi = {
   openAudio: () => ipcRenderer.invoke("audio:open"),
@@ -14,6 +20,15 @@ const api: IpcApi = {
   getSettings: () => ipcRenderer.invoke("settings:get"),
   updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
   toggleDevTools: () => ipcRenderer.invoke("dev:tools"),
+  writeProjectFile: (filePath: string, content: string) =>
+    ipcRenderer.invoke("text:write", filePath, content),
+  readTextFile: (filePath: string) => ipcRenderer.invoke("text:read", filePath),
+  recordRecent: (filePath: string) =>
+    ipcRenderer.invoke("recents:add", filePath),
+  getRecents: () => ipcRenderer.invoke("recents:get"),
+  welcomeAction: (payload: WelcomeAction) =>
+    ipcRenderer.send("welcome:action", payload),
+  onMainAction,
 };
 
 contextBridge.exposeInMainWorld("api", api);

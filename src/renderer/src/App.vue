@@ -17,6 +17,12 @@ import {
   findMarker,
   findBpmPoint,
   select,
+  saveProject,
+  undo,
+  redo,
+  copyMarkerGroup,
+  pasteMarkerGroup,
+  bindWelcomeActions,
 } from "./store";
 
 function isTyping(el: EventTarget | null): boolean {
@@ -30,9 +36,40 @@ function isTyping(el: EventTarget | null): boolean {
   );
 }
 
+let unbindWelcome: (() => void) | null = null;
+
 function onKeydown(e: KeyboardEvent): void {
   if (isTyping(e.target)) return;
   const code = e.code;
+  if (e.ctrlKey || e.metaKey) {
+    const k = e.key.toLowerCase();
+    if (k === "s") {
+      e.preventDefault();
+      void saveProject(false);
+      return;
+    }
+    if (k === "z") {
+      e.preventDefault();
+      if (e.shiftKey) redo();
+      else undo();
+      return;
+    }
+    if (k === "y") {
+      e.preventDefault();
+      redo();
+      return;
+    }
+    if (k === "c") {
+      e.preventDefault();
+      copyMarkerGroup();
+      return;
+    }
+    if (k === "v") {
+      e.preventDefault();
+      pasteMarkerGroup();
+      return;
+    }
+  }
   if (code === "Space") {
     e.preventDefault();
     togglePlay();
@@ -77,9 +114,13 @@ function onKeydown(e: KeyboardEvent): void {
 
 onMounted(() => {
   void loadSettings();
+  unbindWelcome = bindWelcomeActions();
   window.addEventListener("keydown", onKeydown);
 });
-onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
+onBeforeUnmount(() => {
+  unbindWelcome?.();
+  window.removeEventListener("keydown", onKeydown);
+});
 </script>
 
 <template>

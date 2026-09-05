@@ -5,7 +5,8 @@ import {
   store,
   openAudioDialog,
   relinkAudio,
-  clampBpm,
+  setBaseBpm,
+  setOffset,
   contentEndMs,
   formatTime,
   tempoMap,
@@ -30,15 +31,13 @@ const audioName = computed(() => store.project.audioName ?? "");
 const baseBpm = computed({
   get: () => store.project.baseBpm,
   set: (v: number | undefined) => {
-    store.project.baseBpm = clampBpm(v ?? 120);
-    store.project.dirty = true;
+    setBaseBpm(v ?? 120);
   },
 });
 const offset = computed({
   get: () => store.project.offsetMs,
   set: (v: number | undefined) => {
-    store.project.offsetMs = Math.round(v ?? 0);
-    store.project.dirty = true;
+    setOffset(v ?? 0);
   },
 });
 

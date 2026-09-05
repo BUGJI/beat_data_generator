@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="zh-CN" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Beat Data Generator</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline';"
+    />
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        font-family:
+          "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+        background: #101318;
+        color: #e6ebf2;
+        display: flex;
+        flex-direction: column;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 20px 4px;
+      }
+      .dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #38bdf8, #34d399);
+      }
+      .name {
+        font-weight: 800;
+        font-size: 16px;
+        letter-spacing: 0.2px;
+      }
+      .sub {
+        color: #8b97a8;
+        font-size: 11px;
+        margin-left: 4px;
+      }
+      .actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        padding: 14px 20px 4px;
+      }
+      .big {
+        border: 1px solid rgba(148, 163, 184, 0.22);
+        background: #171c24;
+        color: var(--c, #e6ebf2);
+        border-radius: 10px;
+        padding: 16px 10px;
+        font-family: inherit;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.12s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+      .big:hover {
+        border-color: #38bdf8;
+        background: rgba(56, 189, 248, 0.1);
+      }
+      .big.primary {
+        --c: #38bdf8;
+      }
+      .recent-wrap {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        padding: 12px 20px 0;
+      }
+      .recent-title {
+        font-size: 12px;
+        color: #8b97a8;
+        margin-bottom: 6px;
+      }
+      .list {
+        flex: 1;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .item {
+        border: 1px solid transparent;
+        background: rgba(148, 163, 184, 0.05);
+        border-radius: 8px;
+        padding: 9px 12px;
+        cursor: pointer;
+      }
+      .item:hover {
+        background: rgba(56, 189, 248, 0.12);
+        border-color: rgba(56, 189, 248, 0.4);
+      }
+      .item .fn {
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .item .fp {
+        font-size: 11px;
+        color: #8b97a8;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .empty {
+        color: #5b6572;
+        font-size: 12px;
+        padding: 8px 2px;
+      }
+      .foot {
+        padding: 10px 20px 16px;
+        color: #5b6572;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="brand">
+      <span class="dot"></span>
+      <span class="name">Beat Data Generator</span>
+      <span class="sub">踩点标记 · 节拍对齐</span>
+    </div>
+
+    <div class="actions">
+      <button class="big primary" id="btn-new">＋ 新建工程</button>
+      <button class="big" id="btn-open">打开工程…</button>
+    </div>
+
+    <div class="recent-wrap">
+      <div class="recent-title">最近工程</div>
+      <div class="list" id="list"></div>
+    </div>
+
+    <div class="foot">
+      关闭本窗口后，主窗口保持空白待命；工程内容不会丢失在欢迎页。
+    </div>
+
+    <script type="module" src="/src/welcome.ts"></script>
+  </body>
+</html>

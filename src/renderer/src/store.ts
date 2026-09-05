@@ -17,7 +17,11 @@ import {
   DEFAULT_DIV,
   nextColor,
 } from "./metrics";
-import type { SettingsData } from "../../shared/ipc";
+import type {
+  SettingsData,
+  TextFileResult,
+  WelcomeAction,
+} from "../../shared/ipc";
 import type {
   AudioFileResultLike,
   BeatProject,
@@ -96,6 +100,8 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
       followPercent: 90,
       followPreset: false,
       rememberWindow: true,
+      autoSave: true,
+      autoSaveMinutes: 5,
     },
     followManual: false,
     followActive: false,
@@ -181,7 +187,8 @@ export function select(kind: "marker" | "bpm" | null, id: string | null): void {
 
 // ---------- tracks ----------
 
-export function addTrack(name?: string): MarkerTrack {
+export function addTrack(name?: string, record = true): MarkerTrack {
+  if (record) pushHistory();
   const track: MarkerTrack = {
     id: makeId(),
     name:
@@ -197,12 +204,13 @@ export function addTrack(name?: string): MarkerTrack {
 }
 
 export function ensureDefaultTrack(): void {
-  if (store.project.tracks.length === 0) addTrack();
+  if (store.project.tracks.length === 0) addTrack(undefined, false);
 }
 
 export function removeTrack(trackId: string): void {
   const i = store.project.tracks.findIndex((tr) => tr.id === trackId);
   if (i < 0) return;
+  pushHistory();
   store.project.tracks.splice(i, 1);
   store.project.markers = store.project.markers.filter(
     (m) => m.trackId !== trackId,
@@ -214,6 +222,7 @@ export function removeTrack(trackId: string): void {
 export function renameTrack(trackId: string, name: string): void {
   const tr = store.project.tracks.find((x) => x.id === trackId);
   if (tr) {
+    pushHistory();
     tr.name = name;
     store.project.dirty = true;
   }
@@ -222,6 +231,7 @@ export function renameTrack(trackId: string, name: string): void {
 export function colorTrack(trackId: string, color: string): void {
   const tr = store.project.tracks.find((x) => x.id === trackId);
   if (tr) {
+    pushHistory();
     tr.color = color;
     store.project.dirty = true;
   }
@@ -231,6 +241,7 @@ export function moveTrack(trackId: string, dir: -1 | 1): void {
   const i = store.project.tracks.findIndex((tr) => tr.id === trackId);
   const j = i + dir;
   if (i < 0 || j < 0 || j >= store.project.tracks.length) return;
+  pushHistory();
   const arr = store.project.tracks;
   [arr[i], arr[j]] = [arr[j], arr[i]];
   store.project.dirty = true;
@@ -305,6 +316,7 @@ export function updateMarkerLoop(
   const m = findMarker(id);
   const parent = resolveMainMarker(m);
   if (!parent) return;
+  pushHistory();
   if (!cfg) {
     parent.loop = null;
   } else {
@@ -323,6 +335,7 @@ export function updateMarkerLoop(
 export function addMarker(trackId: string, rawBeat: number): Marker | null {
   const beat = Math.max(0, snapped(rawBeat));
   if (trackHasBeat(trackId, beat)) return null;
+  pushHistory();
   const marker = addMarkerToStore(trackId, beat);
   if (!marker) return null;
   store.ui.selected = { kind: "marker", id: marker.id };
@@ -333,6 +346,7 @@ export function addMarker(trackId: string, rawBeat: number): Marker | null {
 export function removeMarker(id: string): void {
   const m = findMarker(id);
   if (!m) return;
+  pushHistory();
   if (m.parentId) {
     const parent = findMarker(m.parentId);
     if (parent && parent.loop) {
@@ -386,6 +400,7 @@ export function moveMarker(
       Math.abs(x.beat - beat) < 1 / 128,
   );
   if (blocked) return false;
+  pushHistory();
   m.beat = beat;
   if (m.loop) refreshChildren(m);
   store.project.dirty = true;
@@ -402,6 +417,7 @@ export function changeMarkerTrack(id: string, trackId: string): boolean {
   );
   if (others.some((x) => Math.abs(x.beat - parent.beat) < 1 / 128))
     return false;
+  pushHistory();
   parent.trackId = trackId;
   if (parent.loop) refreshChildren(parent);
   store.project.dirty = true;
@@ -430,6 +446,7 @@ export function addBpmPoint(
     return existing;
   }
   const inheritBpm = bpmAtBeat(beat);
+  pushHistory();
   const point: BpmPoint = {
     id: makeId(),
     beat,
@@ -448,6 +465,7 @@ export function updateBpmPoint(
 ): void {
   const p = findBpmPoint(id);
   if (!p) return;
+  if (!editingGesture) pushHistory();
   if (patch.beat !== undefined) {
     const beat = Math.max(0, snapped(patch.beat));
     if (pointHasBeat(beat, id)) return;
@@ -481,6 +499,7 @@ export function setBpmMode(id: string, mode: BpmMode): void {
 export function removeBpmPoint(id: string): void {
   const i = store.project.bpmPoints.findIndex((p) => p.id === id);
   if (i >= 0) {
+    pushHistory();
     store.project.bpmPoints.splice(i, 1);
     store.project.dirty = true;
     clearSelectionIfMissing();
@@ -757,15 +776,24 @@ function freshProject(): void {
   store.ui.audioMissing = false;
   store.ui.positionMs = 0;
   store.ui.selected = { kind: null, id: null };
-  addTrack();
+  resetHistory();
+  markSaved();
+  addTrack(undefined, false);
 }
 
 export function newProject(): void {
   freshProject();
 }
 
-export async function openProject(): Promise<void> {
-  const res = await window.api.openTextFile();
+export async function openProject(explicitPath?: string): Promise<void> {
+  let res: TextFileResult;
+  if (explicitPath) {
+    const r = await window.api.readTextFile(explicitPath);
+    if (r.canceled || r.content === undefined) return;
+    res = r;
+  } else {
+    res = await window.api.openTextFile();
+  }
   if (res.canceled) return;
   try {
     const raw = JSON.parse(res.content ?? "{}") as {
@@ -883,6 +911,9 @@ export async function openProject(): Promise<void> {
         store.ui.audioMissing = true;
       }
     }
+    markSaved();
+    if (store.project.projectPath)
+      void window.api.recordRecent(store.project.projectPath);
     ElMessage.success(`✔ ${store.project.name}`);
   } catch {
     ElMessage.error(t("dialogs.openFail"));
@@ -921,7 +952,8 @@ export async function saveProject(saveAs = false): Promise<void> {
   );
   if (!res.canceled && res.filePath) {
     store.project.projectPath = res.filePath;
-    store.project.dirty = false;
+    markSaved();
+    void window.api.recordRecent(res.filePath);
     ElMessage.success(t("dialogs.saveOk"));
   }
 }
@@ -974,3 +1006,203 @@ export function durationReadout(): string {
 }
 
 export { clampBpm, BPM_MAX, BPM_MIN };
+
+// ================= engineering: autosave / recents / welcome / history / clipboard =================
+
+let lastSavedAt = Date.now();
+
+export function markSaved(): void {
+  store.project.dirty = false;
+  lastSavedAt = Date.now();
+}
+
+async function autoSaveTick(): Promise<void> {
+  const st = store.ui.settings;
+  if (!st.autoSave) return;
+  const p = store.project.projectPath;
+  const intervalMs = Math.max(1, st.autoSaveMinutes || 5) * 60_000;
+  if (!store.project.dirty || !p) return;
+  if (Date.now() - lastSavedAt < intervalMs) return;
+  const ok = await window.api.writeProjectFile(p, projectJson());
+  if (ok) markSaved();
+}
+
+window.setInterval(() => {
+  void autoSaveTick();
+}, 1000);
+
+export async function newProjectWithSave(): Promise<void> {
+  newProject();
+  const def = projectFileName();
+  const res = await window.api.saveTextFile(def, projectJson());
+  if (!res.canceled && res.filePath) {
+    store.project.projectPath = res.filePath;
+    markSaved();
+    void window.api.recordRecent(res.filePath);
+  }
+}
+
+// ---------- undo / redo (snapshots) ----------
+
+interface Snap {
+  baseBpm: number;
+  offsetMs: number;
+  tracks: unknown;
+  markers: unknown;
+  bpmPoints: unknown;
+}
+
+const undoStack: Snap[] = [];
+const redoStack: Snap[] = [];
+let editingGesture = false;
+
+function snapshotNow(): Snap {
+  const p = store.project;
+  return JSON.parse(
+    JSON.stringify({
+      baseBpm: p.baseBpm,
+      offsetMs: p.offsetMs,
+      tracks: p.tracks,
+      markers: p.markers,
+      bpmPoints: p.bpmPoints,
+    }),
+  ) as Snap;
+}
+
+function applySnap(snap: Snap): void {
+  const p = store.project;
+  p.baseBpm = snap.baseBpm;
+  p.offsetMs = snap.offsetMs;
+  p.tracks = snap.tracks as MarkerTrack[];
+  p.markers = snap.markers as Marker[];
+  p.bpmPoints = snap.bpmPoints as BpmPoint[];
+  store.ui.selected = { kind: null, id: null };
+  p.dirty = true;
+}
+
+function pushHistory(): void {
+  if (editingGesture) return;
+  undoStack.push(snapshotNow());
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0;
+}
+
+export function historyGestureBegin(): void {
+  if (editingGesture) return;
+  editingGesture = true;
+  undoStack.push(snapshotNow());
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0;
+}
+
+export function historyGestureEnd(): void {
+  editingGesture = false;
+}
+
+export function resetHistory(): void {
+  undoStack.length = 0;
+  redoStack.length = 0;
+  editingGesture = false;
+}
+
+export function canUndo(): boolean {
+  return undoStack.length > 0;
+}
+export function canRedo(): boolean {
+  return redoStack.length > 0;
+}
+
+export function undo(): void {
+  const prev = undoStack.pop();
+  if (!prev) return;
+  redoStack.push(snapshotNow());
+  applySnap(prev);
+}
+
+export function redo(): void {
+  const next = redoStack.pop();
+  if (!next) return;
+  undoStack.push(snapshotNow());
+  applySnap(next);
+}
+
+// ---------- copy / paste (marker main point + loop group) ----------
+
+interface ClipMarker {
+  trackId: string;
+  loop: NonNullable<Marker["loop"]> | null;
+}
+
+let clipboardMarker: ClipMarker | null = null;
+
+export function copyMarkerGroup(): boolean {
+  const m = store.project.markers.find((x) => x.id === store.ui.selected.id);
+  const main = resolveMainMarker(m);
+  if (!main) return false;
+  clipboardMarker = {
+    trackId: main.trackId,
+    loop: main.loop
+      ? {
+          interval: main.loop.interval,
+          count: main.loop.count,
+          ...(main.loop.exclude ? { exclude: [...main.loop.exclude] } : {}),
+        }
+      : null,
+  };
+  return true;
+}
+
+export function canPaste(): boolean {
+  return clipboardMarker !== null;
+}
+
+export function pasteMarkerGroup(): boolean {
+  const clip = clipboardMarker;
+  if (!clip) return false;
+  const beat = Math.max(0, snapped(beatOfTime(store.ui.positionMs)));
+  if (trackHasBeat(clip.trackId, beat)) return false;
+  pushHistory();
+  const m = addMarkerToStore(clip.trackId, beat);
+  if (!m) return false;
+  if (clip.loop) {
+    m.loop = {
+      interval: clip.loop.interval,
+      count: clip.loop.count,
+      ...(clip.loop.exclude && clip.loop.exclude.length
+        ? { exclude: [...clip.loop.exclude] }
+        : {}),
+    };
+    refreshChildren(m);
+  }
+  store.ui.selected = { kind: "marker", id: m.id };
+  store.project.dirty = true;
+  return true;
+}
+
+// ---------- base bpm / offset recorded edits ----------
+
+export function setBaseBpm(v: number): void {
+  const next = clampBpm(v);
+  if (next === store.project.baseBpm) return;
+  pushHistory();
+  store.project.baseBpm = next;
+  store.project.dirty = true;
+}
+
+export function setOffset(v: number): void {
+  const next = Math.round(v);
+  if (next === store.project.offsetMs) return;
+  pushHistory();
+  store.project.offsetMs = next;
+  store.project.dirty = true;
+}
+
+// ---------- welcome action handling ----------
+
+export function bindWelcomeActions(): () => void {
+  return window.api.onMainAction((payload: WelcomeAction) => {
+    if (payload.type === "new") void newProjectWithSave();
+    else if (payload.type === "open") void openProject();
+    else if (payload.type === "recent") void openProject(payload.path);
+  });
+}

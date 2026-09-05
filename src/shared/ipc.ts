@@ -25,6 +25,8 @@ export interface SettingsData {
   followPercent: number;
   followPreset: boolean;
   rememberWindow: boolean;
+  autoSave: boolean;
+  autoSaveMinutes: number;
 }
 
 export interface IpcApi {
@@ -40,4 +42,15 @@ export interface IpcApi {
   getSettings: () => Promise<SettingsData>;
   updateSettings: (patch: Partial<SettingsData>) => Promise<SettingsData>;
   toggleDevTools: () => Promise<void>;
+  writeProjectFile: (filePath: string, content: string) => Promise<boolean>;
+  readTextFile: (filePath: string) => Promise<TextFileResult>;
+  recordRecent: (filePath: string) => Promise<void>;
+  getRecents: () => Promise<string[]>;
+  welcomeAction: (payload: WelcomeAction) => void;
+  onMainAction: (cb: (payload: WelcomeAction) => void) => () => void;
 }
+
+export type WelcomeAction =
+  | { type: "new" }
+  | { type: "open" }
+  | { type: "recent"; path: string };

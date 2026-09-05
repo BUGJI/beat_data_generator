@@ -21,6 +21,8 @@ import {
   select,
   resolveMainMarker,
   updateMarkerLoop,
+  historyGestureBegin,
+  historyGestureEnd,
 } from "../store";
 import { snapBeat, beatParts } from "../tempo";
 import {
@@ -68,6 +70,7 @@ let mode:
   | "dragBpm"
   | "dragMarker" = "idle";
 let activePointer = -1;
+let gestureOn = false;
 let downX = 0;
 let downY = 0;
 let moved = false;
@@ -697,6 +700,10 @@ function onPointerMove(e: PointerEvent): void {
     seekPlayhead(screenToTime(x));
     return;
   }
+  if (!gestureOn && (mode === "dragBpm" || mode === "dragMarker")) {
+    historyGestureBegin();
+    gestureOn = true;
+  }
   if (mode === "dragBpm" && dragId) {
     const raw = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
     if (!e.altKey && !bpmOccupy(raw)) updateBpmPoint(dragId, { beat: raw });
@@ -755,6 +762,10 @@ function onPointerUp(e: PointerEvent): void {
       );
     }
   }
+  if (gestureOn) {
+    historyGestureEnd();
+    gestureOn = false;
+  }
   mode = "idle";
   dragId = null;
   dragTrackId = null;
@@ -763,6 +774,10 @@ function onPointerUp(e: PointerEvent): void {
 }
 
 function onPointerCancel(): void {
+  if (gestureOn) {
+    historyGestureEnd();
+    gestureOn = false;
+  }
   mode = "idle";
   dragId = null;
   dragTrackId = null;
