@@ -1,3 +1,5 @@
+import type { PluginEntry } from "./plugin";
+
 export interface AudioFileResult {
   filePath: string;
   name: string;
@@ -58,6 +60,24 @@ export interface IpcApi {
   getRecents: () => Promise<RecentProject[]>;
   welcomeAction: (payload: WelcomeAction) => void;
   onMainAction: (cb: (payload: WelcomeAction) => void) => () => void;
+  /** List all discovered plugins with their enabled state. */
+  listPlugins: () => Promise<PluginEntry[]>;
+  /** Enable/disable a plugin; resolves with the updated full list. */
+  setPluginEnabled: (id: string, enabled: boolean) => Promise<PluginEntry[]>;
+  /** Re-scan plugin roots and (re)load enabled plugins; resolves with the list. */
+  reloadPlugins: () => Promise<PluginEntry[]>;
+  /** Raw source of an enabled plugin's renderer entry, or null. */
+  readPluginRenderer: (id: string) => Promise<string | null>;
+  /** Reveal the user plugins folder in the system file manager. */
+  openPluginsFolder: () => Promise<void>;
+  /** Route a free-form call to a plugin's main-process handler. */
+  invokePlugin: (
+    id: string,
+    method: string,
+    ...args: unknown[]
+  ) => Promise<unknown>;
+  /** Fired by the main process whenever the plugin set or its state changes. */
+  onPluginsChanged: (cb: () => void) => () => void;
 }
 
 export type WelcomeAction =

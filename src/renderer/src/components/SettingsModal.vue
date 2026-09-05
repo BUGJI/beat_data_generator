@@ -1,22 +1,60 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { store, setSettingsOpen, patchSettings, openDevTools } from "../store";
 import { setLocale, LOCALES } from "../i18n";
+import {
+  pluginEntries,
+  pluginName,
+  pluginDescription,
+  setPluginEnabled,
+  reloadPlugins,
+  refreshPlugins,
+} from "../plugins/host";
+import type { PluginEntry } from "../../../shared/plugin";
 import type { CloseMode } from "../../../shared/ipc";
 
 const { t, locale } = useI18n();
-const cat = ref<"general" | "shortcuts" | "anim" | "dev" | "about">("general");
+const cat = ref<
+  "general" | "shortcuts" | "anim" | "plugins" | "dev" | "about"
+>("general");
 
-type CatKey = "general" | "shortcuts" | "anim" | "dev" | "about";
+type CatKey = "general" | "shortcuts" | "anim" | "plugins" | "dev" | "about";
 
 const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "general", icon: "⚙" },
   { key: "shortcuts", icon: "⌨" },
   { key: "anim", icon: "✺" },
+  { key: "plugins", icon: "▤" },
   { key: "dev", icon: "⬢" },
   { key: "about", icon: "ⓘ" },
 ];
+
+const pluginBusy = ref<string | null>(null);
+const pluginsLoading = ref(false);
+
+async function onTogglePlugin(entry: PluginEntry): Promise<void> {
+  pluginBusy.value = entry.id;
+  await setPluginEnabled(entry.id, !entry.enabled);
+  pluginBusy.value = null;
+}
+
+async function onReloadPlugins(): Promise<void> {
+  pluginsLoading.value = true;
+  await reloadPlugins();
+  pluginsLoading.value = false;
+}
+
+async function onOpenPluginsFolder(): Promise<void> {
+  await window.api.openPluginsFolder();
+}
+
+watch(
+  () => store.ui.settingsOpen,
+  (open) => {
+    if (open) void refreshPlugins();
+  },
+);
 
 const closeMode = computed<CloseMode>({
   get: () => store.ui.settings.closeMode,
@@ -301,6 +339,60 @@ function catLabel(key: string): string {
               </div>
             </section>
 
+            <!-- 插件 -->
+            <section v-if="cat === 'plugins'">
+              <h3>{{ t("settings.plugins.title") }}</h3>
+              <div class="plugin-tools">
+                <el-button
+                  size="small"
+                  :loading="pluginsLoading"
+                  @click="onReloadPlugins()"
+                >
+                  {{ t("settings.plugins.reload") }}
+                </el-button>
+                <el-button size="small" @click="onOpenPluginsFolder()">
+                  {{ t("settings.plugins.openFolder") }}
+                </el-button>
+              </div>
+
+              <div v-if="pluginEntries.length === 0" class="plugin-empty">
+                <p>{{ t("settings.plugins.none") }}</p>
+                <p class="muted">{{ t("settings.plugins.noneHint") }}</p>
+              </div>
+
+              <div v-for="entry in pluginEntries" :key="entry.id" class="plugin-card">
+                <div class="plugin-main">
+                  <div class="plugin-titles">
+                    <span class="plugin-name">
+                      {{ pluginName(entry) }}
+                      <span class="plugin-ver num">v{{ entry.version }}</span>
+                    </span>
+                    <span class="plugin-desc">
+                      {{ pluginDescription(entry) || entry.id }}
+                    </span>
+                    <span v-if="entry.error" class="plugin-err">
+                      {{ entry.error }}
+                    </span>
+                  </div>
+                  <div class="plugin-meta">
+                    <span v-if="entry.main" class="badge">main</span>
+                    <span v-if="entry.renderer" class="badge">renderer</span>
+                    <el-switch
+                      size="small"
+                      :model-value="entry.enabled"
+                      :loading="pluginBusy === entry.id"
+                      @change="(v: boolean | string | number) => {
+                        if (typeof v === 'boolean') {
+                          void onTogglePlugin(entry);
+                        }
+                      }"
+                    />
+                  </div>
+                </div>
+                <div class="plugin-dir num">{{ entry.dir }}</div>
+              </div>
+            </section>
+
             <!-- 开发者 -->
             <section v-if="cat === 'dev'">
               <h3>{{ t("settings.cats.dev") }}</h3>
@@ -573,6 +665,79 @@ function catLabel(key: string): string {
 .autosave {
   font-size: 11px;
   color: var(--bdg-text-dim);
+}
+.plugin-tools {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.plugin-empty {
+  color: var(--bdg-text-dim);
+  font-size: 13px;
+}
+.plugin-card {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--bdg-border);
+}
+.plugin-main {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+.plugin-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.plugin-name {
+  font-weight: 700;
+  font-size: 13.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.plugin-ver {
+  font-size: 10px;
+  color: var(--bdg-text-dim);
+  font-weight: 400;
+}
+.plugin-desc {
+  font-size: 12px;
+  color: var(--bdg-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.plugin-err {
+  font-size: 11px;
+  color: var(--bdg-danger);
+}
+.plugin-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+}
+.plugin-meta .badge {
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--bdg-accent);
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  padding: 1px 6px;
+  border-radius: 5px;
+}
+.plugin-dir {
+  font-size: 10px;
+  color: var(--bdg-text-dim);
+  margin-top: 4px;
+  opacity: 0.8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .dev-block.off {
   opacity: 0.5;

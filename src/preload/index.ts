@@ -7,6 +7,12 @@ function onMainAction(cb: (payload: WelcomeAction) => void): () => void {
   return () => ipcRenderer.removeListener("welcome:action", listener);
 }
 
+function onPluginsChanged(cb: () => void): () => void {
+  const listener = (): void => cb();
+  ipcRenderer.on("plugin:changed", listener);
+  return () => ipcRenderer.removeListener("plugin:changed", listener);
+}
+
 const api: IpcApi = {
   openAudio: () => ipcRenderer.invoke("audio:open"),
   readAudioFile: (filePath: string) =>
@@ -33,6 +39,16 @@ const api: IpcApi = {
   welcomeAction: (payload: WelcomeAction) =>
     ipcRenderer.send("welcome:action", payload),
   onMainAction,
+  listPlugins: () => ipcRenderer.invoke("plugins:list"),
+  setPluginEnabled: (id, enabled) =>
+    ipcRenderer.invoke("plugins:set-enabled", id, enabled),
+  reloadPlugins: () => ipcRenderer.invoke("plugins:reload"),
+  readPluginRenderer: (id: string) =>
+    ipcRenderer.invoke("plugins:renderer-source", id),
+  openPluginsFolder: () => ipcRenderer.invoke("plugins:open-folder"),
+  invokePlugin: (id, method, ...args) =>
+    ipcRenderer.invoke("plugins:invoke", id, method, args),
+  onPluginsChanged,
 };
 
 contextBridge.exposeInMainWorld("api", api);

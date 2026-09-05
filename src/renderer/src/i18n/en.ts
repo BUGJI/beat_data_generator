@@ -134,6 +134,7 @@ export default {
       general: "General",
       shortcuts: "Shortcuts",
       anim: "Animation",
+      plugins: "Plugins",
       dev: "Developer",
       about: "About",
     },
@@ -189,6 +190,15 @@ export default {
       editor: "Editor animations",
       editorDesc:
         "Zoom/pan the timeline with an interruptible 0.1s ease-out",
+    },
+    plugins: {
+      title: "Plugins",
+      reload: "Rescan & reload",
+      openFolder: "Open plugins folder",
+      none: "No plugins found",
+      noneHint:
+        "Drop a plugin folder into the plugins directory (or the project's plugins/ dir), then click “Rescan & reload”.",
+      version: "Version",
     },
     about: {
       version: "Version",

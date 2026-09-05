@@ -3,6 +3,7 @@ import { createHash } from "crypto";
 import { readFile, writeFile } from "fs/promises";
 import { readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
+import { installPluginManager } from "./plugins";
 import type {
   AudioFileResult,
   RecentProject,
@@ -704,6 +705,7 @@ app.whenReady().then(() => {
   loadLastDirs();
   loadRecents();
   registerIpc();
+  installPluginManager();
   createWindow();
 
   app.on("before-quit", (e) => {

@@ -132,6 +132,7 @@ export default {
       general: "常规",
       shortcuts: "快捷键",
       anim: "动画",
+      plugins: "插件",
       dev: "开发者",
       about: "关于",
     },
@@ -182,6 +183,14 @@ export default {
     anim: {
       editor: "编辑器动画",
       editorDesc: "缩放、平移时间轴时使用 0.1s 缓出动画（可打断，不阻塞操作）",
+    },
+    plugins: {
+      title: "插件",
+      reload: "重新扫描并加载",
+      openFolder: "打开插件目录",
+      none: "尚未发现任何插件",
+      noneHint: "把插件文件夹放进插件目录（或项目内 plugins/ 目录），然后点“重新扫描并加载”。",
+      version: "版本",
     },
     about: {
       version: "版本",

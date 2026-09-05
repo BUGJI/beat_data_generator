@@ -26,6 +26,7 @@ import {
   pasteMarkerGroup,
   bindWelcomeActions,
 } from "./store";
+import { initPlugins } from "./plugins/host";
 
 function isTyping(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -122,6 +123,7 @@ function onKeydown(e: KeyboardEvent): void {
 onMounted(() => {
   void loadSettings();
   unbindWelcome = bindWelcomeActions();
+  void initPlugins();
   void window.api.notifyAppReady();
   window.addEventListener("keydown", onKeydown);
 });
