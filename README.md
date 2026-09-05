@@ -18,6 +18,8 @@
 - **自动保存**：可配置间隔（1–60 分钟）后台自动保存当前工程。
 - **其他**：多语言界面（中文 / English）、欢迎页与最近工程、记住窗口位置、退出模式设置、深色主题。
 
+<img width="1000" height="650" alt="image" src="https://github.com/user-attachments/assets/79314d83-6f06-4afc-9e28-ccdd6d2c1f36" />
+
 ## 技术栈
 
 | 层 | 技术 |
