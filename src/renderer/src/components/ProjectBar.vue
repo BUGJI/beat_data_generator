@@ -5,71 +5,63 @@ import {
   store,
   openAudioDialog,
   relinkAudio,
-  beatMs,
-  barMs,
+  clampBpm,
+  contentEndMs,
   formatTime,
+  tempoMap,
+  timeOfBeat,
+  markerCount,
 } from "../store";
-import { engine } from "../engine";
 import { SNAP_DIVISIONS } from "../metrics";
 
 const { t } = useI18n();
 
 const hasAudio = computed(() => store.ui.hasAudio);
 const audioName = computed(() => store.project.audioName ?? "");
-const bpm = computed({
-  get: () => store.project.bpm,
+const baseBpm = computed({
+  get: () => store.project.baseBpm,
   set: (v: number | undefined) => {
-    store.project.bpm = clamp(v, 20, 400, 120);
+    store.project.baseBpm = clampBpm(v ?? 120);
+    store.project.dirty = true;
   },
 });
 const offset = computed({
   get: () => store.project.offsetMs,
   set: (v: number | undefined) => {
-    store.project.offsetMs = Math.round(clamp(v ?? 0, -100000, 100000, 0));
+    store.project.offsetMs = Math.round(v ?? 0);
+    store.project.dirty = true;
   },
 });
 
-function clamp(
-  v: number | undefined,
-  min: number,
-  max: number,
-  fallback: number,
-): number {
-  if (v === undefined || Number.isNaN(v)) return fallback;
-  return Math.min(max, Math.max(min, v));
-}
-
 const durationLabel = computed(() =>
-  hasAudio.value ? formatTime(engine.durationMs()) : "--:--.---",
+  hasAudio.value ? formatTime(contentEndMs()) : "--:--.---"
 );
 const sampleRateLabel = computed(() =>
-  store.ui.wave ? `${(store.ui.wave.sampleRate / 1000).toFixed(1)} kHz` : "-",
+  store.ui.wave ? `${(store.ui.wave.sampleRate / 1000).toFixed(1)} kHz` : "-"
 );
-const beatLabel = computed(
-  () =>
-    `${beatMs(store.project.bpm).toFixed(1)} ms / ${barMs(store.project.bpm).toFixed(1)} ms`,
-);
-const markerCount = computed(() => store.project.markers.length);
-const markerLast = computed(() => {
+const barMsLabel = computed(() => {
+  const m = tempoMap();
+  return `${(m.timeOfBeat(1) - m.timeOfBeat(0)).toFixed(1)} ms/${m.bpmAtBeat(0).toFixed(1)} BPM`;
+});
+const lastBeatLabel = computed(() => {
   if (store.project.markers.length === 0) return "--:--.---";
-  const last = Math.max(...store.project.markers.map((m) => m.timeMs));
+  const last = Math.max(...store.project.markers.map((m) => timeOfBeat(m.beat)));
   return formatTime(last);
 });
+const markersLabel = computed(() => String(markerCount()));
 </script>
 
 <template>
   <section class="projectbar">
     <div class="pb-left">
-      <div class="pb-title">{{ t("sidebar.project") }}</div>
+      <div class="pb-title">{{ t('sidebar.project') }}</div>
 
       <div class="song-row">
         <div class="song-info" :class="{ none: !audioName }">
           <div class="song-name" :title="audioName">
-            {{ audioName || t("sidebar.noSong") }}
+            {{ audioName || t('sidebar.noSong') }}
           </div>
-          <div v-if="hasAudio" class="song-sub num">
-            {{ t("sidebar.songName") }}
-          </div>
+          <div v-if="hasAudio" class="song-sub num">{{ t('sidebar.songName') }}</div>
         </div>
         <el-button
           v-if="!hasAudio"
@@ -78,22 +70,22 @@ const markerLast = computed(() => {
           round
           @click="openAudioDialog()"
         >
-          {{ t("sidebar.chooseSong") }}
+          {{ t('sidebar.chooseSong') }}
         </el-button>
         <el-button v-else size="small" text round @click="relinkAudio()">
-          {{ t("sidebar.relink") }}
+          {{ t('sidebar.relink') }}
         </el-button>
       </div>
 
       <div class="param-grid">
         <label class="field">
           <span class="field-label" :title="t('sidebar.bpmTooltip')">
-            {{ t("sidebar.bpm") }}
+            {{ t('sidebar.baseBpm') }}
           </span>
           <el-input-number
-            v-model="bpm"
+            v-model="baseBpm"
             :min="20"
-            :max="400"
+            :max="999"
             :step="1"
             :precision="1"
             size="small"
@@ -103,7 +95,7 @@ const markerLast = computed(() => {
         </label>
         <label class="field">
           <span class="field-label" :title="t('sidebar.offsetTooltip')">
-            {{ t("sidebar.offset") }}
+            {{ t('sidebar.offset') }}
           </span>
           <el-input-number
             v-model="offset"
@@ -119,7 +111,7 @@ const markerLast = computed(() => {
 
       <div class="snap-row">
         <el-switch v-model="store.ui.snapEnabled" size="small" />
-        <span class="snap-label">{{ t("sidebar.snapToGrid") }}</span>
+        <span class="snap-label">{{ t('sidebar.snapToGrid') }}</span>
         <el-select
           v-model="store.ui.snapDiv"
           size="small"
@@ -136,33 +128,33 @@ const markerLast = computed(() => {
       </div>
 
       <div v-if="store.ui.audioMissing" class="warn">
-        {{ t("dialogs.audioMissing") }}
+        {{ t('dialogs.audioMissing') }}
         <el-button size="small" text type="primary" @click="relinkAudio()">
-          {{ t("sidebar.relink") }}
+          {{ t('sidebar.relink') }}
         </el-button>
       </div>
     </div>
 
     <div class="pb-right">
       <div class="chip">
-        <span class="chip-k">{{ t("sidebar.duration") }}</span>
+        <span class="chip-k">{{ t('sidebar.duration') }}</span>
         <span class="chip-v num">{{ durationLabel }}</span>
       </div>
       <div class="chip">
-        <span class="chip-k">{{ t("sidebar.sampleRate") }}</span>
+        <span class="chip-k">{{ t('sidebar.sampleRate') }}</span>
         <span class="chip-v num">{{ sampleRateLabel }}</span>
       </div>
       <div class="chip">
-        <span class="chip-k">{{ t("sidebar.count") }}</span>
-        <span class="chip-v num">{{ markerCount }}</span>
+        <span class="chip-k">{{ t('sidebar.markers') }}</span>
+        <span class="chip-v num">{{ markersLabel }}</span>
       </div>
       <div class="chip">
-        <span class="chip-k">{{ t("sidebar.lastMark") }}</span>
-        <span class="chip-v num">{{ markerLast }}</span>
+        <span class="chip-k">{{ t('sidebar.lastMark') }}</span>
+        <span class="chip-v num">{{ lastBeatLabel }}</span>
       </div>
       <div class="chip">
-        <span class="chip-k">{{ t("sidebar.gridShows") }}</span>
-        <span class="chip-v num">{{ beatLabel }}</span>
+        <span class="chip-k">{{ t('sidebar.gridShows') }}</span>
+        <span class="chip-v num">{{ barMsLabel }}</span>
       </div>
     </div>
   </section>

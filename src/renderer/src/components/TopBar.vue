@@ -24,12 +24,11 @@ import {
   zoomBy,
   fitZoom,
 } from "../store";
-import { engine } from "../engine";
 
 const { t, locale } = useI18n();
 
 const dirtyTitle = computed(() =>
-  store.project.dirty ? ` • ${t("toolbar.unsavedDot")}` : "",
+  store.project.dirty ? ` • ${t('toolbar.unsavedDot')}` : "",
 );
 
 function onFileCmd(cmd: string): void {
@@ -56,15 +55,15 @@ function onFileCmd(cmd: string): void {
 }
 
 function onFit(): void {
-  fitZoom(engine.durationMs() || 30_000, window.innerWidth * 0.6);
+  fitZoom(window.innerWidth * 0.62);
 }
 
 function onAbout(): void {
   void ElMessageBox.alert(
-    `${t("app.name")} v0.1.0\n\n${t("app.hint")}`,
-    t("menu.about"),
+    `${t('app.name')} v0.2.0\n\n${t('app.hint')}`,
+    t('menu.about'),
     {
-      confirmButtonText: t("dialogs.ok"),
+      confirmButtonText: t('dialogs.ok'),
       customStyle: { whiteSpace: "pre-line" },
     },
   );
@@ -79,7 +78,7 @@ const pxLabel = computed(() => `${store.ui.pxPerSec.toFixed(1)} px/s`);
   <header class="topbar">
     <div class="brand">
       <span class="brand-dot" />
-      <span class="brand-name">{{ t("app.name") }}</span>
+      <span class="brand-name">{{ t('app.name') }}</span>
       <span class="brand-sub num" :title="pxLabel">{{ pxLabel }}</span>
       <span
         v-if="dirtyTitle"
@@ -91,26 +90,26 @@ const pxLabel = computed(() => `${store.ui.pxPerSec.toFixed(1)} px/s`);
 
     <el-dropdown trigger="click" @command="onFileCmd">
       <button class="menu-btn">
-        <el-icon><DocumentAdd /></el-icon>{{ t("menu.file") }}
+        <el-icon><DocumentAdd /></el-icon>{{ t('menu.file') }}
         <el-icon class="caret"><CaretBottom /></el-icon>
       </button>
       <template #dropdown>
         <el-dropdown-menu>
-          <el-dropdown-item command="new">{{ t("menu.new") }}</el-dropdown-item>
+          <el-dropdown-item command="new">{{ t('menu.new') }}</el-dropdown-item>
           <el-dropdown-item command="open-audio" divided>
-            <el-icon><Headset /></el-icon>{{ t("menu.openAudio") }}
+            <el-icon><Headset /></el-icon>{{ t('menu.openAudio') }}
           </el-dropdown-item>
           <el-dropdown-item command="open-project">
-            <el-icon><FolderOpened /></el-icon>{{ t("menu.openProject") }}
+            <el-icon><FolderOpened /></el-icon>{{ t('menu.openProject') }}
           </el-dropdown-item>
           <el-dropdown-item command="save" divided>{{
-            t("menu.saveProject")
+            t('menu.saveProject')
           }}</el-dropdown-item>
           <el-dropdown-item command="save-as">{{
-            t("menu.saveProjectAs")
+            t('menu.saveProjectAs')
           }}</el-dropdown-item>
           <el-dropdown-item command="export" divided>
-            <el-icon><Download /></el-icon>{{ t("menu.export") }}
+            <el-icon><Download /></el-icon>{{ t('menu.export') }}
           </el-dropdown-item>
         </el-dropdown-menu>
       </template>

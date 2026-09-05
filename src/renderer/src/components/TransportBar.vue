@@ -3,18 +3,17 @@ import { computed } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   store,
-  play,
   stop,
   togglePlay,
   seekTo,
   formatTime,
-  durationReadout,
+  contentEndMs,
   setVolume,
+  bpmAtTime,
 } from "../store";
 
 const { t } = useI18n();
 
-const cur = computed(() => store.ui.positionMs);
 const playing = computed(() => store.ui.playing);
 const hasAudio = computed(() => store.ui.hasAudio);
 const vol = computed({
@@ -22,20 +21,21 @@ const vol = computed({
   set: (v: number) => setVolume(v),
 });
 const totalLabel = computed(() =>
-  hasAudio.value ? durationReadout() : "--:--.---",
+  hasAudio.value ? formatTime(contentEndMs()) : "--:--.---",
 );
+const bpmLabel = computed(() => bpmAtTime(store.ui.positionMs).toFixed(1));
 </script>
 
 <template>
   <footer class="transport">
     <div class="tr-left num">
-      {{ t("transport.bpmReadout") }}: {{ store.project.bpm.toFixed(1) }}
+      <span class="bpm-dot" />
+      BPM {{ bpmLabel }}
     </div>
 
     <div class="tr-controls">
       <button
         class="btn-icon"
-        :disabled="!hasAudio"
         :title="t('transport.backStart')"
         @click="seekTo(0)"
       >
@@ -46,7 +46,6 @@ const totalLabel = computed(() =>
       <button
         class="btn-big"
         :class="{ playing }"
-        :disabled="!hasAudio"
         :title="playing ? t('transport.pause') : t('transport.play')"
         @click="togglePlay()"
       >
@@ -69,12 +68,7 @@ const totalLabel = computed(() =>
           <path d="M4 2h3v12H4zM9 2h3v12H9z" />
         </svg>
       </button>
-      <button
-        class="btn-icon"
-        :disabled="!hasAudio"
-        :title="t('transport.stop')"
-        @click="stop()"
-      >
+      <button class="btn-icon" :title="t('transport.stop')" @click="stop()">
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
           <rect x="3" y="3" width="10" height="10" rx="1" />
         </svg>
@@ -83,20 +77,14 @@ const totalLabel = computed(() =>
       <div class="tr-divider" />
 
       <div class="tr-time num">
-        <span class="cur">{{ formatTime(cur) }}</span>
+        <span class="cur">{{ formatTime(store.ui.positionMs) }}</span>
         <span class="sep">/</span>
         <span class="total">{{ totalLabel }}</span>
-      </div>
-
-      <div v-if="!playing" class="tr-fine">
-        <el-button size="small" text class="num" @click="play()">{{
-          t("transport.play")
-        }}</el-button>
       </div>
     </div>
 
     <div class="tr-right">
-      <span class="vol-label">{{ t("transport.volume") }}</span>
+      <span class="vol-label">{{ t('transport.volume') }}</span>
       <el-slider
         v-model="vol"
         :min="0"
@@ -121,11 +109,17 @@ const totalLabel = computed(() =>
 }
 .tr-left {
   width: var(--bdg-left-w);
-  font-size: 12px;
-  color: var(--bdg-text-dim);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  font-size: 13px;
+  color: var(--bdg-text);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bpm-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
 }
 .tr-controls {
   flex: 1;
@@ -208,8 +202,5 @@ button:disabled {
   flex: 1;
   --el-slider-main-bg-color: var(--bdg-accent);
   --el-slider-runway-bg-color: rgba(148, 163, 184, 0.2);
-}
-.tr-fine {
-  display: none;
 }
 </style>

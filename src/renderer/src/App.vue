@@ -9,9 +9,12 @@ import {
   store,
   togglePlay,
   removeMarker,
+  removeBpmPoint,
   moveMarker,
-  snapTime,
-  beatMs,
+  updateBpmPoint,
+  findMarker,
+  findBpmPoint,
+  select,
 } from "./store";
 
 function isTyping(el: EventTarget | null): boolean {
@@ -33,18 +36,40 @@ function onKeydown(e: KeyboardEvent): void {
     togglePlay();
     return;
   }
-  const sel = store.ui.selectedId;
-  if (!sel) return;
-  const marker = store.project.markers.find((m) => m.id === sel);
-  if (!marker) return;
-  const step = beatMs(store.project.bpm) / store.ui.snapDiv;
-  if (code === "Delete" || code === "Backspace") {
-    e.preventDefault();
-    removeMarker(sel);
-  } else if (code === "ArrowLeft" || code === "ArrowRight") {
-    e.preventDefault();
-    const delta = code === "ArrowLeft" ? -step : step;
-    moveMarker(sel, snapTime(marker.timeMs + delta));
+  if (code === "Escape") {
+    select(null, null);
+    return;
+  }
+  const sel = store.ui.selected;
+  if (!sel.kind || !sel.id) return;
+  const step = 1 / store.ui.snapDiv;
+  const delta = code === "ArrowLeft" ? -step : code === "ArrowRight" ? step : 0;
+
+  if (sel.kind === "marker") {
+    const m = findMarker(sel.id);
+    if (!m) return;
+    if (code === "Delete" || code === "Backspace") {
+      e.preventDefault();
+      removeMarker(m.id);
+      select(null, null);
+    } else if (
+      (delta && code === "ArrowLeft") ||
+      (delta && code === "ArrowRight")
+    ) {
+      e.preventDefault();
+      moveMarker(m.id, m.beat + delta, true);
+    }
+  } else if (sel.kind === "bpm") {
+    const p = findBpmPoint(sel.id);
+    if (!p) return;
+    if (code === "Delete" || code === "Backspace") {
+      e.preventDefault();
+      removeBpmPoint(p.id);
+      select(null, null);
+    } else if (delta !== 0) {
+      e.preventDefault();
+      updateBpmPoint(p.id, { beat: Math.max(0, p.beat + delta) });
+    }
   }
 }
 

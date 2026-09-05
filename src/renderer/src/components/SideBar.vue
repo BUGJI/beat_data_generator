@@ -1,54 +1,173 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { store, formatTime, durationReadout } from "../store";
-import { RULER_H } from "../metrics";
+import {
+  store,
+  markersInTrack,
+  addTrack,
+  removeTrack,
+  renameTrack,
+  moveTrack,
+  colorTrack,
+  select,
+  timeOfBeat,
+  formatTime,
+} from "../store";
+import { view, lanesTotalH } from "../editorView";
+import { RULER_H, BPM_LANE_H, MARKER_LANE_H, LANE_COLORS } from "../metrics";
+import type { MarkerTrack } from "../types";
 
 const { t } = useI18n();
 
-const audioName = computed(
-  () => store.project.audioName ?? t("sidebar.noSong"),
-);
-const markerCount = computed(() => store.project.markers.length);
-const markerLast = computed(() => {
-  if (store.project.markers.length === 0) return "--:--.---";
-  return formatTime(Math.max(...store.project.markers.map((m) => m.timeMs)));
+const markerRows = computed<Array<{ i: number; track: MarkerTrack }>>(() => {
+  const y = view.y;
+  const vh = view.vh;
+  const top = y - BPM_LANE_H;
+  const bottom = y + vh - BPM_LANE_H;
+  const first = Math.max(0, Math.floor(top / MARKER_LANE_H));
+  const last = Math.min(
+    store.project.tracks.length - 1,
+    Math.ceil(bottom / MARKER_LANE_H),
+  );
+  const out: Array<{ i: number; track: MarkerTrack }> = [];
+  for (let i = first; i <= last; i++) {
+    const track = store.project.tracks[i];
+    if (track) out.push({ i, track });
+  }
+  return out;
 });
-const snapText = computed(() =>
-  store.ui.snapEnabled ? `1/${store.ui.snapDiv}` : "OFF",
-);
+
+const isBpmRowVisible = computed(() => {
+  const y = view.y;
+  return BPM_LANE_H - y > 0 && 0 - y < view.vh;
+});
+
+function lastFor(trackId: string): string {
+  const arr = markersInTrack(trackId);
+  if (!arr.length) return "";
+  return formatTime(timeOfBeat(arr[arr.length - 1].beat));
+}
+
+function bumpColor(track: MarkerTrack): void {
+  const i = LANE_COLORS.indexOf(track.color);
+  const next = LANE_COLORS[(i + 1) % LANE_COLORS.length] ?? LANE_COLORS[0];
+  colorTrack(track.id, next);
+}
+
+function clickTrack(_id: string): void {
+  select(null, null);
+}
+
+const addBtnText = computed(() => t("sidebar.addTrack"));
+const renameBusy = ref<string | null>(null);
 </script>
 
 <template>
   <aside class="sidebar">
     <div class="corner" :style="{ height: RULER_H + 'px' }">
-      <span class="corner-text">{{ t("sidebar.tracks") }}</span>
+      <div class="corner-row">
+        <span class="corner-text">{{ t("sidebar.tracks") }}</span>
+        <button class="add-btn" :title="addBtnText" @click="addTrack()">
+          ＋
+        </button>
+      </div>
     </div>
 
-    <div class="track-head audio" :title="audioName">
-      <span class="accent accent-audio" />
-      <span class="t-icon"
-        ><i class="bar" /><i class="bar" /><i class="bar"
-      /></span>
-      <span class="t-body">
-        <span class="t-name">{{ t("sidebar.audioTrack") }}</span>
-        <span class="t-sub num">{{ audioName }} · {{ durationReadout() }}</span>
-      </span>
-    </div>
+    <div class="rows">
+      <div
+        class="scroll-inner"
+        :style="{
+          height: lanesTotalH() + 'px',
+          transform: `translateY(${-view.y}px)`,
+        }"
+      >
+        <!-- BPM 专用轨头 -->
+        <div v-if="isBpmRowVisible" class="head bpm-row">
+          <span class="accent accent-bpm" />
+          <span class="h-icon bpm-ic">B</span>
+          <span class="t-body">
+            <span class="t-name">{{ t("sidebar.bpmTrack") }}</span>
+            <span class="t-sub num">
+              {{ store.project.baseBpm.toFixed(1) }} BPM ·
+              {{ t("sidebar.bpmTrackHint") }}
+            </span>
+          </span>
+          <span class="h-count num">{{ store.project.bpmPoints.length }}</span>
+        </div>
 
-    <div class="track-head marker">
-      <span class="accent accent-marker" />
-      <span class="t-icon"><i class="dia" /></span>
-      <span class="t-body">
-        <span class="t-name">{{ t("sidebar.markerTrack") }}</span>
-        <span class="t-sub">
-          <b class="num">{{ markerCount }}</b> {{ t("sidebar.markers") }}
-          <span class="dot">·</span> {{ t("sidebar.lastMark") }}
-          <span class="num">{{ markerLast }}</span>
-          <span class="dot">·</span> snap
-          <span class="num">{{ snapText }}</span>
-        </span>
-      </span>
+        <!-- 踩点轨头（虚拟滚动子集） -->
+        <div
+          v-for="row in markerRows"
+          :key="row.track.id"
+          class="head marker-row"
+          :style="{ top: BPM_LANE_H + row.i * MARKER_LANE_H + 'px' }"
+          @pointerdown="clickTrack(row.track.id)"
+        >
+          <span class="accent" :style="{ background: row.track.color }" />
+          <button
+            class="color-chip"
+            :style="{ background: row.track.color }"
+            :title="t('sidebar.changeColor')"
+            @pointerdown.stop
+            @click.stop="bumpColor(row.track)"
+          />
+          <span class="t-body">
+            <input
+              class="t-name-input num"
+              :value="row.track.name"
+              :placeholder="t('sidebar.trackName')"
+              @pointerdown.stop
+              @blur="
+                (e: FocusEvent) =>
+                  renameTrack(
+                    row.track.id,
+                    (e.target as HTMLInputElement).value,
+                  )
+              "
+              @keyup.enter="
+                (e: KeyboardEvent) => (e.target as HTMLInputElement).blur()
+              "
+              @focus="renameBusy = row.track.id"
+            />
+            <span class="t-sub num">
+              <span :style="{ color: row.track.color }">{{ row.i + 1 }}</span>
+              <span v-if="lastFor(row.track.id)" class="dot">·</span>
+              <span v-if="lastFor(row.track.id)">{{
+                lastFor(row.track.id)
+              }}</span>
+            </span>
+          </span>
+          <span class="h-actions">
+            <button
+              class="mini"
+              :disabled="row.i === 0"
+              @pointerdown.stop
+              @click.stop="moveTrack(row.track.id, -1)"
+            >
+              ▲
+            </button>
+            <button
+              class="mini"
+              :disabled="row.i >= store.project.tracks.length - 1"
+              @pointerdown.stop
+              @click.stop="moveTrack(row.track.id, 1)"
+            >
+              ▼
+            </button>
+            <button
+              class="mini danger"
+              :disabled="store.project.tracks.length <= 1"
+              @pointerdown.stop
+              @click.stop="removeTrack(row.track.id)"
+            >
+              ✕
+            </button>
+          </span>
+        </div>
+      </div>
+      <div v-if="store.project.tracks.length === 0" class="empty-tracks">
+        {{ t("sidebar.noTracks") }}
+      </div>
     </div>
   </aside>
 </template>
@@ -67,10 +186,16 @@ const snapText = computed(() =>
 .corner {
   flex: none;
   display: flex;
-  align-items: center;
-  padding: 0 10px;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 8px;
   border-bottom: 1px solid var(--bdg-border);
   background: rgba(148, 163, 184, 0.04);
+}
+.corner-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 .corner-text {
   font-size: 10px;
@@ -78,19 +203,51 @@ const snapText = computed(() =>
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
-.track-head {
+.add-btn {
+  border: none;
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--bdg-accent);
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+.add-btn:hover {
+  background: rgba(56, 189, 248, 0.3);
+}
+.rows {
   position: relative;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
+}
+.scroll-inner {
+  position: relative;
+  width: 100%;
+}
+.head {
+  position: absolute;
+  left: 0;
+  right: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  overflow: hidden;
+  gap: 6px;
+  padding: 0 6px 0 8px;
   border-bottom: 1px solid var(--bdg-border);
+  box-sizing: border-box;
 }
-.track-head:hover {
-  background: rgba(148, 163, 184, 0.06);
+.bpm-row {
+  top: 0;
+  height: v-bind('BPM_LANE_H + "px"');
+}
+.marker-row {
+  height: v-bind('MARKER_LANE_H + "px"');
+  cursor: default;
+}
+.head:hover {
+  background: rgba(148, 163, 184, 0.05);
 }
 .accent {
   position: absolute;
@@ -99,49 +256,32 @@ const snapText = computed(() =>
   bottom: 0;
   width: 3px;
 }
-.accent-audio {
-  background: linear-gradient(180deg, #34d399, #10b981);
+.accent-bpm {
+  background: linear-gradient(180deg, #f59e0b, #d97706);
 }
-.accent-marker {
-  background: linear-gradient(180deg, #38bdf8, #0ea5e9);
-}
-.t-icon {
-  width: 26px;
-  height: 26px;
+.h-icon {
+  width: 24px;
+  height: 24px;
   flex: none;
   border-radius: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 2px;
+  font-weight: 700;
+  font-size: 13px;
 }
-.track-head.audio .t-icon {
-  background: rgba(52, 211, 153, 0.14);
+.bpm-ic {
+  background: rgba(245, 158, 11, 0.16);
+  color: #f59e0b;
 }
-.track-head.marker .t-icon {
-  background: rgba(56, 189, 248, 0.14);
-}
-.bar {
-  display: block;
-  width: 3px;
-  border-radius: 2px;
-  background: #34d399;
-}
-.bar:nth-child(1) {
-  height: 8px;
-}
-.bar:nth-child(2) {
-  height: 14px;
-}
-.bar:nth-child(3) {
-  height: 6px;
-}
-.dia {
-  width: 9px;
-  height: 9px;
-  background: #38bdf8;
+.color-chip {
+  width: 13px;
+  height: 13px;
+  flex: none;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
   transform: rotate(45deg);
-  border-radius: 2px;
 }
 .t-body {
   flex: 1;
@@ -149,23 +289,80 @@ const snapText = computed(() =>
   display: flex;
   flex-direction: column;
   gap: 1px;
+  justify-content: center;
 }
-.t-name {
-  font-size: 13px;
+.t-name,
+.t-name-input {
+  font-size: 12px;
   font-weight: 700;
 }
+.t-name-input {
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--bdg-text);
+  font-family: inherit;
+  padding: 0 2px;
+  width: 100%;
+}
+.t-name-input:hover,
+.t-name-input:focus {
+  border-color: var(--bdg-border-strong);
+  outline: none;
+  background: rgba(148, 163, 184, 0.08);
+}
 .t-sub {
-  font-size: 11px;
+  font-size: 10px;
   color: var(--bdg-text-dim);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.t-sub b {
-  color: #38bdf8;
+  font-family: "Consolas", monospace;
 }
 .dot {
   opacity: 0.5;
   margin: 0 2px;
+}
+.h-count {
+  flex: none;
+  font-size: 12px;
+  color: var(--bdg-text-dim);
+}
+.h-actions {
+  flex: none;
+  display: flex;
+  gap: 1px;
+}
+.mini {
+  width: 18px;
+  height: 18px;
+  border: none;
+  background: transparent;
+  color: var(--bdg-text-dim);
+  border-radius: 4px;
+  font-size: 9px;
+  cursor: pointer;
+  padding: 0;
+}
+.mini:hover:not(:disabled) {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--bdg-text);
+}
+.mini.danger:hover:not(:disabled) {
+  color: var(--bdg-danger);
+  background: rgba(244, 63, 94, 0.14);
+}
+.mini:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+.empty-tracks {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--bdg-text-dim);
+  font-size: 12px;
 }
 </style>
