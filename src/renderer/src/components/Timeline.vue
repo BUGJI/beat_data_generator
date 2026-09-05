@@ -152,7 +152,7 @@ function drawScrollbars(): void {
 function draw(): void {
   const cv = canvasEl.value;
   if (!cv) return;
-  const ctx = cv.getContext('2d');
+  const ctx = cv.getContext("2d");
   if (!ctx) return;
   const dpr = window.devicePixelRatio || 1;
   const W = cv.width / dpr;
@@ -449,16 +449,26 @@ function drawMarkerLanesContent(
     if (!track) continue;
     for (const m of markersInTrack(track.id)) {
       const x = X(timeOfBeat(m.beat));
-      if (x < -6 || x > W + 6) continue;
+      if (x < -16 || x > W + 16) continue;
       const sel =
         store.ui.selected.kind === "marker" && store.ui.selected.id === m.id;
+      const cy = r.y + r.h / 2;
+      // faint vertical stem
       ctx.fillStyle = sel ? COLORS.markerSelected : track.color;
-      ctx.fillRect(x - 1, r.y + 5, 2, r.h - 10);
-      drawDiamond(ctx, x, r.y + 7, sel ? 6 : 4);
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(x - 1, r.y + 4, 2, r.h - 8);
+      ctx.globalAlpha = 1;
+      // big diamond marker
+      const rr = sel ? 9 : 7;
+      drawDiamond(ctx, x, cy, rr);
       if (sel) {
-        ctx.fillStyle = COLORS.markerSelected;
+        const label = formatTime(timeOfBeat(m.beat));
         ctx.font = "10px Consolas, monospace";
-        ctx.fillText(formatTime(timeOfBeat(m.beat)), x + 7, r.y + 7);
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = "rgba(20,23,27,0.92)";
+        ctx.fillRect(x + rr + 3, cy - 8, tw + 8, 15);
+        ctx.fillStyle = COLORS.markerSelected;
+        ctx.fillText(label, x + rr + 7, cy + 3);
       }
     }
   }
@@ -547,15 +557,15 @@ function drawPlayhead(
 
 // ---- pointer helpers ----
 
+const HIT_PX = 7;
+
 function hitMarkerAt(x: number, y: number): Marker | null {
   const lane = laneKindAt(y);
   if (lane.kind !== "marker") return null;
   const track = trackAt(lane.index);
   if (!track) return null;
-  const t = screenToTime(x);
-  const ttol = 6 / store.ui.pxPerSec;
   for (const m of markersInTrack(track.id)) {
-    if (Math.abs(timeOfBeat(m.beat) - t) * 1000 <= ttol) return m;
+    if (Math.abs(timeToScreenX(timeOfBeat(m.beat)) - x) <= HIT_PX) return m;
   }
   return null;
 }
@@ -563,10 +573,8 @@ function hitMarkerAt(x: number, y: number): Marker | null {
 function hitBpmAt(x: number, y: number): BpmPoint | null {
   const lane = laneKindAt(y);
   if (lane.kind !== "bpm") return null;
-  const t = screenToTime(x);
-  const ttol = 6 / store.ui.pxPerSec;
   for (const p of store.project.bpmPoints) {
-    if (Math.abs(timeOfBeat(p.beat) - t) * 1000 <= ttol) return p;
+    if (Math.abs(timeToScreenX(timeOfBeat(p.beat)) - x) <= HIT_PX) return p;
   }
   return null;
 }
@@ -577,6 +585,27 @@ const openCard = (x: number, y: number): void => {
 };
 
 // ---- events ----
+
+function onContext(e: MouseEvent): void {
+  const rect = rootEl.value!.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  if (y < RULER_H) return;
+  const mk = hitMarkerAt(x, y);
+  if (mk) {
+    removeMarker(mk.id);
+    select(null, null);
+    ghostState.value = null;
+    return;
+  }
+  const bp = hitBpmAt(x, y);
+  if (bp) {
+    removeBpmPoint(bp.id);
+    select(null, null);
+    ghostState.value = null;
+  }
+}
+
 
 function onPointerDown(e: PointerEvent): void {
   if (e.button !== 0) return;
@@ -644,7 +673,10 @@ function onPointerMove(e: PointerEvent): void {
 }
 
 function seekPlayhead(msRaw?: number): void {
-  const ms = Math.max(0, Math.min(msRaw ?? store.ui.positionMs, contentEndMs()));
+  const ms = Math.max(
+    0,
+    Math.min(msRaw ?? store.ui.positionMs, contentEndMs()),
+  );
   store.ui.positionMs = ms;
   seekTo(ms);
 }
@@ -887,7 +919,7 @@ onBeforeUnmount(() => {
 
 const summary = computed(() => {
   const mm = store.project.markers.length;
-  return `${t('sidebar.markerTrack')} × ${store.project.tracks.length} · ${t('sidebar.markers')} ${mm}`;
+  return `${t("sidebar.markerTrack")} × ${store.project.tracks.length} · ${t("sidebar.markers")} ${mm}`;
 });
 </script>
 
@@ -900,7 +932,7 @@ const summary = computed(() => {
     @pointerup="onPointerUp"
     @pointercancel="onPointerCancel"
     @wheel="onWheel"
-    @contextmenu.prevent
+    @contextmenu.prevent="onContext"
   >
     <canvas ref="canvasEl" class="editor-canvas" />
 
@@ -908,10 +940,10 @@ const summary = computed(() => {
       v-if="!store.ui.hasAudio && store.project.markers.length === 0"
       class="editor-hint"
     >
-      <div>{{ t('timeline.none') }}</div>
+      <div>{{ t("timeline.none") }}</div>
       <div class="editor-hint-sub">
-        {{ t('timeline.hintNew') }}
-        <br />{{ t('timeline.hintBeatAxis') }}
+        {{ t("timeline.hintNew") }}
+        <br />{{ t("timeline.hintBeatAxis") }}
       </div>
     </div>
 
@@ -925,7 +957,7 @@ const summary = computed(() => {
     <div class="editor-statusbar">
       <span>{{ summary }}</span>
       <span class="sep">·</span>
-      <span>{{ t('timeline.tempoHint') }}</span>
+      <span>{{ t("timeline.tempoHint") }}</span>
       <span v-if="store.ui.snapEnabled" class="sep">·</span>
       <span v-if="store.ui.snapEnabled" class="num"
         >snap 1/{{ store.ui.snapDiv }}</span
@@ -936,15 +968,21 @@ const summary = computed(() => {
       v-if="cardVisible && (selMarker || selBpm)"
       class="prop-card"
       :style="{ left: cardPos.x + 'px', top: cardPos.y + 'px' }"
+      @pointerdown.stop
+      @pointerup.stop
+      @pointermove.stop
+      @pointercancel.stop
+      @wheel.stop
+      @contextmenu.stop
     >
       <template v-if="selMarker">
         <div class="pc-head">
           <span class="pc-dot" :style="{ background: markerColor }" />
-          <b>{{ t('keys.marker') }}</b>
+          <b>{{ t("keys.marker") }}</b>
           <button class="pc-x" @click="select(null, null)">✕</button>
         </div>
         <label class="pc-field">
-          <span>{{ t('prop.beatPos') }}</span>
+          <span>{{ t("prop.beatPos") }}</span>
           <el-input-number
             v-model="markerBeat"
             :min="0"
@@ -956,11 +994,11 @@ const summary = computed(() => {
           />
         </label>
         <div class="pc-sub num">
-          {{ t('prop.asBar') }}: {{ fmtBar(markerBeat) }} ·
-          {{ t('prop.time') }}: {{ formatTime(markerTime) }}
+          {{ t("prop.asBar") }}: {{ fmtBar(markerBeat) }} ·
+          {{ t("prop.time") }}: {{ formatTime(markerTime) }}
         </div>
         <label class="pc-field">
-          <span>{{ t('prop.track') }}</span>
+          <span>{{ t("prop.track") }}</span>
           <el-select v-model="selectedTrackId" size="small">
             <el-option
               v-for="tr in store.project.tracks"
@@ -975,11 +1013,11 @@ const summary = computed(() => {
       <template v-else-if="selBpm">
         <div class="pc-head">
           <span class="pc-dot bpm" />
-          <b>{{ t('keys.bpmPoint') }}</b>
+          <b>{{ t("keys.bpmPoint") }}</b>
           <button class="pc-x" @click="select(null, null)">✕</button>
         </div>
         <label class="pc-field">
-          <span>{{ t('prop.beatPos') }}</span>
+          <span>{{ t("prop.beatPos") }}</span>
           <el-input-number
             v-model="bpmBeat"
             :min="0"
@@ -991,22 +1029,22 @@ const summary = computed(() => {
           />
         </label>
         <div class="pc-sub num">
-          {{ t('prop.asBar') }}: {{ fmtBar(bpmBeat) }} · {{ t('prop.time') }}:
+          {{ t("prop.asBar") }}: {{ fmtBar(bpmBeat) }} · {{ t("prop.time") }}:
           {{ formatTime(bpmTime) }}
         </div>
         <div class="pc-mode">
           <el-radio-group v-model="bpmMode" size="small">
             <el-radio-button value="abs">{{
-              t('prop.modeAbs')
+              t("prop.modeAbs")
             }}</el-radio-button>
             <el-radio-button value="mult">{{
-              t('prop.modeMult')
+              t("prop.modeMult")
             }}</el-radio-button>
           </el-radio-group>
         </div>
         <label class="pc-field">
           <span>{{
-            bpmMode === "mult" ? t('prop.multValue') : t('prop.absValue')
+            bpmMode === "mult" ? t("prop.multValue") : t("prop.absValue")
           }}</span>
           <el-input-number
             v-model="bpmValue"
@@ -1020,13 +1058,13 @@ const summary = computed(() => {
           />
         </label>
         <div class="pc-sub num">
-          {{ t('prop.effective') }}: {{ effBpm.toFixed(1) }} BPM
+          {{ t("prop.effective") }}: {{ effBpm.toFixed(1) }} BPM
         </div>
       </template>
 
       <div class="pc-actions">
         <el-button size="small" type="danger" plain @click="deleteSelected">{{
-          t('prop.delete')
+          t("prop.delete")
         }}</el-button>
       </div>
     </div>
