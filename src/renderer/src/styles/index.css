@@ -1,0 +1,100 @@
+:root {
+  --bdg-bg: #0e1116;
+  --bdg-bg-panel: #161a21;
+  --bdg-bg-raised: #1b2028;
+  --bdg-border: rgba(148, 163, 184, 0.14);
+  --bdg-border-strong: rgba(148, 163, 184, 0.28);
+  --bdg-text: #e6ebf2;
+  --bdg-text-dim: #8b97a8;
+  --bdg-accent: #38bdf8;
+  --bdg-accent-2: #34d399;
+  --bdg-danger: #f43f5e;
+  --bdg-toolbar-h: 46px;
+  --bdg-transport-h: 52px;
+  --bdg-left-w: 290px;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family:
+    "Segoe UI",
+    "PingFang SC",
+    "Microsoft YaHei",
+    system-ui,
+    -apple-system,
+    sans-serif;
+  background: var(--bdg-bg);
+  color: var(--bdg-text);
+  overflow: hidden;
+  font-size: 13px;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+html.dark {
+  --el-color-primary: #38bdf8;
+  --el-bg-color: #161a21;
+  --el-bg-color-overlay: #1d232c;
+  --el-fill-color-blank: #161a21;
+  --el-fill-color: #20262f;
+  --el-fill-color-light: #1a2028;
+  --el-fill-color-lighter: #181d25;
+  --el-border-color: rgba(148, 163, 184, 0.2);
+  --el-border-color-light: rgba(148, 163, 184, 0.14);
+  --el-border-color-lighter: rgba(148, 163, 184, 0.1);
+  --el-text-color-primary: #e6ebf2;
+  --el-text-color-regular: #c3ccd9;
+  --el-text-color-secondary: #8b97a8;
+  --el-mask-color: rgba(8, 10, 14, 0.7);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2b333f transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: #2b333f;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+.app-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.workspace {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  position: relative;
+}
+
+.el-button {
+  font-weight: 500;
+}
+
+.el-tooltip__trigger:focus-visible {
+  outline: none;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+  font-family: "Cascadia Mono", "Consolas", monospace;
+}
