@@ -1,4 +1,8 @@
 export default {
+  follow: {
+    label: "自动跟随",
+    tip: "播放中越过设置阈值后自动跟随参考线；停在此拨到开 = 下次播放一开始就跟随",
+  },
   app: {
     name: "Beat Data Generator",
     hint: "踩点标记 · 节拍对齐",

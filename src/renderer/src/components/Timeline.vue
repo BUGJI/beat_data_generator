@@ -813,16 +813,21 @@ function startHBarDrag(e: PointerEvent): void {
 function loop(): void {
   draw();
   drawScrollbars();
-  if (store.ui.playing && store.ui.settings.followScroll) {
+  if (store.ui.playing) {
     const tpx = (store.ui.positionMs / 1000) * store.ui.pxPerSec;
     const W = view.vw;
     const f = Math.min(1, Math.max(0, store.ui.settings.followPercent / 100));
-    const line = view.x + W * f;
-    if (tpx > line) {
-      setScroll(Math.max(0, tpx - W * f), view.y);
-    } else if (tpx < view.x - W * 0.5) {
-      // jumped far behind: pull the playhead back into view
-      setScroll(Math.max(0, tpx - W * f), view.y);
+    if (store.ui.followActive) {
+      // follow reference line
+      const line = view.x + W * f;
+      if (tpx > line) {
+        setScroll(Math.max(0, tpx - W * f), view.y);
+      } else if (tpx < view.x - W * 0.5) {
+        setScroll(Math.max(0, tpx - W * f), view.y);
+      }
+    } else if (store.ui.settings.followScroll) {
+      // engage once the playhead crosses the reference line
+      if (tpx > view.x + W * f) store.ui.followActive = true;
     }
   }
   raf = requestAnimationFrame(loop);

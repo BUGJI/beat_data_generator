@@ -419,6 +419,6 @@ function catLabel(key: string): string {
 .dev-block.off { opacity: 0.5; }
 .field-row.col { flex-direction: column; align-items: stretch; }
 .pct-row { display: flex; align-items: center; gap: 14px; }
-.pct-slider { flex: 1; --el-slider-main-bg-color: var(--bdg-accent); --el-slider-runway-bg-color: rgba(148,163,184,0.2); }
+.pct-slider { flex: 1 1 0%; min-width: 0; --el-slider-main-bg-color: var(--bdg-accent); --el-slider-runway-bg-color: rgba(148,163,184,0.2); }
 .pct-value { font-size: 12px; min-width: 34px; text-align: right; color: var(--bdg-accent); }
 </style>

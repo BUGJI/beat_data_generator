@@ -54,6 +54,8 @@ interface UIState {
   buffering: boolean;
   settingsOpen: boolean;
   settings: SettingsData;
+  followManual: boolean;
+  followActive: boolean;
   selected: Selection;
 }
 
@@ -87,6 +89,8 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     buffering: false,
     settingsOpen: false,
     settings: { closeMode: "ask", devEnabled: false, followScroll: true, followPercent: 90 },
+    followManual: false,
+    followActive: false,
     selected: { kind: null, id: null },
   },
 });
@@ -411,6 +415,7 @@ async function playNow(): Promise<void> {
     store.ui.positionMs = 0;
   }
   store.ui.playing = true;
+  store.ui.followActive = store.ui.followManual;
   const rate = store.ui.rate;
   const orig = engine.sourceBuffer!;
   if (!needStretch()) {
@@ -444,6 +449,13 @@ export function stop(): void {
   engine.stop();
   store.ui.playing = false;
   store.ui.positionMs = 0;
+  store.ui.followActive = false;
+}
+
+export function setFollowManual(v: boolean): void {
+  if (store.ui.playing || store.ui.buffering) return;
+  store.ui.followManual = v;
+  if (!v) store.ui.followActive = false;
 }
 
 export function seekTo(ms: number): void {
@@ -486,9 +498,14 @@ export async function loadSettings(): Promise<void> {
   }
 }
 
-export async function patchSettings(patch: Partial<SettingsData>): Promise<void> {
-  const next = await window.api.updateSettings(patch);
-  store.ui.settings = { ...store.ui.settings, ...next };
+let settingsTimer: number | undefined;
+
+export function patchSettings(patch: Partial<SettingsData>): void {
+  store.ui.settings = { ...store.ui.settings, ...patch };
+  if (settingsTimer !== undefined) clearTimeout(settingsTimer);
+  settingsTimer = window.setTimeout(() => {
+    void window.api.updateSettings({ ...store.ui.settings });
+  }, 180);
 }
 
 export function setSettingsOpen(open: boolean): void {

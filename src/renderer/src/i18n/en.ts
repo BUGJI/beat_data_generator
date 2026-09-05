@@ -1,4 +1,8 @@
 export default {
+  follow: {
+    label: "Auto-follow",
+    tip: "While playing it follows after crossing the threshold; when stopped, turning it on makes the next playback follow from the start",
+  },
   app: {
     name: "Beat Data Generator",
     hint: "Beat markers · Grid aligned",

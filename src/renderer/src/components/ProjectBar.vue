@@ -11,12 +11,25 @@ import {
   tempoMap,
   timeOfBeat,
   markerCount,
+  setFollowManual,
 } from "../store";
 import { SNAP_DIVISIONS } from "../metrics";
 
 const { t } = useI18n();
 
 const hasAudio = computed(() => store.ui.hasAudio);
+const followControl = computed<boolean>({
+  get: () =>
+    store.ui.playing || store.ui.buffering
+      ? store.ui.followActive
+      : store.ui.followManual,
+  set: (v: boolean) => {
+    setFollowManual(v);
+  },
+});
+const followStatusLabel = computed(() =>
+  store.ui.followActive ? "ON" : "OFF"
+);
 const audioName = computed(() => store.project.audioName ?? "");
 const baseBpm = computed({
   get: () => store.project.baseBpm,
@@ -136,25 +149,34 @@ const markersLabel = computed(() => String(markerCount()));
     </div>
 
     <div class="pb-right">
-      <div class="chip">
-        <span class="chip-k">{{ t('sidebar.duration') }}</span>
-        <span class="chip-v num">{{ durationLabel }}</span>
+      <div class="pb-chips">
+        <div class="chip">
+          <span class="chip-k">{{ t('sidebar.duration') }}</span>
+          <span class="chip-v num">{{ durationLabel }}</span>
+        </div>
+        <div class="chip">
+          <span class="chip-k">{{ t('sidebar.sampleRate') }}</span>
+          <span class="chip-v num">{{ sampleRateLabel }}</span>
+        </div>
+        <div class="chip">
+          <span class="chip-k">{{ t('sidebar.markers') }}</span>
+          <span class="chip-v num">{{ markersLabel }}</span>
+        </div>
+        <div class="chip">
+          <span class="chip-k">{{ t('sidebar.lastMark') }}</span>
+          <span class="chip-v num">{{ lastBeatLabel }}</span>
+        </div>
+        <div class="chip">
+          <span class="chip-k">{{ t('sidebar.gridShows') }}</span>
+          <span class="chip-v num">{{ barMsLabel }}</span>
+        </div>
       </div>
-      <div class="chip">
-        <span class="chip-k">{{ t('sidebar.sampleRate') }}</span>
-        <span class="chip-v num">{{ sampleRateLabel }}</span>
-      </div>
-      <div class="chip">
-        <span class="chip-k">{{ t('sidebar.markers') }}</span>
-        <span class="chip-v num">{{ markersLabel }}</span>
-      </div>
-      <div class="chip">
-        <span class="chip-k">{{ t('sidebar.lastMark') }}</span>
-        <span class="chip-v num">{{ lastBeatLabel }}</span>
-      </div>
-      <div class="chip">
-        <span class="chip-k">{{ t('sidebar.gridShows') }}</span>
-        <span class="chip-v num">{{ barMsLabel }}</span>
+
+      <div class="pb-quick">
+        <span class="quick-label" :title="t('follow.tip')">{{ t('follow.label') }}</span>
+        <el-switch v-model="followControl" :disabled="store.ui.playing || store.ui.buffering" size="small" />
+        <span class="quick-status num" :class="{ on: followStatusLabel === 'ON' }">{{ followStatusLabel }}</span>
+        <span class="quick-sub num" :title="t('follow.tip')">{{ store.ui.settings.followPercent }}%</span>
       </div>
     </div>
   </section>
@@ -250,11 +272,42 @@ const markersLabel = computed(() => String(markerCount()));
 }
 .pb-right {
   flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 16px;
+}
+.pb-chips {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 18px;
   flex-wrap: wrap;
-  padding: 6px 16px;
+}
+.pb-quick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-top: 6px;
+  border-top: 1px solid var(--bdg-border);
+}
+.quick-label {
+  font-size: 12px;
+  color: var(--bdg-text);
+}
+.quick-status {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bdg-text-dim);
+}
+.quick-status.on {
+  color: var(--bdg-accent);
+}
+.quick-sub {
+  font-size: 11px;
+  color: var(--bdg-text-dim);
+  margin-left: auto;
 }
 .chip {
   display: flex;
