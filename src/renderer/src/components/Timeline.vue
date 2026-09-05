@@ -825,7 +825,7 @@ function loop(): void {
       } else if (tpx < view.x - W * 0.5) {
         setScroll(Math.max(0, tpx - W * f), view.y);
       }
-    } else if (store.ui.settings.followScroll) {
+    } else if (!store.ui.followLocked && store.ui.settings.followScroll) {
       // engage once the playhead crosses the reference line
       if (tpx > view.x + W * f) store.ui.followActive = true;
     }

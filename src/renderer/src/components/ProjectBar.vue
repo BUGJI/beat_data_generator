@@ -11,25 +11,21 @@ import {
   tempoMap,
   timeOfBeat,
   markerCount,
-  setFollowManual,
+  clickFollow,
 } from "../store";
 import { SNAP_DIVISIONS } from "../metrics";
 
 const { t } = useI18n();
 
 const hasAudio = computed(() => store.ui.hasAudio);
-const followControl = computed<boolean>({
-  get: () =>
-    store.ui.playing || store.ui.buffering
-      ? store.ui.followActive
-      : store.ui.followManual,
-  set: (v: boolean) => {
-    setFollowManual(v);
-  },
-});
-const followStatusLabel = computed(() =>
-  store.ui.followActive ? "ON" : "OFF"
+const followOn = computed(() =>
+  store.ui.playing ? store.ui.followActive : store.ui.followManual
 );
+const followTip = computed(() => {
+  if (store.ui.playing)
+    return store.ui.followActive ? t("follow.onTip") : t("follow.offPlayTip");
+  return t("follow.stopTip");
+});
 const audioName = computed(() => store.project.audioName ?? "");
 const baseBpm = computed({
   get: () => store.project.baseBpm,
@@ -173,10 +169,19 @@ const markersLabel = computed(() => String(markerCount()));
       </div>
 
       <div class="pb-quick">
-        <span class="quick-label" :title="t('follow.tip')">{{ t('follow.label') }}</span>
-        <el-switch v-model="followControl" :disabled="store.ui.playing || store.ui.buffering" size="small" />
-        <span class="quick-status num" :class="{ on: followStatusLabel === 'ON' }">{{ followStatusLabel }}</span>
-        <span class="quick-sub num" :title="t('follow.tip')">{{ store.ui.settings.followPercent }}%</span>
+        <span class="quick-label">{{ t('follow.label') }}</span>
+        <button
+          class="follow-btn"
+          :class="{ on: followOn }"
+          :title="followTip"
+          @click="clickFollow()"
+        >
+          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="7" />
+            <path d="M12 12 m-2.5 0 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
+        <span class="quick-sub num" :title="t('follow.pctTip')">{{ store.ui.settings.followPercent }}%</span>
       </div>
     </div>
   </section>
@@ -296,13 +301,28 @@ const markersLabel = computed(() => String(markerCount()));
   font-size: 12px;
   color: var(--bdg-text);
 }
-.quick-status {
-  font-size: 11px;
-  font-weight: 700;
+.follow-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--bdg-border-strong);
+  background: rgba(148, 163, 184, 0.08);
   color: var(--bdg-text-dim);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: inherit;
 }
-.quick-status.on {
+.follow-btn:hover {
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--bdg-text);
+}
+.follow-btn.on {
   color: var(--bdg-accent);
+  border-color: var(--bdg-accent);
+  background: rgba(56, 189, 248, 0.16);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
 }
 .quick-sub {
   font-size: 11px;

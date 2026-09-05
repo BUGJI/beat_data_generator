@@ -56,6 +56,7 @@ interface UIState {
   settings: SettingsData;
   followManual: boolean;
   followActive: boolean;
+  followLocked: boolean;
   selected: Selection;
 }
 
@@ -91,6 +92,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     settings: { closeMode: "ask", devEnabled: false, followScroll: true, followPercent: 90 },
     followManual: false,
     followActive: false,
+    followLocked: false,
     selected: { kind: null, id: null },
   },
 });
@@ -416,6 +418,7 @@ async function playNow(): Promise<void> {
   }
   store.ui.playing = true;
   store.ui.followActive = store.ui.followManual;
+  store.ui.followLocked = false;
   const rate = store.ui.rate;
   const orig = engine.sourceBuffer!;
   if (!needStretch()) {
@@ -450,12 +453,23 @@ export function stop(): void {
   store.ui.playing = false;
   store.ui.positionMs = 0;
   store.ui.followActive = false;
+  store.ui.followLocked = false;
 }
 
-export function setFollowManual(v: boolean): void {
-  if (store.ui.playing || store.ui.buffering) return;
-  store.ui.followManual = v;
-  if (!v) store.ui.followActive = false;
+export function clickFollow(): void {
+  if (store.ui.buffering) return;
+  if (store.ui.playing) {
+    if (store.ui.followActive) {
+      store.ui.followActive = false;
+      store.ui.followLocked = true;
+    } else {
+      store.ui.followActive = true;
+      store.ui.followLocked = false;
+    }
+    return;
+  }
+  store.ui.followManual = !store.ui.followManual;
+  if (!store.ui.followManual) store.ui.followActive = false;
 }
 
 export function seekTo(ms: number): void {

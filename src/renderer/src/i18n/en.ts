@@ -1,7 +1,10 @@
 export default {
   follow: {
     label: "Auto-follow",
-    tip: "While playing it follows after crossing the threshold; when stopped, turning it on makes the next playback follow from the start",
+    onTip: "Following: click to disable for this playback run (re-enables on a new play)",
+    offPlayTip: "Not following: auto-follow engages past the threshold; click to follow now",
+    stopTip: "Stopped: toggle on to start the next playback already following",
+    pctTip: "Auto-follow trigger position (% from the left of the viewport)",
   },
   app: {
     name: "Beat Data Generator",
