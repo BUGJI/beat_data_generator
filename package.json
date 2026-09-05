@@ -1,0 +1,31 @@
+{
+  "name": "beat-data-generator",
+  "version": "0.1.0",
+  "description": "Music beat-marker editor built with Electron + Vue3 + Element Plus",
+  "main": "./out/main/index.js",
+  "author": "bugji",
+  "license": "MIT",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "electron-vite build",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web"
+  },
+  "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
+    "element-plus": "^2.14.5",
+    "vue": "^3.5.42",
+    "vue-i18n": "^11.4.10"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "electron": "^44.2.0",
+    "electron-vite": "^5.0.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.0.0",
+    "vue-tsc": "^3.3.11"
+  }
+}
