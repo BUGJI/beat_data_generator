@@ -981,6 +981,20 @@ export async function saveProject(saveAs = false): Promise<void> {
     ElMessage.success(t("dialogs.saveOk"));
   }
 }
+export async function saveProjectQuick(): Promise<void> {
+  const p = store.project.projectPath;
+  if (!p) {
+    await saveProject(true);
+    return;
+  }
+  const ok = await window.api.writeProjectFile(p, projectJson());
+  if (ok) {
+    markSaved();
+    void window.api.recordRecent(p);
+  } else {
+    ElMessage.error(t("dialogs.saveFail"));
+  }
+}
 
 export function exportLines(): string[] {
   const map = tempoMap();

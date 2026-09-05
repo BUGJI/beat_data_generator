@@ -17,7 +17,7 @@ import {
   findMarker,
   findBpmPoint,
   select,
-  saveProject,
+  saveProjectQuick,
   undo,
   redo,
   copyMarkerGroup,
@@ -45,7 +45,7 @@ function onKeydown(e: KeyboardEvent): void {
     const k = e.key.toLowerCase();
     if (k === "s") {
       e.preventDefault();
-      void saveProject(false);
+      void saveProjectQuick();
       return;
     }
     if (k === "z") {

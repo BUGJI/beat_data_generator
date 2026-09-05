@@ -41,6 +41,48 @@ let settings: SettingsData = {
 };
 const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
+const lastDirsPath = (): string =>
+  join(app.getPath("userData"), "last-dirs.json");
+
+const lastDirs: { audio?: string; project?: string } = {};
+
+function loadLastDirs(): void {
+  try {
+    const raw = JSON.parse(
+      readFileSync(lastDirsPath(), "utf-8"),
+    ) as { audio?: string; project?: string };
+    if (typeof raw.audio === "string") lastDirs.audio = raw.audio;
+    if (typeof raw.project === "string") lastDirs.project = raw.project;
+  } catch {
+    /* no saved dirs yet */
+  }
+}
+
+function rememberDir(kind: "audio" | "project", filePath: string): void {
+  const slash = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
+  if (slash <= 0) return;
+  lastDirs[kind] = filePath.slice(0, slash);
+  try {
+    writeFileSync(lastDirsPath(), JSON.stringify(lastDirs, null, 2), "utf-8");
+  } catch {
+    /* ignore */
+  }
+}
+
+function lastDirDefault(kind: "audio" | "project"): string | undefined {
+  return lastDirs[kind] ?? undefined;
+}
+
+function joinDefaultDir(
+  kind: "audio" | "project",
+  defaultPath: string,
+  dirFromPath: string,
+): string | undefined {
+  const base = defaultPath.split(/[\/]/).pop() || defaultPath;
+  if (dirFromPath && dirFromPath.length) return join(dirFromPath, base);
+  const dir = lastDirs[kind];
+  return dir ? join(dir, base) : defaultPath;
+}
 const windowStatePath = (): string =>
   join(app.getPath("userData"), "window-state.json");
 
@@ -192,10 +234,12 @@ function registerIpc(): void {
   ipcMain.handle("audio:open", async (): Promise<AudioFileResult | null> => {
     const r = await dialog.showOpenDialog(win()!, {
       title: "Open audio file",
+      defaultPath: lastDirDefault("audio"),
       filters: AUDIO_FILTERS,
       properties: ["openFile"],
     });
     if (r.canceled || r.filePaths.length === 0) return null;
+    rememberDir("audio", r.filePaths[0]);
     return bytesToAudioResult(r.filePaths[0]);
   });
 
@@ -213,10 +257,12 @@ function registerIpc(): void {
   ipcMain.handle("text:open", async (): Promise<TextFileResult> => {
     const r = await dialog.showOpenDialog(win()!, {
       title: "Open project",
+      defaultPath: lastDirDefault("project"),
       filters: PROJECT_FILTERS,
       properties: ["openFile"],
     });
     if (r.canceled || r.filePaths.length === 0) return { canceled: true };
+    rememberDir("project", r.filePaths[0]);
     try {
       const content = await readFile(r.filePaths[0], "utf-8");
       return { canceled: false, filePath: r.filePaths[0], content };
@@ -227,17 +273,30 @@ function registerIpc(): void {
   });
 
   async function saveViaDialog(
+    kind: "audio" | "project" | "export",
     title: string,
     defaultPath: string,
     filters: Electron.FileFilter[],
     content: string,
   ): Promise<SaveResult> {
+    const memKind = kind === "export" ? "project" : kind;
+    const slash = Math.max(
+      defaultPath.lastIndexOf("/"),
+      defaultPath.lastIndexOf("\\"),
+    );
+    const dirFromPath = slash > 0 ? defaultPath.slice(0, slash) : "";
+    const proposed =
+      memKind === "project"
+        ? joinDefaultDir(memKind as "project", defaultPath, dirFromPath)
+        : defaultPath;
     const r = await dialog.showSaveDialog(win()!, {
       title,
-      defaultPath,
+      defaultPath: proposed,
       filters,
     });
     if (r.canceled || !r.filePath) return { canceled: true };
+    if (kind !== "export")
+      rememberDir(kind as "audio" | "project", r.filePath);
     await writeFile(r.filePath, content, "utf-8");
     return { canceled: false, filePath: r.filePath };
   }
@@ -245,13 +304,25 @@ function registerIpc(): void {
   ipcMain.handle(
     "text:save",
     (_e, defaultPath: string, content: string): Promise<SaveResult> =>
-      saveViaDialog("Save project", defaultPath, PROJECT_FILTERS, content),
+      saveViaDialog(
+        "project",
+        "Save project",
+        defaultPath,
+        PROJECT_FILTERS,
+        content,
+      ),
   );
 
   ipcMain.handle(
     "text:saveAsTxt",
     (_e, defaultPath: string, content: string): Promise<SaveResult> =>
-      saveViaDialog("Export timestamps", defaultPath, TEXT_FILTERS, content),
+      saveViaDialog(
+        "export",
+        "Export timestamps",
+        defaultPath,
+        TEXT_FILTERS,
+        content,
+      ),
   );
 
   ipcMain.handle(
@@ -331,10 +402,13 @@ function registerIpc(): void {
     async (_e, title: string): Promise<string | null> => {
       const r = await dialog.showOpenDialog(win()!, {
         title,
+        defaultPath: lastDirDefault("audio"),
         filters: AUDIO_FILTERS,
         properties: ["openFile"],
       });
-      return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
+      if (r.canceled || r.filePaths.length === 0) return null;
+      rememberDir("audio", r.filePaths[0]);
+      return r.filePaths[0];
     },
   );
 
@@ -464,6 +538,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   loadSettings();
+  loadLastDirs();
   registerIpc();
   createWindow();
 

@@ -95,6 +95,7 @@ export default {
     exportEmpty: "No markers to export",
     openFail: "Failed to parse project file",
     saveOk: "Project saved",
+    saveFail: "Save failed. Check file permissions or disk space.",
     audioMissing: "Audio file not found. Please relink it.",
     audioMismatch: "Audio does not match the project MD5. Please re-select the song and re-calibrate the offset.",
     audioDecodeFail: "Failed to decode audio. Try another file.",

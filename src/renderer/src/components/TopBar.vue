@@ -20,6 +20,7 @@ import {
   openAudioDialog,
   openProject,
   saveProject,
+  saveProjectQuick,
   exportTimestamps,
   store,
   zoomBy,
@@ -45,7 +46,7 @@ function onFileCmd(cmd: string): void {
       void openProject();
       break;
     case "save":
-      void saveProject(false);
+      void saveProjectQuick();
       break;
     case "save-as":
       void saveProject(true);
