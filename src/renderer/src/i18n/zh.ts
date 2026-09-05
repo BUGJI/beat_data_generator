@@ -98,6 +98,7 @@ export default {
     openFail: "工程文件解析失败",
     saveOk: "已保存工程",
     audioMissing: "音频文件不存在，请重新关联",
+    audioMismatch: "音频与工程记录的 MD5 不一致，请重新选择歌曲并校准偏移",
     audioDecodeFail: "音频解码失败，请换一个文件试试",
   },
   settings: {

@@ -22,6 +22,8 @@ const api: IpcApi = {
   toggleDevTools: () => ipcRenderer.invoke("dev:tools"),
   writeProjectFile: (filePath: string, content: string) =>
     ipcRenderer.invoke("text:write", filePath, content),
+  computeMd5: (filePath: string) => ipcRenderer.invoke("audio:md5", filePath),
+  notifyAppReady: () => ipcRenderer.invoke("app:ready"),
   readTextFile: (filePath: string) => ipcRenderer.invoke("text:read", filePath),
   recordRecent: (filePath: string) =>
     ipcRenderer.invoke("recents:add", filePath),

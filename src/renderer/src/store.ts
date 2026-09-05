@@ -50,6 +50,7 @@ interface UIState {
   hasAudio: boolean;
   wave: WaveData | null;
   audioMissing: boolean;
+  audioConflict: boolean;
   snapEnabled: boolean;
   snapDiv: number;
   pxPerSec: number;
@@ -73,6 +74,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     offsetMs: 0,
     audioPath: null,
     audioName: null,
+    audioMd5: null,
     tracks: [],
     markers: [],
     bpmPoints: [],
@@ -86,6 +88,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     hasAudio: false,
     wave: null,
     audioMissing: false,
+    audioConflict: false,
     snapEnabled: true,
     snapDiv: DEFAULT_DIV,
     pxPerSec: 90,
@@ -736,9 +739,24 @@ async function decodeAndApply(
   return true;
 }
 
-export async function loadAudioResult(res: AudioFileResultLike): Promise<void> {
+export async function loadAudioResult(
+  res: AudioFileResultLike,
+  adopt = true,
+): Promise<void> {
   const ok = await decodeAndApply(res.data, res.filePath, res.name);
-  if (!ok) ElMessage.error(t("dialogs.audioDecodeFail"));
+  if (!ok) {
+    ElMessage.error(t("dialogs.audioDecodeFail"));
+    return;
+  }
+  store.ui.audioMissing = false;
+  const md5 = await window.api.computeMd5(res.filePath);
+  const stored = store.project.audioMd5;
+  if (!stored || adopt) {
+    store.project.audioMd5 = md5 ?? stored;
+    store.ui.audioConflict = false;
+  } else {
+    store.ui.audioConflict = !!md5 && md5 !== stored;
+  }
 }
 
 export async function openAudioDialog(): Promise<void> {
@@ -769,11 +787,13 @@ function freshProject(): void {
   store.project.offsetMs = 0;
   store.project.audioPath = null;
   store.project.audioName = null;
+  store.project.audioMd5 = null;
   store.project.projectPath = null;
   store.project.dirty = false;
   store.ui.hasAudio = false;
   store.ui.wave = null;
   store.ui.audioMissing = false;
+  store.ui.audioConflict = false;
   store.ui.positionMs = 0;
   store.ui.selected = { kind: null, id: null };
   resetHistory();
@@ -805,6 +825,7 @@ export async function openProject(explicitPath?: string): Promise<void> {
       offsetMs?: number;
       audioPath?: string | null;
       audioName?: string | null;
+      audioMd5?: string | null;
       tracks?: MarkerTrack[];
       markers?: unknown[];
       bpmPoints?: unknown[];
@@ -819,6 +840,8 @@ export async function openProject(explicitPath?: string): Promise<void> {
     store.project.offsetMs = Number(raw.offsetMs ?? 0) || 0;
     store.project.audioPath = raw.audioPath ?? null;
     store.project.audioName = raw.audioName ?? null;
+    store.project.audioMd5 =
+      typeof raw.audioMd5 === "string" ? raw.audioMd5 : null;
 
     if (v1) {
       const map = buildTempoMap(
@@ -905,7 +928,7 @@ export async function openProject(explicitPath?: string): Promise<void> {
     if (store.project.audioPath) {
       const audio = await window.api.readAudioFile(store.project.audioPath);
       if (audio) {
-        await loadAudioResult(audio);
+        await loadAudioResult(audio, false);
         store.project.dirty = false;
       } else {
         store.ui.audioMissing = true;
@@ -923,7 +946,7 @@ export async function openProject(explicitPath?: string): Promise<void> {
 function projectFileName(): string {
   const base = store.project.name || "untitled";
   const safe = base.replace(/[\\/:*?"<>|]/g, "_").trim() || "untitled";
-  return store.project.projectPath ?? `${safe}.bdg.json`;
+  return store.project.projectPath ?? `${safe}.bdg`;
 }
 
 export function projectJson(): string {
@@ -936,6 +959,7 @@ export function projectJson(): string {
     offsetMs: p.offsetMs,
     audioPath: p.audioPath,
     audioName: p.audioName,
+    audioMd5: p.audioMd5,
     tracks: p.tracks,
     markers: [...p.markers].sort((a, b) => a.beat - b.beat),
     bpmPoints: [...p.bpmPoints].sort((a, b) => a.beat - b.beat),

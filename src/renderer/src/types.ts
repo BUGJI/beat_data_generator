@@ -35,6 +35,7 @@ export interface BeatProject {
   offsetMs: number;
   audioPath: string | null;
   audioName: string | null;
+  audioMd5: string | null;
   tracks: MarkerTrack[];
   markers: Marker[];
   bpmPoints: BpmPoint[];

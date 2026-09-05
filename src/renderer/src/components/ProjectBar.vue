@@ -20,7 +20,7 @@ const { t } = useI18n();
 
 const hasAudio = computed(() => store.ui.hasAudio);
 const followOn = computed(() =>
-  store.ui.playing ? store.ui.followActive : store.ui.followManual
+  store.ui.playing ? store.ui.followActive : store.ui.followManual,
 );
 const followTip = computed(() => {
   if (store.ui.playing)
@@ -42,10 +42,10 @@ const offset = computed({
 });
 
 const durationLabel = computed(() =>
-  hasAudio.value ? formatTime(contentEndMs()) : "--:--.---"
+  hasAudio.value ? formatTime(contentEndMs()) : "--:--.---",
 );
 const sampleRateLabel = computed(() =>
-  store.ui.wave ? `${(store.ui.wave.sampleRate / 1000).toFixed(1)} kHz` : "-"
+  store.ui.wave ? `${(store.ui.wave.sampleRate / 1000).toFixed(1)} kHz` : "-",
 );
 const barMsLabel = computed(() => {
   const m = tempoMap();
@@ -53,7 +53,9 @@ const barMsLabel = computed(() => {
 });
 const lastBeatLabel = computed(() => {
   if (store.project.markers.length === 0) return "--:--.---";
-  const last = Math.max(...store.project.markers.map((m) => timeOfBeat(m.beat)));
+  const last = Math.max(
+    ...store.project.markers.map((m) => timeOfBeat(m.beat)),
+  );
   return formatTime(last);
 });
 const markersLabel = computed(() => String(markerCount()));
@@ -62,14 +64,16 @@ const markersLabel = computed(() => String(markerCount()));
 <template>
   <section class="projectbar">
     <div class="pb-left">
-      <div class="pb-title">{{ t('sidebar.project') }}</div>
+      <div class="pb-title">{{ t("sidebar.project") }}</div>
 
       <div class="song-row">
         <div class="song-info" :class="{ none: !audioName }">
           <div class="song-name" :title="audioName">
-            {{ audioName || t('sidebar.noSong') }}
+            {{ audioName || t("sidebar.noSong") }}
           </div>
-          <div v-if="hasAudio" class="song-sub num">{{ t('sidebar.songName') }}</div>
+          <div v-if="hasAudio" class="song-sub num">
+            {{ t("sidebar.songName") }}
+          </div>
         </div>
         <el-button
           v-if="!hasAudio"
@@ -78,17 +82,17 @@ const markersLabel = computed(() => String(markerCount()));
           round
           @click="openAudioDialog()"
         >
-          {{ t('sidebar.chooseSong') }}
+          {{ t("sidebar.chooseSong") }}
         </el-button>
         <el-button v-else size="small" text round @click="relinkAudio()">
-          {{ t('sidebar.relink') }}
+          {{ t("sidebar.relink") }}
         </el-button>
       </div>
 
       <div class="param-grid">
         <label class="field">
           <span class="field-label" :title="t('sidebar.bpmTooltip')">
-            {{ t('sidebar.baseBpm') }}
+            {{ t("sidebar.baseBpm") }}
           </span>
           <el-input-number
             v-model="baseBpm"
@@ -103,7 +107,7 @@ const markersLabel = computed(() => String(markerCount()));
         </label>
         <label class="field">
           <span class="field-label" :title="t('sidebar.offsetTooltip')">
-            {{ t('sidebar.offset') }}
+            {{ t("sidebar.offset") }}
           </span>
           <el-input-number
             v-model="offset"
@@ -119,7 +123,7 @@ const markersLabel = computed(() => String(markerCount()));
 
       <div class="snap-row">
         <el-switch v-model="store.ui.snapEnabled" size="small" />
-        <span class="snap-label">{{ t('sidebar.snapToGrid') }}</span>
+        <span class="snap-label">{{ t("sidebar.snapToGrid") }}</span>
         <el-select
           v-model="store.ui.snapDiv"
           size="small"
@@ -135,10 +139,14 @@ const markersLabel = computed(() => String(markerCount()));
         </el-select>
       </div>
 
-      <div v-if="store.ui.audioMissing" class="warn">
-        {{ t('dialogs.audioMissing') }}
+      <div v-if="store.ui.audioMissing || store.ui.audioConflict" class="warn">
+        {{
+          store.ui.audioConflict
+            ? t("dialogs.audioMismatch")
+            : t("dialogs.audioMissing")
+        }}
         <el-button size="small" text type="primary" @click="relinkAudio()">
-          {{ t('sidebar.relink') }}
+          {{ t("sidebar.relink") }}
         </el-button>
       </div>
     </div>
@@ -146,41 +154,54 @@ const markersLabel = computed(() => String(markerCount()));
     <div class="pb-right">
       <div class="pb-chips">
         <div class="chip">
-          <span class="chip-k">{{ t('sidebar.duration') }}</span>
+          <span class="chip-k">{{ t("sidebar.duration") }}</span>
           <span class="chip-v num">{{ durationLabel }}</span>
         </div>
         <div class="chip">
-          <span class="chip-k">{{ t('sidebar.sampleRate') }}</span>
+          <span class="chip-k">{{ t("sidebar.sampleRate") }}</span>
           <span class="chip-v num">{{ sampleRateLabel }}</span>
         </div>
         <div class="chip">
-          <span class="chip-k">{{ t('sidebar.markers') }}</span>
+          <span class="chip-k">{{ t("sidebar.markers") }}</span>
           <span class="chip-v num">{{ markersLabel }}</span>
         </div>
         <div class="chip">
-          <span class="chip-k">{{ t('sidebar.lastMark') }}</span>
+          <span class="chip-k">{{ t("sidebar.lastMark") }}</span>
           <span class="chip-v num">{{ lastBeatLabel }}</span>
         </div>
         <div class="chip">
-          <span class="chip-k">{{ t('sidebar.gridShows') }}</span>
+          <span class="chip-k">{{ t("sidebar.gridShows") }}</span>
           <span class="chip-v num">{{ barMsLabel }}</span>
         </div>
       </div>
 
       <div class="pb-quick">
-        <span class="quick-label">{{ t('follow.label') }}</span>
+        <span class="quick-label">{{ t("follow.label") }}</span>
         <button
           class="follow-btn"
           :class="{ on: followOn }"
           :title="followTip"
           @click="clickFollow()"
         >
-          <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            viewBox="0 0 24 24"
+            width="17"
+            height="17"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <circle cx="12" cy="12" r="7" />
-            <path d="M12 12 m-2.5 0 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0" fill="currentColor" stroke="none" />
+            <path
+              d="M12 12 m-2.5 0 a2.5 2.5 0 1 0 5 0 a2.5 2.5 0 1 0 -5 0"
+              fill="currentColor"
+              stroke="none"
+            />
           </svg>
         </button>
-        <span class="quick-sub num" :title="t('follow.pctTip')">{{ store.ui.settings.followPercent }}%</span>
+        <span class="quick-sub num" :title="t('follow.pctTip')"
+          >{{ store.ui.settings.followPercent }}%</span
+        >
       </div>
     </div>
   </section>

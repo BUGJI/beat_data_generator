@@ -44,6 +44,8 @@ export interface IpcApi {
   toggleDevTools: () => Promise<void>;
   writeProjectFile: (filePath: string, content: string) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<TextFileResult>;
+  computeMd5: (filePath: string) => Promise<string | null>;
+  notifyAppReady: () => Promise<void>;
   recordRecent: (filePath: string) => Promise<void>;
   getRecents: () => Promise<string[]>;
   welcomeAction: (payload: WelcomeAction) => void;

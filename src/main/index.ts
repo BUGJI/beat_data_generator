@@ -1,4 +1,5 @@
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { createHash } from "crypto";
 import { readFile, writeFile } from "fs/promises";
 import { readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
@@ -16,11 +17,15 @@ const AUDIO_FILTERS = [
     extensions: ["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus"],
   },
 ];
-const PROJECT_FILTERS = [{ name: "Beat Project", extensions: ["json"] }];
+const PROJECT_FILTERS = [
+  { name: "Beat Project", extensions: ["bdg", "json"] },
+];
 const TEXT_FILTERS = [{ name: "Text", extensions: ["txt", "csv"] }];
 
 let mainWindow: BrowserWindow | null = null;
 let welcomeWindow: BrowserWindow | null = null;
+let mainReady = false;
+const pendingWelcome: WelcomeAction[] = [];
 let allowQuit = false;
 const recents: string[] = [];
 const MAX_RECENTS = 8;
@@ -284,14 +289,42 @@ function registerIpc(): void {
   ipcMain.handle("recents:get", (): string[] => [...recents]);
 
   ipcMain.on("welcome:action", (_e, payload: WelcomeAction) => {
-    if (payload && typeof payload === "object" && "type" in payload) {
-      const wc = mainWindow?.webContents;
-      wc?.send("welcome:action", payload);
+    if (!(payload && typeof payload === "object" && "type" in payload)) {
+      welcomeWindow?.close();
+      welcomeWindow = null;
+      mainWindow?.focus();
+      return;
+    }
+    if (!mainReady || !mainWindow) {
+      pendingWelcome.push(payload);
+    } else {
+      mainWindow.webContents.send("welcome:action", payload);
     }
     welcomeWindow?.close();
     welcomeWindow = null;
     mainWindow?.focus();
   });
+
+  ipcMain.handle("app:ready", (): void => {
+    mainReady = true;
+    if (mainWindow && pendingWelcome.length) {
+      const pending = pendingWelcome.splice(0, pendingWelcome.length);
+      for (const payload of pending)
+        mainWindow.webContents.send("welcome:action", payload);
+    }
+  });
+
+  ipcMain.handle(
+    "audio:md5",
+    async (_e, filePath: string): Promise<string | null> => {
+      try {
+        const buf = await readFile(filePath);
+        return createHash("md5").update(buf).digest("hex");
+      } catch {
+        return null;
+      }
+    },
+  );
 
   ipcMain.handle(
     "file:path",
@@ -380,7 +413,16 @@ function createWindow(): void {
   mainWindow.on("ready-to-show", () => {
     mainWindow?.show();
     if (state?.maximized) mainWindow?.maximize();
-    setTimeout(() => createWelcomeWindow(), 700);
+    const t = setInterval(() => {
+      if (mainReady) {
+        clearInterval(t);
+        createWelcomeWindow();
+      }
+    }, 200);
+    setTimeout(() => {
+      clearInterval(t);
+      createWelcomeWindow();
+    }, 5000);
   });
 
   mainWindow.on("close", (e) => {
