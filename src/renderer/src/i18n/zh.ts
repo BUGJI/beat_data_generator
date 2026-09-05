@@ -160,6 +160,10 @@ export default {
     absValue: "BPM 值",
     multValue: "倍数",
     effective: "段内生效",
+    loop: "循环放置",
+    loopInterval: "间隔（拍）",
+    loopCount: "个数",
+    loopHint: "主点后按间隔生成子点；子点计入踩点与导出",
     delete: "删除",
   },
 } as const;

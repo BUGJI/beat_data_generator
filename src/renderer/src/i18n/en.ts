@@ -158,6 +158,10 @@ export default {
     absValue: "BPM value",
     multValue: "Factor",
     effective: "Effective",
+    loop: "Loop fill",
+    loopInterval: "Interval (beats)",
+    loopCount: "Count",
+    loopHint: "Children repeat after the main marker; they count and export as normal markers",
     delete: "Delete",
   },
 } as const;

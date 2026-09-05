@@ -89,7 +89,14 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     pitchFollow: true,
     buffering: false,
     settingsOpen: false,
-    settings: { closeMode: "ask", devEnabled: false, followScroll: true, followPercent: 90, followPreset: false, rememberWindow: true },
+    settings: {
+      closeMode: "ask",
+      devEnabled: false,
+      followScroll: true,
+      followPercent: 90,
+      followPreset: false,
+      rememberWindow: true,
+    },
     followManual: false,
     followActive: false,
     followLocked: false,
@@ -231,25 +238,121 @@ export function moveTrack(trackId: string, dir: -1 | 1): void {
 
 // ---------- markers ----------
 
-export function addMarker(trackId: string, rawBeat: number): Marker | null {
+export const resolveMainMarker = (
+  m: Marker | null | undefined,
+): Marker | null => {
+  if (!m) return null;
+  return m.parentId ? (findMarker(m.parentId) ?? m) : m;
+};
+
+export const childrenOf = (mainId: string): Marker[] =>
+  store.project.markers.filter((x) => x.parentId === mainId);
+
+export const groupOf = (id: string): Marker[] => {
+  const m = findMarker(id);
+  const main = resolveMainMarker(m);
+  return main ? [main, ...childrenOf(main.id)] : [];
+};
+
+function childIndexOf(parent: Marker, child: Marker): number {
+  if (!parent.loop || parent.loop.interval <= 0) return -1;
+  return Math.round((child.beat - parent.beat) / parent.loop.interval);
+}
+
+function addMarkerToStore(
+  trackId: string,
+  beat: number,
+  extra?: Partial<Marker>,
+): Marker | null {
   const track = store.project.tracks.find((tr) => tr.id === trackId);
   if (!track) return null;
+  const marker: Marker = { id: makeId(), trackId, beat, ...extra };
+  store.project.markers.push(marker);
+  return marker;
+}
+
+export function refreshChildren(parent: Marker): void {
+  if (!parent.loop) {
+    store.project.markers = store.project.markers.filter(
+      (x) => x.parentId !== parent.id,
+    );
+    return;
+  }
+  // drop current children of this parent
+  store.project.markers = store.project.markers.filter(
+    (x) => x.parentId !== parent.id,
+  );
+  const cfg = parent.loop;
+  if (!(cfg.interval > 0) || cfg.count < 1) return;
+  const exclude = new Set(cfg.exclude ?? []);
+  const used = new Set<number>();
+  for (const m of store.project.markers) {
+    if (m.trackId === parent.trackId) used.add(Math.round(m.beat * 1e6));
+  }
+  for (let k = 1; k <= cfg.count; k++) {
+    if (exclude.has(k)) continue;
+    const beat = parent.beat + k * cfg.interval;
+    if (used.has(Math.round(beat * 1e6))) continue;
+    addMarkerToStore(parent.trackId, beat, { parentId: parent.id });
+    used.add(Math.round(beat * 1e6));
+  }
+}
+
+export function updateMarkerLoop(
+  id: string,
+  cfg: { interval: number; count: number; exclude?: number[] } | null,
+): void {
+  const m = findMarker(id);
+  const parent = resolveMainMarker(m);
+  if (!parent) return;
+  if (!cfg) {
+    parent.loop = null;
+  } else {
+    parent.loop = {
+      interval: cfg.interval > 0 ? cfg.interval : 1,
+      count: Math.max(1, Math.floor(cfg.count)),
+      ...(Array.isArray(cfg.exclude) && cfg.exclude.length
+        ? { exclude: cfg.exclude }
+        : {}),
+    };
+  }
+  refreshChildren(parent);
+  store.project.dirty = true;
+}
+
+export function addMarker(trackId: string, rawBeat: number): Marker | null {
   const beat = Math.max(0, snapped(rawBeat));
   if (trackHasBeat(trackId, beat)) return null;
-  const marker: Marker = { id: makeId(), trackId, beat };
-  store.project.markers.push(marker);
+  const marker = addMarkerToStore(trackId, beat);
+  if (!marker) return null;
   store.ui.selected = { kind: "marker", id: marker.id };
   store.project.dirty = true;
   return marker;
 }
 
 export function removeMarker(id: string): void {
-  const i = store.project.markers.findIndex((m) => m.id === id);
-  if (i >= 0) {
-    store.project.markers.splice(i, 1);
+  const m = findMarker(id);
+  if (!m) return;
+  if (m.parentId) {
+    const parent = findMarker(m.parentId);
+    if (parent && parent.loop) {
+      const k = childIndexOf(parent, m);
+      if (k >= 1) {
+        parent.loop.exclude = [...new Set([...(parent.loop.exclude ?? []), k])];
+      }
+    }
+    const i = store.project.markers.findIndex((x) => x.id === id);
+    if (i >= 0) store.project.markers.splice(i, 1);
     store.project.dirty = true;
     clearSelectionIfMissing();
+    return;
   }
+  // main marker -> cascade delete its children
+  store.project.markers = store.project.markers.filter(
+    (x) => x.id !== m.id && x.parentId !== m.id,
+  );
+  store.project.dirty = true;
+  clearSelectionIfMissing();
 }
 
 export function removeMarkerAt(
@@ -273,19 +376,34 @@ export function moveMarker(
   force = false,
 ): boolean {
   const m = findMarker(id);
-  if (!m) return false;
+  if (!m || m.parentId) return false;
   const beat = Math.max(0, force ? round(rawBeat) : snapped(rawBeat));
-  if (trackHasBeat(m.trackId, beat, id)) return false;
+  const ownGroup = new Set([m.id, ...childrenOf(m.id).map((c) => c.id)]);
+  const blocked = store.project.markers.some(
+    (x) =>
+      x.trackId === m.trackId &&
+      !ownGroup.has(x.id) &&
+      Math.abs(x.beat - beat) < 1 / 128,
+  );
+  if (blocked) return false;
   m.beat = beat;
+  if (m.loop) refreshChildren(m);
   store.project.dirty = true;
   return true;
 }
 
 export function changeMarkerTrack(id: string, trackId: string): boolean {
   const m = findMarker(id);
-  if (!m) return false;
-  if (trackHasBeat(trackId, m.beat, m.id)) return false;
-  m.trackId = trackId;
+  const parent = resolveMainMarker(m);
+  if (!parent) return false;
+  const others = store.project.markers.filter(
+    (x) =>
+      x.trackId === trackId && x.id !== parent.id && x.parentId !== parent.id,
+  );
+  if (others.some((x) => Math.abs(x.beat - parent.beat) < 1 / 128))
+    return false;
+  parent.trackId = trackId;
+  if (parent.loop) refreshChildren(parent);
   store.project.dirty = true;
   return true;
 }
@@ -422,12 +540,20 @@ async function playNow(): Promise<void> {
   const rate = store.ui.rate;
   const orig = engine.sourceBuffer!;
   if (!needStretch()) {
-    engine.playFrom(store.ui.positionMs, { buf: orig, contentRate: 1, sourceRate: rate });
+    engine.playFrom(store.ui.positionMs, {
+      buf: orig,
+      contentRate: 1,
+      sourceRate: rate,
+    });
     return;
   }
   const buf = await ensureStretched(rate);
   if (!store.ui.playing || !buf) return;
-  engine.playFrom(store.ui.positionMs, { buf, contentRate: rate, sourceRate: 1 });
+  engine.playFrom(store.ui.positionMs, {
+    buf,
+    contentRate: rate,
+    sourceRate: 1,
+  });
 }
 
 export function play(): void {
@@ -709,11 +835,39 @@ export async function openProject(): Promise<void> {
         const beat = Number(it.beat);
         const trackId = String(it.trackId ?? "");
         if (!Number.isFinite(beat) || !validTracks.has(trackId)) continue;
-        store.project.markers.push({
+        const mk: Marker = {
           id: String(it.id ?? makeId()),
           trackId,
           beat: Math.max(0, beat),
-        });
+        };
+        const pid = it.parentId ? String(it.parentId) : undefined;
+        if (pid) mk.parentId = pid;
+        const l = it.loop as Record<string, unknown> | null | undefined;
+        if (l && typeof l === "object") {
+          const iv = Number(l.interval);
+          const cnt = Number(l.count);
+          if (
+            Number.isFinite(iv) &&
+            iv > 0 &&
+            Number.isFinite(cnt) &&
+            cnt >= 1
+          ) {
+            mk.loop = { interval: iv, count: Math.floor(cnt) };
+            if (Array.isArray(l.exclude)) {
+              const ex = l.exclude
+                .map((n) => Number(n))
+                .filter((n) => Number.isFinite(n) && n >= 1);
+              if (ex.length) mk.loop.exclude = [...new Set(ex)];
+            }
+          }
+        }
+        store.project.markers.push(mk);
+      }
+      // canonicalize loop groups from stored main markers
+      for (const parent of store.project.markers.filter(
+        (mk) => mk.loop && !mk.parentId,
+      )) {
+        refreshChildren(parent);
       }
     }
 

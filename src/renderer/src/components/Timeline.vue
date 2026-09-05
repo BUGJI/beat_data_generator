@@ -19,6 +19,8 @@ import {
   seekTo,
   formatTime,
   select,
+  resolveMainMarker,
+  updateMarkerLoop,
 } from "../store";
 import { snapBeat, beatParts } from "../tempo";
 import {
@@ -449,6 +451,22 @@ function drawMarkerLanesContent(
   X: (t: number) => number,
 ): void {
   const rows = visibleRows(H).filter((r) => !r.bpm);
+  // group highlight set: selecting a main marker lights up its children too
+  const selGroup = new Set<string>();
+  if (store.ui.selected.kind === "marker" && store.ui.selected.id) {
+    const m0 = store.project.markers.find(
+      (mk) => mk.id === store.ui.selected.id,
+    );
+    const main =
+      m0 && m0.parentId
+        ? store.project.markers.find((mk) => mk.id === m0!.parentId) ?? m0
+        : m0;
+    if (main) {
+      selGroup.add(main.id);
+      for (const c of store.project.markers)
+        if (c.parentId === main.id) selGroup.add(c.id);
+    }
+  }
   for (const r of rows) {
     const track = trackAt(r.i);
     if (!track) continue;
@@ -457,6 +475,7 @@ function drawMarkerLanesContent(
       if (x < -16 || x > W + 16) continue;
       const sel =
         store.ui.selected.kind === "marker" && store.ui.selected.id === m.id;
+      const inGroup = selGroup.has(m.id) && !sel;
       const cy = r.y + r.h / 2;
       // faint vertical stem
       ctx.fillStyle = sel ? COLORS.markerSelected : track.color;
@@ -466,6 +485,15 @@ function drawMarkerLanesContent(
       // big diamond marker
       const rr = sel ? 9 : 7;
       drawDiamond(ctx, x, cy, rr);
+      if (inGroup) {
+        ctx.strokeStyle = COLORS.markerSelected;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(x, cy, rr + 3.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
       if (sel) {
         const label = formatTime(timeOfBeat(m.beat));
         ctx.font = "10px Consolas, monospace";
@@ -643,10 +671,12 @@ function onPointerDown(e: PointerEvent): void {
   }
   const mkHit = hitMarkerAt(x, y);
   if (mkHit) {
+    const main = resolveMainMarker(mkHit);
+    if (!main) return;
     mode = "dragMarker";
-    dragId = mkHit.id;
-    dragTrackId = mkHit.trackId;
-    select("marker", mkHit.id);
+    dragId = main.id;
+    dragTrackId = main.trackId;
+    select("marker", main.id);
     return;
   }
   const lane = laneKindAt(y);
@@ -710,12 +740,8 @@ function onPointerUp(e: PointerEvent): void {
       const track = lane.kind === "marker" ? trackAt(lane.index) : undefined;
       if (track) {
         const beat = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
-        const m = addMarker(track.id, beat);
-        if (m)
-          openCard(
-            Math.min(x, rootEl.value!.clientWidth - 240),
-            Math.min(y, rootEl.value!.clientHeight - 180),
-          );
+        addMarker(track.id, beat);
+        // no popup on placement; click the marker again to open its card
       }
     } else if (mode === "dragBpm") {
       openCard(
@@ -860,6 +886,31 @@ const markerBeat = computed({
   set: (v: number) => {
     if (selMarker.value) moveMarker(selMarker.value.id, Math.max(0, v), true);
   },
+});
+function applyLoopPatch(patch: { interval?: number; count?: number }): void {
+  const m = selMarker.value;
+  if (!m) return;
+  const cur = m.loop;
+  const interval = patch.interval ?? cur?.interval ?? 1;
+  const count = patch.count ?? cur?.count ?? 4;
+  const exclude = cur?.exclude;
+  updateMarkerLoop(m.id, { interval, count, exclude });
+}
+const loopOn = computed({
+  get: () => !!selMarker.value?.loop,
+  set: (v: boolean) => {
+    const m = selMarker.value;
+    if (!m) return;
+    updateMarkerLoop(m.id, v ? { interval: m.loop?.interval ?? 1, count: m.loop?.count ?? 4, exclude: m.loop?.exclude } : null);
+  },
+});
+const loopInterval = computed({
+  get: () => selMarker.value?.loop?.interval ?? 1,
+  set: (v: number) => applyLoopPatch({ interval: v }),
+});
+const loopCount = computed({
+  get: () => selMarker.value?.loop?.count ?? 4,
+  set: (v: number) => applyLoopPatch({ count: Math.max(1, Math.floor(v)) }),
 });
 const bpmBeat = computed({
   get: () => selBpm.value?.beat ?? 0,
@@ -1026,6 +1077,40 @@ const summary = computed(() => {
             />
           </el-select>
         </label>
+        <div class="pc-loop-row">
+          <span class="pc-field-label">{{ t("prop.loop") }}</span>
+          <el-switch v-model="loopOn" size="small" />
+        </div>
+        <template v-if="loopOn">
+          <div class="pc-loop-fields">
+            <label class="pc-field">
+              <span>{{ t("prop.loopInterval") }}</span>
+              <el-input-number
+                v-model="loopInterval"
+                :min="0.0625"
+                :max="256"
+                :step="0.5"
+                :precision="4"
+                size="small"
+                controls-position="right"
+                class="num"
+              />
+            </label>
+            <label class="pc-field">
+              <span>{{ t("prop.loopCount") }}</span>
+              <el-input-number
+                v-model="loopCount"
+                :min="1"
+                :max="512"
+                :step="1"
+                size="small"
+                controls-position="right"
+                class="num"
+              />
+            </label>
+          </div>
+          <div class="pc-sub num">{{ t("prop.loopHint") }}</div>
+        </template>
       </template>
 
       <template v-else-if="selBpm">
@@ -1235,4 +1320,22 @@ const summary = computed(() => {
   border-top: 1px solid var(--bdg-border);
   padding-top: 8px;
 }
+
+.pc-loop-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--bdg-border);
+  padding-top: 8px;
+}
+.pc-field-label {
+  font-size: 11px;
+  color: var(--bdg-text-dim);
+}
+.pc-loop-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 </style>

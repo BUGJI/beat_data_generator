@@ -1,7 +1,15 @@
+export interface LoopConfig {
+  interval: number;
+  count: number;
+  exclude?: number[];
+}
+
 export interface Marker {
   id: string;
   trackId: string;
   beat: number;
+  loop?: LoopConfig | null;
+  parentId?: string;
 }
 
 export interface MarkerTrack {
