@@ -1068,6 +1068,14 @@ function clampLoopInterval(v: number): number {
 function scaleLoopInterval(factor: number): void {
   applyLoopPatch({ interval: clampLoopInterval(loopInterval.value * factor) });
 }
+
+function onLoopCountWheel(e: WheelEvent): void {
+  e.preventDefault();
+  e.stopPropagation();
+  const next = loopCount.value + (e.deltaY < 0 ? 1 : -1);
+  const hi = freeInput.value ? Number.MAX_SAFE_INTEGER : 512;
+  if (next >= 1 && next <= hi) loopCount.value = next;
+}
 const bpmBeat = computed({
   get: () => selBpm.value?.beat ?? 0,
   set: (v: number) => {
@@ -1374,6 +1382,7 @@ const summary = computed(() => {
                 size="small"
                 controls-position="right"
                 class="num"
+                @wheel="onLoopCountWheel"
               />
             </label>
           </div>
