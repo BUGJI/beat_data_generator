@@ -11,6 +11,9 @@ const api: IpcApi = {
   saveProjectFile: (defaultPath: string, content: string) =>
     ipcRenderer.invoke("text:saveAsTxt", defaultPath, content),
   getFilePath: (title: string) => ipcRenderer.invoke("file:path", title),
+  getSettings: () => ipcRenderer.invoke("settings:get"),
+  updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
+  toggleDevTools: () => ipcRenderer.invoke("dev:tools"),
 };
 
 contextBridge.exposeInMainWorld("api", api);

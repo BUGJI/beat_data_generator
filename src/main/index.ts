@@ -1,9 +1,11 @@
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import { readFile, writeFile } from "fs/promises";
+import { readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import type {
   AudioFileResult,
   SaveResult,
+  SettingsData,
   TextFileResult,
 } from "../shared/ipc";
 
@@ -15,6 +17,35 @@ const AUDIO_FILTERS = [
 ];
 const PROJECT_FILTERS = [{ name: "Beat Project", extensions: ["json"] }];
 const TEXT_FILTERS = [{ name: "Text", extensions: ["txt", "csv"] }];
+
+let mainWindow: BrowserWindow | null = null;
+let allowQuit = false;
+let settings: SettingsData = { closeMode: "ask", devEnabled: false };
+const settingsPath = (): string =>
+  join(app.getPath("userData"), "settings.json");
+
+function loadSettings(): void {
+  try {
+    const raw = JSON.parse(
+      readFileSync(settingsPath(), "utf-8"),
+    ) as Partial<SettingsData>;
+    settings.closeMode =
+      raw.closeMode === "minimize" || raw.closeMode === "close"
+        ? raw.closeMode
+        : "ask";
+    settings.devEnabled = raw.devEnabled === true;
+  } catch {
+    persistSettings();
+  }
+}
+
+function persistSettings(): void {
+  try {
+    writeFileSync(settingsPath(), JSON.stringify(settings, null, 2), "utf-8");
+  } catch (err) {
+    console.error("persist settings failed", err);
+  }
+}
 
 function win(): BrowserWindow | null {
   return BrowserWindow.getAllWindows()[0] ?? null;
@@ -28,6 +59,41 @@ async function bytesToAudioResult(filePath: string): Promise<AudioFileResult> {
     size: buf.byteLength,
     data: new Uint8Array(buf),
   };
+}
+
+function closeDevToolsAll(): void {
+  for (const w of BrowserWindow.getAllWindows()) w.webContents.closeDevTools();
+}
+
+function requestQuit(w: BrowserWindow): void {
+  const mode = settings.closeMode;
+  if (mode === "close") {
+    allowQuit = true;
+    app.quit();
+    return;
+  }
+  if (mode === "minimize") {
+    if (!w.isMinimized()) w.minimize();
+    return;
+  }
+  // ask
+  void dialog
+    .showMessageBox(w, {
+      type: "question",
+      title: "Beat Data Generator",
+      message: "Exit Beat Data Generator?",
+      detail: "",
+      buttons: ["Quit", "Cancel"],
+      defaultId: 1,
+      cancelId: 1,
+      noLink: true,
+    })
+    .then(({ response }) => {
+      if (response === 0) {
+        allowQuit = true;
+        app.quit();
+      }
+    });
 }
 
 function registerIpc(): void {
@@ -107,10 +173,38 @@ function registerIpc(): void {
       return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
     },
   );
+
+  ipcMain.handle("settings:get", (): SettingsData => settings);
+
+  ipcMain.handle(
+    "settings:update",
+    (_e, patch: Partial<SettingsData>): SettingsData => {
+      if (patch.closeMode !== undefined) {
+        settings.closeMode =
+          patch.closeMode === "minimize" || patch.closeMode === "close"
+            ? patch.closeMode
+            : "ask";
+      }
+      if (patch.devEnabled !== undefined)
+        settings.devEnabled = patch.devEnabled;
+      persistSettings();
+      if (!settings.devEnabled) closeDevToolsAll();
+      return settings;
+    },
+  );
+
+  ipcMain.handle("dev:tools", (): void => {
+    if (!settings.devEnabled) return;
+    const w = win();
+    if (!w) return;
+    const wc = w.webContents;
+    wc.closeDevTools();
+    wc.openDevTools({ mode: "detach" });
+  });
 }
 
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1360,
     height: 860,
     minWidth: 1024,
@@ -126,7 +220,13 @@ function createWindow(): void {
     },
   });
 
-  mainWindow.on("ready-to-show", () => mainWindow.show());
+  mainWindow.on("ready-to-show", () => mainWindow?.show());
+
+  mainWindow.on("close", (e) => {
+    if (allowQuit || !mainWindow) return;
+    e.preventDefault();
+    requestQuit(mainWindow);
+  });
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
@@ -159,8 +259,15 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+  loadSettings();
   registerIpc();
   createWindow();
+
+  app.on("before-quit", (e) => {
+    if (allowQuit || settings.closeMode === "close") return;
+    e.preventDefault();
+    if (mainWindow) requestQuit(mainWindow);
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();

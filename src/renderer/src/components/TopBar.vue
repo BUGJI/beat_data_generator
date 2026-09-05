@@ -11,6 +11,7 @@ import {
   ZoomOut,
   FullScreen,
   QuestionFilled,
+  Setting,
   CaretBottom,
 } from "@element-plus/icons-vue";
 import { setLocale, LOCALES } from "../i18n";
@@ -23,6 +24,7 @@ import {
   store,
   zoomBy,
   fitZoom,
+  setSettingsOpen,
 } from "../store";
 
 const { t, locale } = useI18n();
@@ -166,6 +168,12 @@ const pxLabel = computed(() => `${store.ui.pxPerSec.toFixed(1)} px/s`);
         </el-dropdown-menu>
       </template>
     </el-dropdown>
+
+    <el-tooltip :content="t('settings.title')" placement="bottom">
+      <el-button class="help-btn" size="small" text @click="setSettingsOpen(true)">
+        <el-icon><Setting /></el-icon>
+      </el-button>
+    </el-tooltip>
 
     <el-button class="help-btn" size="small" text @click="onAbout">
       <el-icon><QuestionFilled /></el-icon>

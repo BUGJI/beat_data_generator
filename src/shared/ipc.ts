@@ -16,6 +16,13 @@ export interface SaveResult {
   filePath?: string;
 }
 
+export type CloseMode = "ask" | "minimize" | "close";
+
+export interface SettingsData {
+  closeMode: CloseMode;
+  devEnabled: boolean;
+}
+
 export interface IpcApi {
   openAudio: () => Promise<AudioFileResult | null>;
   readAudioFile: (filePath: string) => Promise<AudioFileResult | null>;
@@ -26,4 +33,7 @@ export interface IpcApi {
     content: string,
   ) => Promise<SaveResult>;
   getFilePath: (title: string) => Promise<string | null>;
+  getSettings: () => Promise<SettingsData>;
+  updateSettings: (patch: Partial<SettingsData>) => Promise<SettingsData>;
+  toggleDevTools: () => Promise<void>;
 }

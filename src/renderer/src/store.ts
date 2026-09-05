@@ -17,6 +17,7 @@ import {
   DEFAULT_DIV,
   nextColor,
 } from "./metrics";
+import type { SettingsData } from "../../shared/ipc";
 import type {
   AudioFileResultLike,
   BeatProject,
@@ -51,6 +52,8 @@ interface UIState {
   rate: number;
   pitchFollow: boolean;
   buffering: boolean;
+  settingsOpen: boolean;
+  settings: SettingsData;
   selected: Selection;
 }
 
@@ -82,6 +85,8 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     rate: 1,
     pitchFollow: true,
     buffering: false,
+    settingsOpen: false,
+    settings: { closeMode: "ask", devEnabled: false },
     selected: { kind: null, id: null },
   },
 });
@@ -470,6 +475,30 @@ export function applySpeed(rate: number, pitchFollow: boolean): void {
       engine.playFrom(pos, { buf, contentRate: r, sourceRate: 1 });
     }
   });
+}
+
+export async function loadSettings(): Promise<void> {
+  try {
+    const got = await window.api.getSettings();
+    store.ui.settings.closeMode = got.closeMode;
+    store.ui.settings.devEnabled = got.devEnabled;
+  } catch {
+    /* fallback defaults */
+  }
+}
+
+export async function patchSettings(patch: Partial<SettingsData>): Promise<void> {
+  const next = await window.api.updateSettings(patch);
+  store.ui.settings.closeMode = next.closeMode;
+  store.ui.settings.devEnabled = next.devEnabled;
+}
+
+export function setSettingsOpen(open: boolean): void {
+  store.ui.settingsOpen = open;
+}
+
+export async function openDevTools(): Promise<void> {
+  await window.api.toggleDevTools();
 }
 
 export function zoomBy(factor: number): void {

@@ -5,8 +5,10 @@ import ProjectBar from "./components/ProjectBar.vue";
 import SideBar from "./components/SideBar.vue";
 import Timeline from "./components/Timeline.vue";
 import TransportBar from "./components/TransportBar.vue";
+import SettingsModal from "./components/SettingsModal.vue";
 import {
   store,
+  loadSettings,
   togglePlay,
   removeMarker,
   removeBpmPoint,
@@ -73,7 +75,10 @@ function onKeydown(e: KeyboardEvent): void {
   }
 }
 
-onMounted(() => window.addEventListener("keydown", onKeydown));
+onMounted(() => {
+  void loadSettings();
+  window.addEventListener("keydown", onKeydown);
+});
 onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
 </script>
 
@@ -86,5 +91,6 @@ onBeforeUnmount(() => window.removeEventListener("keydown", onKeydown));
       <Timeline />
     </div>
     <TransportBar />
+    <SettingsModal />
   </div>
 </template>
