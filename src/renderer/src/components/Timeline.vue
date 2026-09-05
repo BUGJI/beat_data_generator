@@ -1046,15 +1046,26 @@ const loopCount = computed({
 const LOOP_INT_MIN = 0.0625;
 const LOOP_INT_MAX = 256;
 
-const loopIntervalText = computed({
-  get: () => String(loopInterval.value),
-  set: (s: string) => {
-    if (s.trim() === "") return;
-    const v = Number(s);
-    if (!Number.isFinite(v)) return;
-    applyLoopPatch({ interval: clampLoopInterval(v) });
-  },
-});
+const loopDraft = ref("");
+
+function loopDraftBegin(): void {
+  loopDraft.value = String(loopInterval.value);
+}
+
+function loopDraftCommit(): void {
+  const raw = loopDraft.value.trim();
+  const v = Number(raw);
+  if (raw === "" || !Number.isFinite(v)) {
+    loopDraft.value = String(loopInterval.value);
+    return;
+  }
+  applyLoopPatch({ interval: clampLoopInterval(v) });
+  loopDraft.value = String(loopInterval.value);
+}
+
+function loopDraftCancel(): void {
+  loopDraft.value = String(loopInterval.value);
+}
 
 const canHalve = computed(() => loopInterval.value > LOOP_INT_MIN);
 const canDouble = computed(() => loopInterval.value < LOOP_INT_MAX);
@@ -1067,6 +1078,7 @@ function clampLoopInterval(v: number): number {
 /** +/- buttons multiply / divide the interval by `factor` (e.g. ×2 or ÷2). */
 function scaleLoopInterval(factor: number): void {
   applyLoopPatch({ interval: clampLoopInterval(loopInterval.value * factor) });
+  loopDraft.value = String(loopInterval.value);
 }
 
 function onLoopCountWheel(e: WheelEvent): void {
@@ -1097,15 +1109,26 @@ function roundValue(v: number, decimals: number): number {
   return Math.round(v * p) / p;
 }
 
-const bpmValueText = computed({
-  get: () => String(roundValue(bpmValue.value, bpmDecimals.value)),
-  set: (s: string) => {
-    if (s.trim() === "") return;
-    const v = Number(s);
-    if (!Number.isFinite(v)) return;
-    bpmValue.value = clampValue(v);
-  },
-});
+const bpmDraft = ref("");
+
+function bpmDraftBegin(): void {
+  bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
+}
+
+function bpmDraftCommit(): void {
+  const raw = bpmDraft.value.trim();
+  const v = Number(raw);
+  if (raw === "" || !Number.isFinite(v)) {
+    bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
+    return;
+  }
+  bpmValue.value = clampValue(v);
+  bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
+}
+
+function bpmDraftCancel(): void {
+  bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
+}
 
 const canHalveBpm = computed(() => bpmValue.value > bpmMin.value + 1e-9);
 const canDoubleBpm = computed(() => bpmValue.value < bpmMax.value - 1e-9);
@@ -1118,6 +1141,7 @@ function clampValue(v: number): number {
 /** +/- buttons multiply / divide the BPM value (or multiplier) by `factor`. */
 function scaleBpmValue(factor: number): void {
   bpmValue.value = clampValue(bpmValue.value * factor);
+  bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
 }
 const effBpm = computed(() =>
   selBpm.value ? effectiveBpmFor(selBpm.value) : 0,
@@ -1358,9 +1382,13 @@ const summary = computed(() => {
                   −
                 </button>
                 <el-input
-                  v-model="loopIntervalText"
+                  v-model="loopDraft"
                   size="small"
                   class="pc-step-input"
+                  @focus="loopDraftBegin"
+                  @blur="loopDraftCommit"
+                  @keyup.enter="loopDraftCommit"
+                  @keyup.esc="loopDraftCancel"
                 />
                 <button
                   type="button"
@@ -1496,9 +1524,13 @@ const summary = computed(() => {
               −
             </button>
             <el-input
-              v-model="bpmValueText"
+              v-model="bpmDraft"
               size="small"
               class="pc-step-input"
+              @focus="bpmDraftBegin"
+              @blur="bpmDraftCommit"
+              @keyup.enter="bpmDraftCommit"
+              @keyup.esc="bpmDraftCancel"
             />
             <button
               type="button"
