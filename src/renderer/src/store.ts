@@ -2,6 +2,7 @@ import { reactive } from "vue";
 import { ElMessage } from "element-plus";
 import { i18n } from "./i18n";
 import { engine, computePeaks } from "./engine";
+import { stretchAudioBuffer } from "./stretch";
 import {
   buildTempoMap,
   snapBeat,
@@ -49,6 +50,7 @@ interface UIState {
   pxPerSec: number;
   rate: number;
   pitchFollow: boolean;
+  buffering: boolean;
   selected: Selection;
 }
 
@@ -79,13 +81,17 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     pxPerSec: 90,
     rate: 1,
     pitchFollow: true,
+    buffering: false,
     selected: { kind: null, id: null },
   },
 });
 
 engine.onTick = () => {
   store.ui.positionMs = engine.positionMs();
-  if (!engine.playing) store.ui.playing = false;
+  const dur = engine.durationMs();
+  if (dur > 0 && store.ui.positionMs >= dur - 1 && !store.ui.buffering) {
+    store.ui.playing = false;
+  }
 };
 engine.setVolume(store.ui.volume);
 
@@ -368,27 +374,68 @@ export function setPosition(ms: number): void {
   if (!engine.playing) engine.seek(ms);
 }
 
-export function play(): void {
-  if (!store.ui.hasAudio) return;
-  if (store.ui.positionMs >= engine.durationMs()) {
+const needStretch = (): boolean =>
+  !store.ui.pitchFollow && Math.abs(store.ui.rate - 1) > 1e-4;
+
+let buildSeq = 0;
+
+async function ensureStretched(rate: number): Promise<AudioBuffer | null> {
+  if (engine.hasStretchedFor(rate)) return engine.stretched;
+  const src = engine.sourceBuffer;
+  if (!src) return null;
+  const seq = ++buildSeq;
+  store.ui.buffering = true;
+  try {
+    const buf = await stretchAudioBuffer(src, rate);
+    if (seq !== buildSeq) return null;
+    engine.stretched = buf;
+    engine.stretchedFor = rate;
+    return buf;
+  } catch {
+    return null;
+  } finally {
+    if (seq === buildSeq) store.ui.buffering = false;
+  }
+}
+
+async function playNow(): Promise<void> {
+  if (!store.ui.hasAudio || store.ui.buffering) return;
+  const dur = engine.durationMs();
+  if (store.ui.positionMs >= dur) {
     engine.seek(0);
     store.ui.positionMs = 0;
   }
-  engine.play();
   store.ui.playing = true;
+  const rate = store.ui.rate;
+  const orig = engine.sourceBuffer!;
+  if (!needStretch()) {
+    engine.playFrom(store.ui.positionMs, { buf: orig, contentRate: 1, sourceRate: rate });
+    return;
+  }
+  const buf = await ensureStretched(rate);
+  if (!store.ui.playing || !buf) return;
+  engine.playFrom(store.ui.positionMs, { buf, contentRate: rate, sourceRate: 1 });
+}
+
+export function play(): void {
+  void playNow();
 }
 
 export function pause(): void {
+  store.ui.buffering = false;
+  buildSeq++;
   engine.pause();
   store.ui.playing = false;
 }
 
 export function togglePlay(): void {
-  if (store.ui.playing) pause();
+  if (store.ui.playing || store.ui.buffering) pause();
   else play();
 }
 
 export function stop(): void {
+  store.ui.buffering = false;
+  buildSeq++;
   engine.stop();
   store.ui.playing = false;
   store.ui.positionMs = 0;
@@ -404,10 +451,25 @@ export function setVolume(v: number): void {
   engine.setVolume(v);
 }
 
-export function setSpeed(rate: number, pitchFollow: boolean): void {
-  store.ui.rate = Math.min(4, Math.max(0.1, rate));
+export function applySpeed(rate: number, pitchFollow: boolean): void {
+  const r = Math.min(4, Math.max(0.1, rate));
+  store.ui.rate = r;
   store.ui.pitchFollow = pitchFollow;
-  engine.setRate(store.ui.rate, store.ui.pitchFollow);
+  if (!store.ui.playing || !store.ui.hasAudio) return;
+  const pos = engine.positionMs();
+  const orig = engine.sourceBuffer;
+  if (!orig) return;
+  const native = pitchFollow || Math.abs(r - 1) < 1e-4;
+  if (native) {
+    engine.playFrom(pos, { buf: orig, contentRate: 1, sourceRate: r });
+    return;
+  }
+  engine.pause();
+  void ensureStretched(r).then((buf) => {
+    if (store.ui.playing && buf) {
+      engine.playFrom(pos, { buf, contentRate: r, sourceRate: 1 });
+    }
+  });
 }
 
 export function zoomBy(factor: number): void {

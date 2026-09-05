@@ -80,6 +80,7 @@ export default {
     rateTooltip: "播放倍数（0.1–4），作用于变速播放",
     pitchFollow: "变调",
     pitchTooltip: "开启：变速同时变调（如快放音调升高）；关闭：只变速、保持原音调",
+    buffering: "保调变速处理中…",
   },
   dialogs: {
     confirm: "确认",

@@ -9,9 +9,9 @@ import {
   formatTime,
   contentEndMs,
   setVolume,
+  applySpeed,
   bpmAtTime,
 } from "../store";
-import { engine } from "../engine";
 
 const { t } = useI18n();
 
@@ -29,16 +29,13 @@ const bpmLabel = computed(() => bpmAtTime(store.ui.positionMs).toFixed(1));
 const speed = computed({
   get: () => store.ui.rate,
   set: (v: number | undefined) => {
-    const r = Math.min(4, Math.max(0.1, v ?? 1));
-    store.ui.rate = r;
-    engine.setRate(r, store.ui.pitchFollow);
+    applySpeed(v ?? 1, store.ui.pitchFollow);
   },
 });
 const pitchFollow = computed({
   get: () => store.ui.pitchFollow,
   set: (v: boolean) => {
-    store.ui.pitchFollow = v;
-    engine.setRate(store.ui.rate, v);
+    applySpeed(store.ui.rate, v);
   },
 });
 </script>
@@ -112,6 +109,7 @@ const pitchFollow = computed({
 
       <div class="tr-divider" />
 
+      <span v-if="store.ui.buffering" class="buffering">{{ t('transport.buffering') }}</span>
       <div class="tr-time num">
         <span class="cur">{{ formatTime(store.ui.positionMs) }}</span>
         <span class="sep">/</span>
@@ -160,6 +158,11 @@ const pitchFollow = computed({
   align-items: center;
   gap: 8px;
   white-space: nowrap;
+}
+.buffering {
+  font-size: 11px;
+  color: #fbbf24;
+  letter-spacing: 0.05em;
 }
 .rate-ctl {
   display: flex;

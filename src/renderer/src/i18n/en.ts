@@ -78,6 +78,7 @@ export default {
     rateTooltip: "Playback rate (0.1–4)",
     pitchFollow: "Pitch",
     pitchTooltip: "On: speed changes also shift pitch; Off: speed changes while keeping original pitch",
+    buffering: "Stretching audio…",
   },
   dialogs: {
     confirm: "Confirm",

@@ -40,19 +40,33 @@ export function computePeaks(buffer: AudioBuffer): WaveData {
   };
 }
 
+export interface PlayConfig {
+  buf: AudioBuffer;
+  contentRate: number; // original audio seconds represented per buffer second
+  sourceRate: number; // playbackRate applied to the source
+}
+
+/**
+ * time -> original-clock advance speed = sourceRate * contentRate.
+ * native (pitch-follows-speed): buf=original, contentRate=1, sourceRate=rate
+ * stretch (speed w/o pitch change): buf=stretched, contentRate=rate, sourceRate=1
+ */
 export class PlaybackEngine {
   playing = false;
 
   private ctx: AudioContext | null = null;
-  private buffer: AudioBuffer | null = null;
+  private original: AudioBuffer | null = null;
   private source: AudioBufferSourceNode | null = null;
   private gain: GainNode | null = null;
   private raf = 0;
   private startCtxTime = 0;
   private posMs = 0;
   private volume = 0.85;
-  private rate = 1;
-  private detuneCents = 0;
+  private speed = 1;
+  private active: PlayConfig | null = null;
+
+  stretched: AudioBuffer | null = null;
+  stretchedFor = 0;
 
   onTick: (() => void) | null = null;
 
@@ -68,32 +82,25 @@ export class PlaybackEngine {
   }
 
   get hasBuffer(): boolean {
-    return this.buffer !== null;
+    return this.original !== null;
+  }
+
+  get sourceBuffer(): AudioBuffer | null {
+    return this.original;
   }
 
   durationMs(): number {
-    return this.buffer ? this.buffer.duration * 1000 : 0;
+    return this.original ? this.original.duration * 1000 : 0;
+  }
+
+  hasStretchedFor(rate: number): boolean {
+    return this.stretchedFor === rate && this.stretched !== null;
   }
 
   setVolume(v: number): void {
     this.volume = v;
     if (this.gain && this.ctx) {
       this.gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.02);
-    }
-  }
-
-  /**
-   * rate: playback speed multiplier.
-   * pitchFollow=true  -> resampling changes pitch along with speed (turntable style).
-   * pitchFollow=false -> compensate pitch with detune so speed changes but pitch stays (time-stretch feel).
-   */
-  setRate(rate: number, pitchFollow: boolean): void {
-    this.rate = Math.min(4, Math.max(0.1, rate));
-    this.detuneCents = pitchFollow ? 0 : -1200 * Math.log2(this.rate);
-    if (this.source && this.ctx) {
-      const t = this.ctx.currentTime;
-      this.source.playbackRate.setTargetAtTime(this.rate, t, 0.02);
-      this.source.detune.setTargetAtTime(this.detuneCents, t, 0.02);
     }
   }
 
@@ -112,15 +119,32 @@ export class PlaybackEngine {
 
   load(buffer: AudioBuffer): void {
     this.pause();
-    this.buffer = buffer;
+    this.original = buffer;
+    this.stretched = null;
+    this.stretchedFor = 0;
+    this.active = null;
     this.posMs = 0;
   }
 
-  play(): void {
-    if (this.playing || !this.buffer) return;
+  /** start from posMs (original clock) using the given playback configuration */
+  playFrom(posMs: number, config: PlayConfig): void {
+    if (!this.original) return;
     this.ensureCtx();
-    if (this.posMs >= this.durationMs()) this.posMs = 0;
-    this.schedule(this.posMs);
+    const dur = this.durationMs();
+    let start = Math.max(0, Math.min(posMs, dur));
+    if (start >= dur) start = 0;
+    this.active = config;
+    this.speed = config.sourceRate * config.contentRate;
+    this.schedule(start);
+  }
+
+  /** restart currently-running native path with a new source playbackRate at same position */
+  restartWithSourceRate(sourceRate: number): void {
+    if (!this.active || !this.playing) return;
+    const pos = this.positionMs();
+    this.active = { ...this.active, sourceRate };
+    this.speed = sourceRate * this.active.contentRate;
+    this.schedule(pos);
   }
 
   pause(): void {
@@ -140,7 +164,7 @@ export class PlaybackEngine {
 
   seek(ms: number): void {
     const clamped = Math.max(0, Math.min(ms, this.durationMs()));
-    if (this.playing && this.buffer) {
+    if (this.playing && this.active) {
       this.posMs = clamped;
       this.schedule(clamped);
       return;
@@ -152,7 +176,8 @@ export class PlaybackEngine {
   positionMs(): number {
     if (!this.playing || !this.ctx) return this.posMs;
     const live =
-      this.posMs + (this.ctx.currentTime - this.startCtxTime) * 1000 * this.rate;
+      this.posMs +
+      (this.ctx.currentTime - this.startCtxTime) * 1000 * this.speed;
     if (live >= this.durationMs()) {
       const dur = this.durationMs();
       this.posMs = dur;
@@ -165,6 +190,7 @@ export class PlaybackEngine {
   }
 
   private schedule(fromMs: number): void {
+    const cfg = this.active!;
     const ctx = this.ensureCtx();
     const dur = this.durationMs();
     const start = Math.max(0, Math.min(fromMs, dur));
@@ -172,12 +198,16 @@ export class PlaybackEngine {
     this.posMs = start;
     this.playing = true;
     this.startCtxTime = ctx.currentTime;
+    const buf = cfg.buf;
+    const startBufSec = Math.min(
+      buf.duration,
+      Math.max(0, start / 1000 / cfg.contentRate),
+    );
     const src = ctx.createBufferSource();
-    src.buffer = this.buffer;
-    src.playbackRate.value = this.rate;
-    src.detune.value = this.detuneCents;
+    src.buffer = buf;
+    src.playbackRate.value = cfg.sourceRate;
     src.connect(this.gain!);
-    src.start(0, start / 1000);
+    src.start(0, startBufSec);
     this.source = src;
     this.loop();
   }
