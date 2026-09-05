@@ -86,7 +86,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     pitchFollow: true,
     buffering: false,
     settingsOpen: false,
-    settings: { closeMode: "ask", devEnabled: false },
+    settings: { closeMode: "ask", devEnabled: false, followScroll: true, followPercent: 90 },
     selected: { kind: null, id: null },
   },
 });
@@ -480,8 +480,7 @@ export function applySpeed(rate: number, pitchFollow: boolean): void {
 export async function loadSettings(): Promise<void> {
   try {
     const got = await window.api.getSettings();
-    store.ui.settings.closeMode = got.closeMode;
-    store.ui.settings.devEnabled = got.devEnabled;
+    store.ui.settings = { ...store.ui.settings, ...got };
   } catch {
     /* fallback defaults */
   }
@@ -489,8 +488,7 @@ export async function loadSettings(): Promise<void> {
 
 export async function patchSettings(patch: Partial<SettingsData>): Promise<void> {
   const next = await window.api.updateSettings(patch);
-  store.ui.settings.closeMode = next.closeMode;
-  store.ui.settings.devEnabled = next.devEnabled;
+  store.ui.settings = { ...store.ui.settings, ...next };
 }
 
 export function setSettingsOpen(open: boolean): void {

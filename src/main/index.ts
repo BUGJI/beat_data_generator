@@ -20,7 +20,12 @@ const TEXT_FILTERS = [{ name: "Text", extensions: ["txt", "csv"] }];
 
 let mainWindow: BrowserWindow | null = null;
 let allowQuit = false;
-let settings: SettingsData = { closeMode: "ask", devEnabled: false };
+let settings: SettingsData = {
+  closeMode: "ask",
+  devEnabled: false,
+  followScroll: true,
+  followPercent: 90,
+};
 const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
 

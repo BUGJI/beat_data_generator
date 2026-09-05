@@ -30,6 +30,19 @@ const devEnabled = computed({
   },
 });
 
+const followScroll = computed({
+  get: () => store.ui.settings.followScroll,
+  set: (v: boolean) => {
+    void patchSettings({ followScroll: v });
+  },
+});
+const followPercent = computed({
+  get: () => store.ui.settings.followPercent,
+  set: (v: number) => {
+    void patchSettings({ followPercent: v });
+  },
+});
+
 const shortcutRows = computed(() => [
   { label: t("settings.shortcuts.playPause"), keys: ["Space"] },
   { label: t("settings.shortcuts.deleteSel"), keys: ["Delete", "Backspace"] },
@@ -106,6 +119,25 @@ function catLabel(key: string): string {
                   }}</el-radio-button>
                 </el-radio-group>
               </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{ t("settings.general.autoFollow") }}</span>
+                  <span class="field-desc">{{ t("settings.general.autoFollowDesc") }}</span>
+                </div>
+                <el-switch v-model="followScroll" size="small" />
+              </div>
+
+              <div v-if="followScroll" class="field-row col">
+                <div class="field-info">
+                  <span class="field-name">{{ t("settings.general.followPercent") }}</span>
+                  <span class="field-desc">{{ t("settings.general.followPercentDesc") }}</span>
+                </div>
+                <div class="pct-row">
+                  <el-slider v-model="followPercent" :min="0" :max="100" class="pct-slider" />
+                  <span class="num pct-value">{{ followPercent }}%</span>
+                </div>
+              </div>
             </section>
 
             <!-- 快捷键 -->
@@ -139,17 +171,18 @@ function catLabel(key: string): string {
                 <el-switch v-model="devEnabled" size="small" />
               </div>
 
-              <div v-if="devEnabled" class="dev-block">
+              <div class="dev-block" :class="{ off: !devEnabled }">
                 <el-button
                   type="primary"
+                  :disabled="!devEnabled"
                   :loading="devOpenBusy"
                   @click="onOpenDevTools()"
                 >
                   {{ t("settings.dev.openTools") }}
                 </el-button>
                 <p class="muted">{{ t("settings.dev.openToolsDesc") }}</p>
+                <p v-if="!devEnabled" class="muted">{{ t("settings.dev.disabledNote") }}</p>
               </div>
-              <p v-else class="muted">{{ t("settings.dev.disabledNote") }}</p>
             </section>
 
             <!-- 关于 -->
@@ -383,4 +416,9 @@ function catLabel(key: string): string {
   font-size: 11px;
   color: var(--bdg-text-dim);
 }
+.dev-block.off { opacity: 0.5; }
+.field-row.col { flex-direction: column; align-items: stretch; }
+.pct-row { display: flex; align-items: center; gap: 14px; }
+.pct-slider { flex: 1; --el-slider-main-bg-color: var(--bdg-accent); --el-slider-runway-bg-color: rgba(148,163,184,0.2); }
+.pct-value { font-size: 12px; min-width: 34px; text-align: right; color: var(--bdg-accent); }
 </style>

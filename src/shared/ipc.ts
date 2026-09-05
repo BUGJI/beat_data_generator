@@ -21,6 +21,8 @@ export type CloseMode = "ask" | "minimize" | "close";
 export interface SettingsData {
   closeMode: CloseMode;
   devEnabled: boolean;
+  followScroll: boolean;
+  followPercent: number;
 }
 
 export interface IpcApi {
