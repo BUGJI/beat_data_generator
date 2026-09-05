@@ -1,5 +1,7 @@
 import { reactive } from "vue";
 import type { PluginEntry } from "../../../shared/plugin";
+import { createPluginApi, type PluginApi } from "./api";
+import { dispatchShortcut } from "./registry";
 
 /**
  * Renderer-side plugin host.
@@ -8,25 +10,18 @@ import type { PluginEntry } from "../../../shared/plugin";
  * renderer.js. renderer.js is a plain script that self-registers by calling
  *
  *   window.__bdgPluginRegister(function activate(api) {
- *     // api = { id, dir, log }
  *     return function dispose() { ... }   // optional
  *   })
  *
- * Contributions registered by a plugin live in the UI contribution registry
- * (see registry.ts) which the editor chrome renders from.
+ * `api` is the full plugin bridge (data/editing/player/events/ui/system).
+ * Contributions are unregistered automatically on dispose/reload.
  */
 
-export interface RendererPluginApi {
-  id: string;
-  dir: string;
-  version: string;
-  log: (...args: unknown[]) => void;
-}
-
-type Activate = (api: RendererPluginApi) => void | (() => void);
+type Activate = (api: PluginApi) => void | (() => void);
 
 interface ActiveRenderer {
   dispose?: () => void;
+  finalize: () => void;
 }
 
 export const pluginEntries = reactive<PluginEntry[]>([]);
@@ -80,14 +75,15 @@ async function loadRenderer(entry: PluginEntry): Promise<void> {
   }
   try {
     const activate = pending as Activate;
-    const ret = activate({
+    const { api, finalize } = createPluginApi({
       id: entry.id,
-      dir: entry.dir,
       version: entry.version,
-      log: (...args: unknown[]) => console.log(`[plugin:${entry.id}]`, ...args),
+      dir: entry.dir,
     });
+    const ret = activate(api);
     actives.set(entry.id, {
       dispose: typeof ret === "function" ? ret : undefined,
+      finalize,
     });
   } catch (err) {
     console.error(`[plugins] activate failed for ${entry.id}`, err);
@@ -101,6 +97,11 @@ function disposeRenderer(id: string): void {
     a.dispose?.();
   } catch (err) {
     console.error(`[plugins] dispose error for ${id}`, err);
+  }
+  try {
+    a.finalize();
+  } catch (err) {
+    console.error(`[plugins] finalize error for ${id}`, err);
   }
   actives.delete(id);
 }
@@ -151,6 +152,28 @@ export async function reloadPlugins(): Promise<void> {
 export async function initPlugins(): Promise<void> {
   if (bound) return;
   bound = true;
+  window.addEventListener(
+    "keydown",
+    (e: KeyboardEvent) => {
+      const el = e.target;
+      if (el instanceof HTMLElement) {
+        const tag = el.tagName;
+        if (
+          tag === "INPUT" ||
+          tag === "TEXTAREA" ||
+          tag === "SELECT" ||
+          el.isContentEditable
+        ) {
+          return;
+        }
+      }
+      if (dispatchShortcut(e)) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
+    true,
+  );
   window.api.onPluginsChanged(() => {
     void refreshPlugins();
   });

@@ -18,9 +18,18 @@ import {
   FullScreen,
   Setting,
   CaretBottom,
+  Grid,
 } from "@element-plus/icons-vue";
 import {
-  newProject,
+  actions as pluginActions,
+  panels as pluginPanels,
+  localeText,
+  openPanel,
+  closePanel,
+  isPanelOpen,
+} from "../plugins/registry";
+import { pluginEntries, pluginName } from "../plugins/host";
+import { newProject,
   openProject,
   saveProject,
   saveProjectQuick,
@@ -39,6 +48,97 @@ import {
 } from "../store";
 
 const { t } = useI18n();
+
+interface PluginMenuChild {
+  kind: "action" | "panel";
+  uid: number;
+  label: string;
+  open: boolean;
+}
+
+interface PluginMenuGroup {
+  pluginId: string;
+  name: string;
+  children: PluginMenuChild[];
+}
+
+const pluginMenu = computed<PluginMenuGroup[]>(() => {
+  const groups = new Map<string, PluginMenuGroup>();
+  const nameOf = (pluginId: string): string => {
+    const e = pluginEntries.find((x) => x.id === pluginId);
+    return e ? pluginName(e) : pluginId;
+  };
+  const ensure = (pluginId: string): PluginMenuGroup => {
+    let g = groups.get(pluginId);
+    if (!g) {
+      g = { pluginId, name: nameOf(pluginId), children: [] };
+      groups.set(pluginId, g);
+    }
+    return g;
+  };
+  for (const a of pluginActions) {
+    ensure(a.pluginId).children.push({
+      kind: "action",
+      uid: a.uid,
+      label: localeText(a.def.label),
+      open: false,
+    });
+  }
+  for (const p of pluginPanels) {
+    ensure(p.pluginId).children.push({
+      kind: "panel",
+      uid: p.uid,
+      label: localeText(p.def.title),
+      open: isPanelOpen(p.pluginId, p.uid),
+    });
+  }
+  return [...groups.values()];
+});
+
+function onPluginItem(item: PluginMenuChild): void {
+  if (item.kind === "action") {
+    const a = pluginActions.find((x) => x.uid === item.uid);
+    if (a) {
+      try {
+        const r = a.def.run();
+        if (r && typeof (r as Promise<void>).then === "function") void r;
+      } catch (err) {
+        console.error("[plugins] action failed", err);
+      }
+    }
+    return;
+  }
+  const p = pluginPanels.find((x) => x.uid === item.uid);
+  if (!p) return;
+  if (isPanelOpen(p.pluginId, p.uid)) closePanel(p.pluginId, p.uid);
+  else openPanel(p.pluginId, p.uid);
+}
+
+function onPluginCmd(cmd: string): void {
+  if (!cmd) return;
+  const kind = cmd[0] === "a" ? "action" : "panel";
+  const uid = Number(cmd.slice(1));
+  if (!Number.isFinite(uid)) return;
+  const item: PluginMenuChild | null =
+    kind === "action"
+      ? (pluginActions
+          .filter((a) => a.uid === uid)
+          .map((a) => ({
+            kind: "action" as const,
+            uid: a.uid,
+            label: localeText(a.def.label),
+            open: false,
+          }))[0] ?? null)
+      : (pluginPanels
+          .filter((p) => p.uid === uid)
+          .map((p) => ({
+            kind: "panel" as const,
+            uid: p.uid,
+            label: localeText(p.def.title),
+            open: isPanelOpen(p.pluginId, p.uid),
+          }))[0] ?? null);
+  if (item) onPluginItem(item);
+}
 
 const dirtyTitle = computed(() =>
   store.project.dirty ? ` • ${t("toolbar.unsavedDot")}` : "",
@@ -186,6 +286,38 @@ onMounted(() => {
       </template>
     </el-dropdown>
 
+    <el-dropdown
+      v-if="pluginMenu.length"
+      trigger="click"
+      @command="onPluginCmd"
+    >
+      <button class="menu-btn">
+        <el-icon><Grid /></el-icon>{{ t("menu.plugins") }}
+        <el-icon class="caret"><CaretBottom /></el-icon>
+      </button>
+      <template #dropdown>
+        <el-dropdown-menu>
+          <template v-for="g in pluginMenu" :key="g.pluginId">
+            <el-dropdown-item disabled class="plug-head">
+              {{ g.name }}
+            </el-dropdown-item>
+            <el-dropdown-item
+              v-for="ch in g.children"
+              :key="`${g.pluginId}-${ch.uid}`"
+              :command="(ch.kind === 'action' ? 'a' : 'p') + ch.uid"
+              :class="{ 'plug-open': ch.kind === 'panel' && ch.open }"
+            >
+              <span v-if="ch.kind === 'panel'" class="plug-check"
+                >{{ ch.open ? "●" : "○" }}</span
+              >
+              <span v-else class="plug-check">▸</span>
+              <span class="plug-label">{{ ch.label }}</span>
+            </el-dropdown-item>
+          </template>
+        </el-dropdown-menu>
+      </template>
+    </el-dropdown>
+
     <el-dropdown trigger="click" @command="onCmd">
       <button class="menu-btn">
         <el-icon><Download /></el-icon>{{ t("menu.exportMenu") }}
@@ -302,6 +434,28 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+.plug-head {
+  opacity: 0.55;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: default;
+}
+.plug-check {
+  display: inline-flex;
+  width: 14px;
+  font-size: 9px;
+  color: var(--bdg-accent);
+}
+.plug-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 220px;
+}
+.plug-open {
+  color: var(--bdg-accent);
 }
 .recent-title {
   max-width: 180px;

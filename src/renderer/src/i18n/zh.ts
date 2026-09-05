@@ -30,6 +30,7 @@ export default {
     redo: "恢复",
     select: "选择",
     selectAll: "全选踩点",
+    plugins: "插件",
     exportMenu: "导出",
     view: "视图",
     zoomIn: "放大",

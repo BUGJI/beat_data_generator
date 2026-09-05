@@ -6,13 +6,14 @@ import { basename, join } from "path";
 import { installPluginManager } from "./plugins";
 import type {
   AudioFileResult,
+  IpcFileFilter,
+  IpcOpenWindowOptions,
   RecentProject,
   SaveResult,
   SettingsData,
   TextFileResult,
   WelcomeAction,
 } from "../shared/ipc";
-
 const AUDIO_FILTERS = [
   {
     name: "Audio",
@@ -576,6 +577,91 @@ function registerIpc(): void {
     wc.closeDevTools();
     wc.openDevTools({ mode: "detach" });
   });
+
+  function sanitizeFilters(filters: unknown): Electron.FileFilter[] {
+    if (!Array.isArray(filters)) return [];
+    const out: Electron.FileFilter[] = [];
+    for (const f of filters) {
+      if (!f || typeof f !== "object") continue;
+      const cand = f as Partial<IpcFileFilter>;
+      if (typeof cand.name !== "string" || !cand.name) continue;
+      const extensions = Array.isArray(cand.extensions)
+        ? cand.extensions.filter(
+            (x): x is string =>
+              typeof x === "string" && /^[A-Za-z0-9]{1,8}$/.test(x),
+          )
+        : [];
+      if (extensions.length) {
+        out.push({
+          name: cand.name,
+          extensions: extensions.map((x) => x.toLowerCase()),
+        });
+      }
+    }
+    return out;
+  }
+
+  ipcMain.handle(
+    "io:pick",
+    async (_e, title: unknown, filters: unknown): Promise<string | null> => {
+      const w = win();
+      if (!w) return null;
+      const r = await dialog.showOpenDialog(w, {
+        title: typeof title === "string" && title ? title : "Open file",
+        defaultPath: lastDirDefault("audio") ?? undefined,
+        filters: sanitizeFilters(filters),
+        properties: ["openFile"],
+      });
+      if (r.canceled || r.filePaths.length === 0) return null;
+      return r.filePaths[0];
+    },
+  );
+
+  ipcMain.handle(
+    "io:save",
+    async (
+      _e,
+      title: unknown,
+      defaultPath: unknown,
+      filters: unknown,
+    ): Promise<SaveResult> => {
+      const w = win();
+      if (!w) return { canceled: true };
+      const r = await dialog.showSaveDialog(w, {
+        title: typeof title === "string" && title ? title : "Save file",
+        defaultPath:
+          typeof defaultPath === "string" && defaultPath ? defaultPath : "untitled",
+        filters: sanitizeFilters(filters),
+      });
+      if (r.canceled || !r.filePath) return { canceled: true };
+      return { canceled: false, filePath: r.filePath };
+    },
+  );
+
+  ipcMain.handle(
+    "win:open",
+    (_e, opts: IpcOpenWindowOptions | undefined): void => {
+      const width = Number(opts?.width);
+      const height = Number(opts?.height);
+      const w = new BrowserWindow({
+        width: Number.isFinite(width) && width > 0 ? width : 900,
+        height: Number.isFinite(height) && height > 0 ? height : 640,
+        title: typeof opts?.title === "string" ? opts.title : "Plugin window",
+        autoHideMenuBar: true,
+        backgroundColor: "#101318",
+        webPreferences: {
+          sandbox: true,
+          contextIsolation: true,
+        },
+      });
+      const url = typeof opts?.url === "string" ? opts.url : "";
+      if (url) {
+        void w.loadURL(url).catch(() => {
+          w.close();
+        });
+      }
+    },
+  );
 }
 
 function scheduleWelcomeWindow(): void {

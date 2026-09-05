@@ -18,6 +18,18 @@ export interface SaveResult {
   filePath?: string;
 }
 
+export interface IpcFileFilter {
+  name: string;
+  extensions: string[];
+}
+
+export interface IpcOpenWindowOptions {
+  url: string;
+  title?: string;
+  width?: number;
+  height?: number;
+}
+
 export type CloseMode = "ask" | "minimize" | "close";
 
 export interface RecentProject {
@@ -78,6 +90,21 @@ export interface IpcApi {
   ) => Promise<unknown>;
   /** Fired by the main process whenever the plugin set or its state changes. */
   onPluginsChanged: (cb: () => void) => () => void;
+  /** Generic native open picker for arbitrary extensions (plugin service). */
+  pickFile: (
+    title: string,
+    filters: IpcFileFilter[],
+  ) => Promise<string | null>;
+  /** Generic native save dialog; returns the chosen path, caller writes. */
+  saveFileDialog: (
+    title: string,
+    defaultPath: string,
+    filters: IpcFileFilter[],
+  ) => Promise<SaveResult>;
+  /** Write UTF-8 text to an absolute path (plugin service). */
+  writeTextFile: (filePath: string, content: string) => Promise<boolean>;
+  /** Open an extra window loading an arbitrary page (plugin service). */
+  openWindow: (opts: IpcOpenWindowOptions) => Promise<void>;
 }
 
 export type WelcomeAction =

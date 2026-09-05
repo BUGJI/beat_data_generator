@@ -33,6 +33,7 @@ export default {
     redo: "Redo",
     select: "Select",
     selectAll: "Select all markers",
+    plugins: "Plugins",
     exportMenu: "Export",
     view: "View",
     zoomIn: "Zoom In",
