@@ -25,20 +25,33 @@ let settings: SettingsData = {
   devEnabled: false,
   followScroll: true,
   followPercent: 90,
+  followPreset: false,
 };
 const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
+
+function sanitize(raw: Partial<SettingsData>): SettingsData {
+  return {
+    closeMode:
+      raw.closeMode === "minimize" || raw.closeMode === "close"
+        ? raw.closeMode
+        : "ask",
+    devEnabled: raw.devEnabled === true,
+    followScroll: raw.followScroll !== false,
+    followPercent: Math.min(
+      100,
+      Math.max(0, Math.round(raw.followPercent ?? 90)),
+    ),
+    followPreset: raw.followPreset === true,
+  };
+}
 
 function loadSettings(): void {
   try {
     const raw = JSON.parse(
       readFileSync(settingsPath(), "utf-8"),
     ) as Partial<SettingsData>;
-    settings.closeMode =
-      raw.closeMode === "minimize" || raw.closeMode === "close"
-        ? raw.closeMode
-        : "ask";
-    settings.devEnabled = raw.devEnabled === true;
+    settings = sanitize(raw);
   } catch {
     persistSettings();
   }
@@ -184,14 +197,7 @@ function registerIpc(): void {
   ipcMain.handle(
     "settings:update",
     (_e, patch: Partial<SettingsData>): SettingsData => {
-      if (patch.closeMode !== undefined) {
-        settings.closeMode =
-          patch.closeMode === "minimize" || patch.closeMode === "close"
-            ? patch.closeMode
-            : "ask";
-      }
-      if (patch.devEnabled !== undefined)
-        settings.devEnabled = patch.devEnabled;
+      settings = sanitize({ ...settings, ...patch });
       persistSettings();
       if (!settings.devEnabled) closeDevToolsAll();
       return settings;

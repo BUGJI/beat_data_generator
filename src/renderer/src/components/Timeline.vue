@@ -58,12 +58,18 @@ let raf = 0;
 let ro: ResizeObserver | null = null;
 
 let mode:
-  "idle" | "scrub" | "placeBpm" | "placeMarker" | "dragBpm" | "dragMarker" =
-  "idle";
+  | "idle"
+  | "pan"
+  | "scrub"
+  | "placeBpm"
+  | "placeMarker"
+  | "dragBpm"
+  | "dragMarker" = "idle";
 let activePointer = -1;
 let downX = 0;
 let downY = 0;
 let moved = false;
+let panFromRuler = false;
 let dragId: string | null = null;
 let dragTrackId: string | null = null;
 
@@ -606,7 +612,6 @@ function onContext(e: MouseEvent): void {
   }
 }
 
-
 function onPointerDown(e: PointerEvent): void {
   if (e.button !== 0) return;
   const rect = rootEl.value!.getBoundingClientRect();
@@ -619,7 +624,15 @@ function onPointerDown(e: PointerEvent): void {
   rootEl.value!.setPointerCapture(activePointer);
 
   if (y < RULER_H) {
-    mode = "scrub";
+    mode = "pan";
+    panFromRuler = true;
+    return;
+  }
+  const lane0 = laneKindAt(y);
+  if (lane0.kind === "marker" && lane0.index >= store.project.tracks.length) {
+    // blank area without a track -> pan horizontally
+    mode = "pan";
+    panFromRuler = false;
     return;
   }
   const bpmHit = hitBpmAt(x, y);
@@ -651,13 +664,8 @@ function onPointerMove(e: PointerEvent): void {
   if (Math.abs(x - downX) > 3 || Math.abs(y - downY) > 3) moved = true;
 
   const lane = laneKindAt(y);
-  if (mode === "scrub") {
-    store.ui.positionMs = Math.max(
-      0,
-      Math.min(screenToTime(x), contentEndMs()),
-    );
-    if (rootEl.value) store.ui.positionMs = store.ui.positionMs;
-    seekPlayhead();
+  if (mode === "pan") {
+    setScroll(view.x - (x - downX), view.y);
     return;
   }
   if (mode === "dragBpm" && dragId) {
@@ -688,7 +696,7 @@ function onPointerUp(e: PointerEvent): void {
   const y = e.clientY - rect.top;
 
   if (!moved) {
-    if (mode === "scrub") {
+    if (mode === "pan" && panFromRuler) {
       seekPlayhead();
     } else if (mode === "placeBpm") {
       const beat = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
@@ -723,6 +731,7 @@ function onPointerUp(e: PointerEvent): void {
     }
   }
   mode = "idle";
+  panFromRuler = false;
   dragId = null;
   dragTrackId = null;
   activePointer = -1;
@@ -731,6 +740,7 @@ function onPointerUp(e: PointerEvent): void {
 
 function onPointerCancel(): void {
   mode = "idle";
+  panFromRuler = false;
   dragId = null;
   dragTrackId = null;
   activePointer = -1;

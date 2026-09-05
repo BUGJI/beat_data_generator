@@ -89,7 +89,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     pitchFollow: true,
     buffering: false,
     settingsOpen: false,
-    settings: { closeMode: "ask", devEnabled: false, followScroll: true, followPercent: 90 },
+    settings: { closeMode: "ask", devEnabled: false, followScroll: true, followPercent: 90, followPreset: false },
     followManual: false,
     followActive: false,
     followLocked: false,
@@ -469,6 +469,8 @@ export function clickFollow(): void {
     return;
   }
   store.ui.followManual = !store.ui.followManual;
+  store.ui.settings.followPreset = store.ui.followManual;
+  void patchSettings({ followPreset: store.ui.followManual });
   if (!store.ui.followManual) store.ui.followActive = false;
 }
 
@@ -507,6 +509,7 @@ export async function loadSettings(): Promise<void> {
   try {
     const got = await window.api.getSettings();
     store.ui.settings = { ...store.ui.settings, ...got };
+    store.ui.followManual = got.followPreset;
   } catch {
     /* fallback defaults */
   }

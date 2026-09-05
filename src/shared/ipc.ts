@@ -23,6 +23,7 @@ export interface SettingsData {
   devEnabled: boolean;
   followScroll: boolean;
   followPercent: number;
+  followPreset: boolean;
 }
 
 export interface IpcApi {
