@@ -54,7 +54,7 @@ window.__bdgPluginRegister(function activate(api) {
 可以注册的贡献:
 
 - `api.ui.registerAction({ label, run })` → 出现在顶部「插件」菜单;
-- `api.ui.registerPanel({ id, title, mount })` → 浮动静默面板,`mount(hostEl)` 里用 DOM 自由渲染,返回可选清理函数;返回 `PanelHandle` 可 `open()/toggle()` 等;
+- `api.ui.registerPanel({ id, title, mount })` → 浮动静默窗口(可拖动、右下角可缩放),`mount(hostEl)` 里用 DOM 自由渲染,返回可选清理函数;返回 `PanelHandle` 可 `open()/toggle()` 等;
 - `api.ui.registerShortcut({ id, label, combo, run })` → `combo` 形如 `Alt+1`、`Ctrl+Shift+F`;
 - `api.ui.registerImporter({ label, run })` → 出现在「文件 → 导入…」;
 - `api.ui.registerExporter({ label, run })` → 出现在「导出」菜单的“插件导出”分组;

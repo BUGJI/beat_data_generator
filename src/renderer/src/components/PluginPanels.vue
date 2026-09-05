@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, onBeforeUnmount, reactive } from "vue";
 import {
   panels as allPanels,
   openPanels,
@@ -13,8 +13,20 @@ const cleanups = new Map<string, () => void>();
 interface Card {
   pluginId: string;
   uid: number;
+  key: string;
   title: string;
 }
+
+interface WinState {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  z: number;
+}
+
+const winStates = reactive<Record<string, WinState>>({});
+let zTop = 10;
 
 const list = computed<Card[]>(() =>
   openPanels
@@ -26,12 +38,140 @@ const list = computed<Card[]>(() =>
       const e = pluginEntries.find((x) => x.id === o.pluginId);
       const pname = e ? pluginName(e) : o.pluginId;
       const title = localeText(p.def.title) || pname;
-      return { pluginId: o.pluginId, uid: o.uid, title };
+      return {
+        pluginId: o.pluginId,
+        uid: o.uid,
+        key: `${o.pluginId}:${o.uid}`,
+        title,
+      };
     })
     .filter((x): x is Card => !!x),
 );
 
-function bindPanel(pluginId: string, uid: number, el: HTMLElement | null): void {
+function hashKey(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function stateOf(key: string): WinState {
+  let st = winStates[key];
+  if (!st) {
+    const n = hashKey(key);
+    const vw = window.innerWidth || 1280;
+    const vh = window.innerHeight || 800;
+    const w = 340;
+    const h = 210;
+    const x = Math.max(16, Math.min(vw - w - 16, 40 + (n % 6) * 30));
+    const y = Math.max(54, Math.min(vh - h - 24, 70 + (n % 5) * 34));
+    st = { x, y, w, h, z: ++zTop };
+    winStates[key] = st;
+  }
+  return st;
+}
+
+function styleOf(key: string): Record<string, string> {
+  const st = stateOf(key);
+  return {
+    left: `${st.x}px`,
+    top: `${st.y}px`,
+    width: `${st.w}px`,
+    height: `${st.h}px`,
+    zIndex: String(st.z),
+  };
+}
+
+function bringToFront(key: string): void {
+  const st = stateOf(key);
+  if (st.z < zTop) st.z = ++zTop;
+}
+
+interface Drag {
+  key: string;
+  mode: "move" | "resize";
+  sx: number;
+  sy: number;
+  bx: number;
+  by: number;
+  bw: number;
+  bh: number;
+}
+
+let drag: Drag | null = null;
+
+function onHeaderDown(e: PointerEvent, card: Card): void {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  bringToFront(card.key);
+  const st = stateOf(card.key);
+  drag = {
+    key: card.key,
+    mode: "move",
+    sx: e.clientX,
+    sy: e.clientY,
+    bx: st.x,
+    by: st.y,
+    bw: st.w,
+    bh: st.h,
+  };
+  window.addEventListener("pointermove", onWinMove);
+  window.addEventListener("pointerup", onWinUp);
+}
+
+function onResizeDown(e: PointerEvent, card: Card): void {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  bringToFront(card.key);
+  const st = stateOf(card.key);
+  drag = {
+    key: card.key,
+    mode: "resize",
+    sx: e.clientX,
+    sy: e.clientY,
+    bx: st.x,
+    by: st.y,
+    bw: st.w,
+    bh: st.h,
+  };
+  window.addEventListener("pointermove", onWinMove);
+  window.addEventListener("pointerup", onWinUp);
+}
+
+function onWinMove(e: PointerEvent): void {
+  const d = drag;
+  if (!d) return;
+  const st = winStates[d.key];
+  if (!st) return;
+  const dx = e.clientX - d.sx;
+  const dy = e.clientY - d.sy;
+  const vw = window.innerWidth || 1280;
+  const vh = window.innerHeight || 800;
+  if (d.mode === "move") {
+    st.x = Math.min(vw - 90, Math.max(-st.w + 90, d.bx + dx));
+    st.y = Math.min(vh - 30, Math.max(0, d.by + dy));
+  } else {
+    st.w = Math.min(vw - st.x, Math.max(240, d.bw + dx));
+    st.h = Math.min(vh - st.y, Math.max(130, d.bh + dy));
+  }
+}
+
+function onWinUp(): void {
+  drag = null;
+  window.removeEventListener("pointermove", onWinMove);
+  window.removeEventListener("pointerup", onWinUp);
+}
+
+onBeforeUnmount(() => {
+  drag = null;
+  window.removeEventListener("pointermove", onWinMove);
+  window.removeEventListener("pointerup", onWinUp);
+});
+
+function bindPanel(
+  pluginId: string,
+  uid: number,
+  el: HTMLElement | null,
+): void {
   const key = `${pluginId}:${uid}`;
   if (el) {
     const p = allPanels.find((x) => x.pluginId === pluginId && x.uid === uid);
@@ -55,65 +195,74 @@ function bindPanel(pluginId: string, uid: number, el: HTMLElement | null): void 
   }
 }
 
-function onClose(pluginId: string, uid: number): void {
-  closePanel(pluginId, uid);
+function onClose(card: Card): void {
+  closePanel(card.pluginId, card.uid);
 }
 </script>
 
 <template>
-  <div v-if="list.length" class="plugin-panels">
+  <div class="plugin-layer">
     <div
       v-for="card in list"
-      :key="`${card.pluginId}:${card.uid}`"
-      class="plugin-panel"
+      :key="card.key"
+      class="plugin-win"
+      :style="styleOf(card.key)"
+      @pointerdown="bringToFront(card.key)"
     >
-      <div class="pp-head">
-        <span class="pp-title">{{ card.title }}</span>
-        <button class="pp-x" @click="onClose(card.pluginId, card.uid)">
-          ✕
-        </button>
+      <div
+        class="pw-head"
+        @pointerdown.stop="onHeaderDown($event, card)"
+      >
+        <span class="pw-title">{{ card.title }}</span>
+        <button class="pw-x" @click.stop="onClose(card)">✕</button>
       </div>
       <div
-        class="pp-body"
-        :ref="(el: unknown) => bindPanel(card.pluginId, card.uid, el as HTMLElement | null)"
+        class="pw-body"
+        :ref="
+          (el: unknown) =>
+            bindPanel(card.pluginId, card.uid, el as HTMLElement | null)
+        "
+      />
+      <div
+        class="pw-resize"
+        @pointerdown.stop="onResizeDown($event, card)"
       />
     </div>
   </div>
 </template>
 
 <style scoped>
-.plugin-panels {
+.plugin-layer {
   position: fixed;
-  right: 12px;
-  bottom: 46px;
+  inset: 0;
   z-index: 40;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 10px;
   pointer-events: none;
 }
-.plugin-panel {
-  width: 320px;
-  max-width: calc(100vw - 24px);
+.plugin-win {
+  position: absolute;
   pointer-events: auto;
   background: #161b23;
   border: 1px solid var(--bdg-border-strong);
   border-radius: 10px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-width: 240px;
+  min-height: 130px;
+  user-select: none;
 }
-.pp-head {
+.pw-head {
   flex: none;
   display: flex;
   align-items: center;
   padding: 6px 8px 6px 12px;
-  background: rgba(148, 163, 184, 0.05);
+  background: rgba(148, 163, 184, 0.07);
   border-bottom: 1px solid var(--bdg-border);
+  cursor: move;
+  touch-action: none;
 }
-.pp-title {
+.pw-title {
   flex: 1;
   min-width: 0;
   font-size: 12px;
@@ -122,7 +271,7 @@ function onClose(pluginId: string, uid: number): void {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.pp-x {
+.pw-x {
   flex: none;
   background: none;
   border: none;
@@ -131,14 +280,24 @@ function onClose(pluginId: string, uid: number): void {
   font-size: 11px;
   padding: 2px 6px;
 }
-.pp-x:hover {
+.pw-x:hover {
   color: var(--bdg-text);
 }
-.pp-body {
-  min-height: 60px;
-  max-height: 46vh;
+.pw-body {
+  flex: 1;
+  min-height: 0;
   overflow: auto;
   font-size: 12px;
   color: var(--bdg-text);
+  user-select: text;
+}
+.pw-resize {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 16px;
+  height: 16px;
+  cursor: nwse-resize;
+  touch-action: none;
 }
 </style>

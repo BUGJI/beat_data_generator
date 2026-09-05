@@ -304,6 +304,8 @@ const renameBusy = ref<string | null>(null);
   padding: 4px;
   display: flex;
   flex-direction: column;
+  height: 260px;
+  min-height: 100px;
   max-height: 260px;
   overflow: auto;
 }
@@ -344,16 +346,18 @@ const renameBusy = ref<string | null>(null);
   border: none;
   border-radius: 50%;
   overflow: hidden;
+  background: transparent;
 }
-.color-pick :deep(.el-color-picker__color) {
-  border: none;
-  border-radius: 50%;
-}
+.color-pick :deep(.el-color-picker__color),
 .color-pick :deep(.el-color-picker__color-inner) {
   border-radius: 50%;
 }
-.color-pick :deep(.el-color-picker__icon) {
-  display: none;
+.color-pick :deep(.el-color-picker__color) {
+  border: none;
+}
+.color-pick :deep(.el-color-picker__icon),
+.color-pick :deep(.el-color-picker__empty) {
+  display: none !important;
 }
 .rows {
   position: relative;
