@@ -47,6 +47,8 @@ interface UIState {
   snapEnabled: boolean;
   snapDiv: number;
   pxPerSec: number;
+  rate: number;
+  pitchFollow: boolean;
   selected: Selection;
 }
 
@@ -75,6 +77,8 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     snapEnabled: true,
     snapDiv: DEFAULT_DIV,
     pxPerSec: 90,
+    rate: 1,
+    pitchFollow: true,
     selected: { kind: null, id: null },
   },
 });
@@ -398,6 +402,12 @@ export function seekTo(ms: number): void {
 export function setVolume(v: number): void {
   store.ui.volume = v;
   engine.setVolume(v);
+}
+
+export function setSpeed(rate: number, pitchFollow: boolean): void {
+  store.ui.rate = Math.min(4, Math.max(0.1, rate));
+  store.ui.pitchFollow = pitchFollow;
+  engine.setRate(store.ui.rate, store.ui.pitchFollow);
 }
 
 export function zoomBy(factor: number): void {

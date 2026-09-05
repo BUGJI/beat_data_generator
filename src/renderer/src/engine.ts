@@ -51,6 +51,8 @@ export class PlaybackEngine {
   private startCtxTime = 0;
   private posMs = 0;
   private volume = 0.85;
+  private rate = 1;
+  private detuneCents = 0;
 
   onTick: (() => void) | null = null;
 
@@ -77,6 +79,21 @@ export class PlaybackEngine {
     this.volume = v;
     if (this.gain && this.ctx) {
       this.gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  /**
+   * rate: playback speed multiplier.
+   * pitchFollow=true  -> resampling changes pitch along with speed (turntable style).
+   * pitchFollow=false -> compensate pitch with detune so speed changes but pitch stays (time-stretch feel).
+   */
+  setRate(rate: number, pitchFollow: boolean): void {
+    this.rate = Math.min(4, Math.max(0.1, rate));
+    this.detuneCents = pitchFollow ? 0 : -1200 * Math.log2(this.rate);
+    if (this.source && this.ctx) {
+      const t = this.ctx.currentTime;
+      this.source.playbackRate.setTargetAtTime(this.rate, t, 0.02);
+      this.source.detune.setTargetAtTime(this.detuneCents, t, 0.02);
     }
   }
 
@@ -134,7 +151,8 @@ export class PlaybackEngine {
 
   positionMs(): number {
     if (!this.playing || !this.ctx) return this.posMs;
-    const live = this.posMs + (this.ctx.currentTime - this.startCtxTime) * 1000;
+    const live =
+      this.posMs + (this.ctx.currentTime - this.startCtxTime) * 1000 * this.rate;
     if (live >= this.durationMs()) {
       const dur = this.durationMs();
       this.posMs = dur;
@@ -156,6 +174,8 @@ export class PlaybackEngine {
     this.startCtxTime = ctx.currentTime;
     const src = ctx.createBufferSource();
     src.buffer = this.buffer;
+    src.playbackRate.value = this.rate;
+    src.detune.value = this.detuneCents;
     src.connect(this.gain!);
     src.start(0, start / 1000);
     this.source = src;

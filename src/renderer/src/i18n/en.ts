@@ -74,6 +74,10 @@ export default {
     volume: "Volume",
     position: "Position",
     bpmReadout: "Live BPM",
+    speedRate: "Speed",
+    rateTooltip: "Playback rate (0.1–4)",
+    pitchFollow: "Pitch",
+    pitchTooltip: "On: speed changes also shift pitch; Off: speed changes while keeping original pitch",
   },
   dialogs: {
     confirm: "Confirm",

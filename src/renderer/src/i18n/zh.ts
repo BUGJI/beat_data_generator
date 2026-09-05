@@ -76,6 +76,10 @@ export default {
     volume: "音量",
     position: "播放位置",
     bpmReadout: "当前 BPM",
+    speedRate: "倍速",
+    rateTooltip: "播放倍数（0.1–4），作用于变速播放",
+    pitchFollow: "变调",
+    pitchTooltip: "开启：变速同时变调（如快放音调升高）；关闭：只变速、保持原音调",
   },
   dialogs: {
     confirm: "确认",

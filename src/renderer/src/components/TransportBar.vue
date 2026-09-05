@@ -11,6 +11,7 @@ import {
   setVolume,
   bpmAtTime,
 } from "../store";
+import { engine } from "../engine";
 
 const { t } = useI18n();
 
@@ -24,13 +25,48 @@ const totalLabel = computed(() =>
   hasAudio.value ? formatTime(contentEndMs()) : "--:--.---",
 );
 const bpmLabel = computed(() => bpmAtTime(store.ui.positionMs).toFixed(1));
+
+const speed = computed({
+  get: () => store.ui.rate,
+  set: (v: number | undefined) => {
+    const r = Math.min(4, Math.max(0.1, v ?? 1));
+    store.ui.rate = r;
+    engine.setRate(r, store.ui.pitchFollow);
+  },
+});
+const pitchFollow = computed({
+  get: () => store.ui.pitchFollow,
+  set: (v: boolean) => {
+    store.ui.pitchFollow = v;
+    engine.setRate(store.ui.rate, v);
+  },
+});
 </script>
 
 <template>
   <footer class="transport">
-    <div class="tr-left num">
-      <span class="bpm-dot" />
-      BPM {{ bpmLabel }}
+    <div class="rate-zone">
+      <div class="tr-left num">
+        <span class="bpm-dot" />
+        BPM {{ bpmLabel }}
+      </div>
+      <div class="rate-ctl" :title="t('transport.rateTooltip')">
+        <span class="rate-label">{{ t('transport.speedRate') }}</span>
+        <el-input-number
+          v-model="speed"
+          :min="0.1"
+          :max="4"
+          :step="0.05"
+          :precision="2"
+          size="small"
+          controls-position="right"
+          class="num rate-input"
+        />
+      </div>
+      <div class="rate-ctl" :title="t('transport.pitchTooltip')">
+        <el-switch v-model="pitchFollow" size="small" />
+        <span class="rate-label">{{ t('transport.pitchFollow') }}</span>
+      </div>
     </div>
 
     <div class="tr-controls">
@@ -107,13 +143,36 @@ const bpmLabel = computed(() => bpmAtTime(store.ui.positionMs).toFixed(1));
   background: linear-gradient(0deg, #14181f, #171c24);
   border-top: 1px solid var(--bdg-border);
 }
+.rate-zone {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-right: 16px;
+  margin-right: 4px;
+  border-right: 1px solid var(--bdg-border);
+  height: 100%;
+}
 .tr-left {
-  width: var(--bdg-left-w);
   font-size: 13px;
   color: var(--bdg-text);
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
+}
+.rate-ctl {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.rate-label {
+  font-size: 11px;
+  color: var(--bdg-text-dim);
+  white-space: nowrap;
+}
+.rate-input {
+  width: 92px;
 }
 .bpm-dot {
   width: 8px;
