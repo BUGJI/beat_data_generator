@@ -59,7 +59,6 @@ let ro: ResizeObserver | null = null;
 
 let mode:
   | "idle"
-  | "pan"
   | "scrub"
   | "placeBpm"
   | "placeMarker"
@@ -69,7 +68,6 @@ let activePointer = -1;
 let downX = 0;
 let downY = 0;
 let moved = false;
-let panFromRuler = false;
 let dragId: string | null = null;
 let dragTrackId: string | null = null;
 
@@ -624,15 +622,13 @@ function onPointerDown(e: PointerEvent): void {
   rootEl.value!.setPointerCapture(activePointer);
 
   if (y < RULER_H) {
-    mode = "pan";
-    panFromRuler = true;
+    mode = "scrub";
     return;
   }
   const lane0 = laneKindAt(y);
   if (lane0.kind === "marker" && lane0.index >= store.project.tracks.length) {
-    // blank area without a track -> pan horizontally
-    mode = "pan";
-    panFromRuler = false;
+    // blank area without a track -> drag the red playhead (scrub)
+    mode = "scrub";
     return;
   }
   const bpmHit = hitBpmAt(x, y);
@@ -664,8 +660,8 @@ function onPointerMove(e: PointerEvent): void {
   if (Math.abs(x - downX) > 3 || Math.abs(y - downY) > 3) moved = true;
 
   const lane = laneKindAt(y);
-  if (mode === "pan") {
-    setScroll(view.x - (x - downX), view.y);
+  if (mode === "scrub") {
+    seekPlayhead(screenToTime(x));
     return;
   }
   if (mode === "dragBpm" && dragId) {
@@ -696,7 +692,7 @@ function onPointerUp(e: PointerEvent): void {
   const y = e.clientY - rect.top;
 
   if (!moved) {
-    if (mode === "pan" && panFromRuler) {
+    if (mode === "scrub") {
       seekPlayhead();
     } else if (mode === "placeBpm") {
       const beat = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
@@ -731,7 +727,6 @@ function onPointerUp(e: PointerEvent): void {
     }
   }
   mode = "idle";
-  panFromRuler = false;
   dragId = null;
   dragTrackId = null;
   activePointer = -1;
@@ -740,7 +735,6 @@ function onPointerUp(e: PointerEvent): void {
 
 function onPointerCancel(): void {
   mode = "idle";
-  panFromRuler = false;
   dragId = null;
   dragTrackId = null;
   activePointer = -1;
