@@ -32,6 +32,12 @@ import type {
   Segment,
   WaveData,
 } from "./types";
+import {
+  hasTypedef,
+  defaultAttrsFor,
+  getTypedef,
+  localeText,
+} from "./plugins/registry";
 
 interface ProjectState extends BeatProject {
   projectPath: string | null;
@@ -333,7 +339,7 @@ export function removeSelectedMarkers(): boolean {
   let removed = false;
   for (const id of ids) {
     const m = findMarker(id);
-    if (m && !isTrackLocked(m.trackId)) {
+    if (m && !isTrackBlocked(m.trackId)) {
       store.project.markers = store.project.markers.filter(
         (x) => x.id !== m.id && x.parentId !== m.id,
       );
@@ -350,7 +356,12 @@ export function removeSelectedMarkers(): boolean {
 
 // ---------- tracks ----------
 
-export function addTrack(name?: string, record = true): MarkerTrack {
+export function addTrack(
+  name?: string,
+  record = true,
+  type?: string,
+  color?: string,
+): MarkerTrack {
   if (record) pushHistory();
   const track: MarkerTrack = {
     id: makeId(),
@@ -359,11 +370,25 @@ export function addTrack(name?: string, record = true): MarkerTrack {
       (store.project.tracks.length
         ? `Track ${store.project.tracks.length + 1}`
         : "Marker 1"),
-    color: nextColor(store.project.tracks.map((tr) => tr.color)),
+    color: color || nextColor(store.project.tracks.map((tr) => tr.color)),
   };
+  if (type) track.type = type;
   store.project.tracks.push(track);
   store.project.dirty = true;
   return track;
+}
+
+/** Create a track of a plugin-registered type; null when the type is unknown. */
+export function addTypedTrack(typeKey: string, name?: string): string | null {
+  const def = getTypedef(typeKey);
+  if (!def) return null;
+  const track = addTrack(
+    name?.trim() || localeText(def.trackName) || typeKey,
+    true,
+    typeKey,
+    def.color,
+  );
+  return track.id;
 }
 
 export function ensureDefaultTrack(): void {
@@ -422,7 +447,22 @@ export const isTrackHidden = (trackId: string): boolean =>
 
 /** markers on non-hidden tracks (these are the ones playback/export count) */
 export const visibleMarkers = (): Marker[] =>
-  store.project.markers.filter((m) => !isTrackHidden(m.trackId));
+  store.project.markers.filter((m) => {
+    if (isTrackHidden(m.trackId)) return false;
+    const t = store.project.tracks.find((x) => x.id === m.trackId);
+    if (t?.type && t.type !== "beat") return false;
+    return true;
+  });
+
+/** Plugin-typed track whose type plugin is not currently installed. */
+export const isTypedTrackReadOnly = (trackId: string): boolean => {
+  const t = store.project.tracks.find((x) => x.id === trackId);
+  return !!t && !!t.type && t.type !== "beat" && !hasTypedef(t.type);
+};
+
+/** Track is off-limits for marker edits (locked or an unknown typed track). */
+export const isTrackBlocked = (trackId: string): boolean =>
+  isTrackLocked(trackId) || isTypedTrackReadOnly(trackId);
 
 export function setTrackLocked(trackId: string, v: boolean): void {
   const tr = store.project.tracks.find((x) => x.id === trackId);
@@ -526,20 +566,37 @@ export function updateMarkerLoop(
 }
 
 export function addMarker(trackId: string, rawBeat: number): Marker | null {
-  if (isTrackLocked(trackId)) return null;
+  if (isTrackBlocked(trackId)) return null;
   const beat = Math.max(0, snapped(rawBeat));
   if (trackHasBeat(trackId, beat)) return null;
   pushHistory();
+  const track = store.project.tracks.find((x) => x.id === trackId);
   const marker = addMarkerToStore(trackId, beat);
   if (!marker) return null;
+  if (track?.type && track.type !== "beat") {
+    marker.attrs = defaultAttrsFor(track.type);
+  }
   store.ui.selected = { kind: "marker", id: marker.id };
   store.project.dirty = true;
   return marker;
 }
 
+/** Merge changes into a marker's plugin attributes (undo aware). */
+export function updateMarkerAttrs(
+  id: string,
+  patch: Record<string, unknown>,
+): void {
+  const m = findMarker(id);
+  if (!m || isTrackBlocked(m.trackId)) return;
+  pushHistory();
+  const cur = m.attrs ? { ...m.attrs } : {};
+  m.attrs = { ...cur, ...patch };
+  store.project.dirty = true;
+}
+
 export function removeMarker(id: string): void {
   const m = findMarker(id);
-  if (!m || isTrackLocked(m.trackId)) return;
+  if (!m || isTrackBlocked(m.trackId)) return;
   pushHistory();
   if (m.parentId) {
     const parent = findMarker(m.parentId);
@@ -585,7 +642,7 @@ export function moveMarker(
 ): boolean {
   const m = findMarker(id);
   if (!m || m.parentId) return false;
-  if (isTrackLocked(m.trackId)) return false;
+  if (isTrackBlocked(m.trackId)) return false;
   const beat = Math.max(0, force ? round(rawBeat) : snapped(rawBeat));
   const ownGroup = new Set([m.id, ...childrenOf(m.id).map((c) => c.id)]);
   const blocked = store.project.markers.some(
@@ -606,16 +663,24 @@ export function changeMarkerTrack(id: string, trackId: string): boolean {
   const m = findMarker(id);
   const parent = resolveMainMarker(m);
   if (!parent) return false;
-  if (isTrackLocked(parent.trackId) || isTrackLocked(trackId)) return false;
+  if (isTrackBlocked(parent.trackId) || isTrackBlocked(trackId)) return false;
   const others = store.project.markers.filter(
     (x) =>
       x.trackId === trackId && x.id !== parent.id && x.parentId !== parent.id,
   );
   if (others.some((x) => Math.abs(x.beat - parent.beat) < 1 / 128))
     return false;
+  const oldType = store.project.tracks.find(
+    (t) => t.id === parent.trackId,
+  )?.type;
+  const newType = store.project.tracks.find((t) => t.id === trackId)?.type;
   pushHistory();
   parent.trackId = trackId;
   if (parent.loop) refreshChildren(parent);
+  if (newType !== oldType) {
+    if (newType && newType !== "beat") parent.attrs = defaultAttrsFor(newType);
+    else delete parent.attrs;
+  }
   store.project.dirty = true;
   return true;
 }
@@ -1239,6 +1304,10 @@ export async function openProject(explicitPath?: string): Promise<void> {
             }
           }
         }
+        const at = it.attrs as Record<string, unknown> | null | undefined;
+        if (at && typeof at === "object" && !Array.isArray(at)) {
+          mk.attrs = { ...at };
+        }
         store.project.markers.push(mk);
       }
       // canonicalize loop groups from stored main markers
@@ -1623,6 +1692,12 @@ export function pasteMarkerGroup(): boolean {
     if (trackHasBeat(clip.trackId, beat)) continue;
     const m = addMarkerToStore(clip.trackId, beat);
     if (!m) continue;
+    const clipTrack = store.project.tracks.find(
+      (x) => x.id === clip.trackId,
+    );
+    if (clipTrack?.type && clipTrack.type !== "beat") {
+      m.attrs = defaultAttrsFor(clipTrack.type);
+    }
     if (clip.loop) {
       m.loop = {
         interval: clip.loop.interval,

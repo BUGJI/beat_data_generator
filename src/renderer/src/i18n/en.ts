@@ -81,6 +81,7 @@ export default {
     bpmTrack: "BPM Track",
     bpmTrackHint: "drag BPM points to adjust following beats",
     addTrack: "Add marker track",
+    addBeatTrack: "Marker track (beat)",
     trackName: "Track name…",
     changeColor: "Change color",
     lockTip: "Lock track (block content editing)",
@@ -226,6 +227,9 @@ export default {
     loopCount: "Count",
     loopHint:
       "Children repeat after the main marker; they count and export as normal markers",
+    attrsMissingTag: "plugin missing",
+    attrsMissing:
+      "This point type needs the plugin {plugin} to edit its attributes; the raw data is preserved.",
     delete: "Delete",
   },
 } as const;

@@ -2,6 +2,7 @@ import {
   store,
   tempoMap,
   addTrack,
+  addTypedTrack,
   removeTrack,
   renameTrack,
   setTrackLocked,
@@ -9,6 +10,7 @@ import {
   addMarker,
   moveMarker,
   removeMarker,
+  updateMarkerAttrs,
   addBpmPoint,
   removeBpmPoint,
   setBaseBpm,
@@ -29,7 +31,13 @@ import {
 import { engine } from "../engine";
 import type { LoopConfig } from "../types";
 import { onEvent } from "./events";
-import { uiHandleFor, type PanelHandle } from "./registry";
+import {
+  uiHandleFor,
+  registerTrackType,
+  dropPluginTrackTypes,
+  type PanelHandle,
+  type TrackTypeDef,
+} from "./registry";
 
 /**
  * The object handed to every plugin's activate(api). It is the only surface a
@@ -115,6 +123,13 @@ export interface PluginApi {
       }) => string | null;
       moveMarker: (id: string, beat: number) => boolean;
       removeMarker: (id: string) => void;
+      /** Create a track of a plugin-typed kind; null when the type is unknown. */
+      addTypedTrack: (typeKey: string, name?: string) => string | null;
+      /** Merge changes into a marker's plugin attributes (undo aware). */
+      setMarkerAttrs: (
+        id: string,
+        attrs: Record<string, unknown>,
+      ) => void;
       addBpmPoint: (beat: number) => string | null;
       removeBpmPoint: (id: string) => void;
       setBaseBpm: (v: number) => void;
@@ -177,6 +192,11 @@ export interface PluginApi {
     writeText: (path: string, content: string) => Promise<boolean>;
     openWindow: (opts: OpenWindowOptions) => Promise<void>;
     openPluginsFolder: () => Promise<void>;
+  };
+
+  /** Register custom track types whose points share the built-in beat timeline. */
+  trackTypes: {
+    register: (def: TrackTypeDef) => { ok: boolean; reason?: string };
   };
 
   callMain: (method: string, ...args: unknown[]) => Promise<unknown>;
@@ -268,6 +288,8 @@ export function createPluginApi(binding: PluginBinding): {
         addMarker: ({ trackId, beat }) => addMarker(trackId, beat)?.id ?? null,
         moveMarker,
         removeMarker,
+        addTypedTrack: (typeKey, name) => addTypedTrack(typeKey, name),
+        setMarkerAttrs: (id, attrs) => updateMarkerAttrs(id, attrs),
         addBpmPoint: (beat) => addBpmPoint(beat)?.id ?? null,
         removeBpmPoint,
         setBaseBpm,
@@ -339,6 +361,10 @@ export function createPluginApi(binding: PluginBinding): {
 
     callMain: (method, ...args) =>
       window.api.invokePlugin(binding.id, method, args),
+
+    trackTypes: {
+      register: (def) => registerTrackType(binding.id, def),
+    },
   };
 
   const finalize = (): void => {
@@ -351,6 +377,7 @@ export function createPluginApi(binding: PluginBinding): {
     }
     unsubs.length = 0;
     ui.dispose();
+    dropPluginTrackTypes(binding.id);
   };
 
   return { api, finalize };

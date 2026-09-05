@@ -1,6 +1,41 @@
 window.__bdgPluginRegister(function activate(api) {
   api.log("renderer entry activated (id=" + api.id + ")");
 
+  var tr = api.trackTypes.register({
+    id: "flip",
+    trackName: { zh: "翻转轨", en: "Flip track" },
+    pointName: { zh: "翻转点", en: "Flip" },
+    color: "#e11d48",
+    fields: [
+      {
+        key: "direction",
+        label: { zh: "方向", en: "Direction" },
+        type: "enum",
+        default: "up",
+        options: [
+          { value: "up", label: { zh: "上", en: "Up" } },
+          { value: "down", label: { zh: "下", en: "Down" } },
+        ],
+      },
+      {
+        key: "power",
+        label: { zh: "力度", en: "Power" },
+        type: "number",
+        default: 1,
+        min: 0,
+        max: 10,
+        step: 0.5,
+      },
+      {
+        key: "hold",
+        label: { zh: "长按", en: "Hold" },
+        type: "bool",
+        default: false,
+      },
+    ],
+  });
+  api.log("track type register:", tr);
+
   var stopEvents = [];
 
   function clearStopEvents() {

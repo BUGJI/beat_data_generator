@@ -25,6 +25,7 @@ import {
   markerSelectionIds,
   resolveMainMarker,
   updateMarkerLoop,
+  updateMarkerAttrs,
   historyGestureBegin,
   historyGestureEnd,
 } from "../store";
@@ -52,6 +53,14 @@ import {
   BEATS_PER_BAR,
 } from "../metrics";
 import type { BpmMode, Marker, MarkerTrack, BpmPoint } from "../types";
+import {
+  getTypedef,
+  pluginIdOfType,
+  localeText,
+  defaultForField,
+  type TrackTypeDef,
+  type PluginFieldDef,
+} from "../plugins/registry";
 
 const { t } = useI18n();
 
@@ -1097,6 +1106,74 @@ const bpmTime = computed(() =>
   selBpm.value ? timeOfBeat(selBpm.value.beat) : 0,
 );
 
+// ---- plugin-typed marker attributes ----
+
+const typedMarkerInfo = computed<{
+  def: TrackTypeDef | null;
+  missing: boolean;
+  plugin: string;
+  pointLabel: string;
+} | null>(() => {
+  const m = selMarker.value;
+  if (!m) return null;
+  const tr = store.project.tracks.find((x) => x.id === m.trackId);
+  const typeKey = tr?.type;
+  if (!typeKey || typeKey === "beat") return null;
+  const def = getTypedef(typeKey);
+  return {
+    def,
+    missing: !def,
+    plugin: pluginIdOfType(typeKey),
+    pointLabel: def ? localeText(def.pointName) : typeKey,
+  };
+});
+
+const typedFields = computed<PluginFieldDef[]>(() =>
+  typedMarkerInfo.value?.def?.fields ?? [],
+);
+
+const markerAttrsJson = computed(() => {
+  const m = selMarker.value;
+  if (!m?.attrs) return "";
+  return JSON.stringify(m.attrs, null, 2);
+});
+
+function markerFieldValue(f: PluginFieldDef): unknown {
+  const m = selMarker.value;
+  const v = m?.attrs?.[f.key];
+  return v === undefined ? defaultForField(f) : v;
+}
+
+function setMarkerField(f: PluginFieldDef, v: unknown): void {
+  const m = selMarker.value;
+  if (!m) return;
+  updateMarkerAttrs(m.id, { [f.key]: v });
+}
+
+function fieldLabel(f: PluginFieldDef): string {
+  return localeText(f.label) || f.key;
+}
+
+function enumOptionLabel(o: {
+  value: string | number | boolean;
+  label: string | Record<string, string>;
+}): string {
+  return localeText(o.label);
+}
+
+function onNumberField(f: PluginFieldDef, v: number | undefined): void {
+  setMarkerField(f, v ?? 0);
+}
+function onTextField(f: PluginFieldDef, v: string): void {
+  setMarkerField(f, v);
+}
+function onBoolField(f: PluginFieldDef, v: boolean): void {
+  setMarkerField(f, v === true);
+}
+function onEnumField(f: PluginFieldDef, v: unknown): void {
+  setMarkerField(f, v);
+}
+
 function onCardKey(e: KeyboardEvent): void {
   if ((e.target as HTMLElement)?.tagName === "INPUT") return;
   if (e.key === "Escape") {
@@ -1268,6 +1345,66 @@ const summary = computed(() => {
           </div>
           <div class="pc-sub num">{{ t("prop.loopHint") }}</div>
         </template>
+
+        <div v-if="typedMarkerInfo" class="pc-attrs">
+          <div class="pc-attrs-title">
+            {{ typedMarkerInfo.pointLabel }}
+            <span v-if="typedMarkerInfo.missing" class="pc-missing-tag">
+              {{ t("prop.attrsMissingTag") }}
+            </span>
+          </div>
+
+          <div v-if="typedMarkerInfo.missing" class="pc-missing">
+            <span>
+              {{ t("prop.attrsMissing", { plugin: typedMarkerInfo.plugin }) }}
+            </span>
+            <pre class="pc-raw num">{{ markerAttrsJson }}</pre>
+          </div>
+
+          <template v-else>
+            <label v-for="f in typedFields" :key="f.key" class="pc-field">
+              <span>{{ fieldLabel(f) }}</span>
+
+              <el-input-number
+                v-if="f.type === 'number'"
+                :model-value="Number(markerFieldValue(f) ?? 0)"
+                :min="f.min"
+                :max="f.max"
+                :step="f.step ?? 1"
+                size="small"
+                controls-position="right"
+                class="num"
+                @change="(v: number | undefined) => onNumberField(f, v)"
+              />
+              <el-input
+                v-else-if="f.type === 'string'"
+                :model-value="String(markerFieldValue(f) ?? '')"
+                size="small"
+                @change="(v: string) => onTextField(f, v)"
+              />
+              <el-switch
+                v-else-if="f.type === 'bool'"
+                :model-value="markerFieldValue(f) === true"
+                size="small"
+                @change="(v: string | number | boolean) => onBoolField(f, v === true)"
+              />
+              <el-select
+                v-else-if="f.type === 'enum'"
+                :model-value="markerFieldValue(f)"
+                size="small"
+                class="pc-enum"
+                @change="(v: unknown) => onEnumField(f, v)"
+              >
+                <el-option
+                  v-for="opt in f.options ?? []"
+                  :key="String(opt.value)"
+                  :value="opt.value"
+                  :label="enumOptionLabel(opt)"
+                />
+              </el-select>
+            </label>
+          </template>
+        </div>
       </template>
 
       <template v-else-if="selBpm">
@@ -1495,17 +1632,62 @@ const summary = computed(() => {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-top: 1px solid var(--bdg-border);
-  padding-top: 8px;
-}
-.pc-field-label {
-  font-size: 11px;
-  color: var(--bdg-text-dim);
 }
 .pc-loop-fields {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
+}
+.pc-attrs {
+  border-top: 1px solid var(--bdg-border);
+  padding-top: 8px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.pc-attrs-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bdg-text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pc-missing-tag {
+  font-size: 9px;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.14);
+  padding: 1px 6px;
+  border-radius: 4px;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+.pc-missing {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--bdg-text-dim);
+  font-size: 11px;
+}
+.pc-raw {
+  margin: 0;
+  padding: 6px;
+  background: rgba(148, 163, 184, 0.06);
+  border: 1px solid var(--bdg-border);
+  border-radius: 6px;
+  max-height: 120px;
+  overflow: auto;
+  font-size: 10px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--bdg-text);
+}
+.pc-enum {
+  width: 100%;
 }
 .pc-stepper {
   display: flex;

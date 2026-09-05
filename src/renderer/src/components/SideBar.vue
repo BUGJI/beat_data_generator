@@ -5,6 +5,7 @@ import {
   store,
   markersInTrack,
   addTrack,
+  addTypedTrack,
   removeTrack,
   renameTrack,
   moveTrack,
@@ -19,6 +20,11 @@ import {
 import { view, lanesTotalH } from "../editorView";
 import { RULER_H, BPM_LANE_H, MARKER_LANE_H } from "../metrics";
 import type { MarkerTrack } from "../types";
+import {
+  trackTypes as typedTrackTypes,
+  typeKeyOf,
+  localeText,
+} from "../plugins/registry";
 
 const { t } = useI18n();
 
@@ -39,6 +45,26 @@ const markerRows = computed<Array<{ i: number; track: MarkerTrack }>>(() => {
   }
   return out;
 });
+
+const addTrackTypes = computed(() => [
+  { key: "", label: t("sidebar.addBeatTrack") },
+  ...typedTrackTypes.map((tt) => ({
+    key: typeKeyOf(tt.pluginId, tt.def.id),
+    label: localeText(tt.def.trackName) || tt.def.id,
+  })),
+]);
+
+const addMenuOpen = ref(false);
+
+function toggleAddMenu(): void {
+  addMenuOpen.value = !addMenuOpen.value;
+}
+
+function onPickAdd(key: string): void {
+  addMenuOpen.value = false;
+  if (key) addTypedTrack(key);
+  else addTrack();
+}
 
 const isBpmRowVisible = computed(() => {
   const y = view.y;
@@ -64,8 +90,24 @@ const renameBusy = ref<string | null>(null);
     <div class="corner" :style="{ height: RULER_H + 'px' }">
       <div class="corner-row">
         <span class="corner-text">{{ t("sidebar.tracks") }}</span>
-        <button class="add-btn" :title="addBtnText" @click="addTrack()">
+        <button
+          class="add-btn"
+          :class="{ on: addMenuOpen }"
+          :title="addBtnText"
+          @click="toggleAddMenu"
+        >
           ＋
+        </button>
+      </div>
+      <div v-if="addMenuOpen" class="add-menu">
+        <button
+          v-for="item in addTrackTypes"
+          :key="item.key"
+          class="add-item"
+          :class="{ head: item.key === '' }"
+          @click="onPickAdd(item.key)"
+        >
+          {{ item.label }}
         </button>
       </div>
     </div>
@@ -208,6 +250,7 @@ const renameBusy = ref<string | null>(null);
   overflow: hidden;
 }
 .corner {
+  position: relative;
   flex: none;
   display: flex;
   flex-direction: column;
@@ -244,6 +287,50 @@ const renameBusy = ref<string | null>(null);
 }
 .add-btn:hover {
   background: rgba(56, 189, 248, 0.3);
+}
+.add-btn.on {
+  background: rgba(56, 189, 248, 0.34);
+}
+.add-menu {
+  position: absolute;
+  top: calc(100% - 6px);
+  left: 8px;
+  right: 8px;
+  z-index: 30;
+  background: #1a1f28;
+  border: 1px solid var(--bdg-border-strong);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  max-height: 260px;
+  overflow: auto;
+}
+.add-item {
+  text-align: left;
+  border: none;
+  background: transparent;
+  color: var(--bdg-text);
+  font-size: 12px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.add-item:hover {
+  background: rgba(56, 189, 248, 0.16);
+  color: var(--bdg-accent);
+}
+.add-item.head {
+  font-weight: 700;
+  color: var(--bdg-text);
+}
+.add-item:not(.head) + .add-item:not(.head) {
+  border-top: none;
 }
 .color-pick {
   width: 20px;

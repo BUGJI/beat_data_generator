@@ -10,6 +10,8 @@ export interface Marker {
   beat: number;
   loop?: LoopConfig | null;
   parentId?: string;
+  /** plugin-defined attributes when this marker lives on a typed track. */
+  attrs?: Record<string, unknown>;
 }
 
 export interface MarkerTrack {
@@ -18,6 +20,11 @@ export interface MarkerTrack {
   color: string;
   locked?: boolean;
   hidden?: boolean;
+  /**
+   * Track kind. Absent or "beat" is the built-in beat-marker track;
+   * otherwise it is a plugin-typed track key ("<pluginId>:<localId>").
+   */
+  type?: string;
 }
 
 export type BpmMode = "abs" | "mult";

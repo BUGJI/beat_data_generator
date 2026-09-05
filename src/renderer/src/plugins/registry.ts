@@ -257,3 +257,141 @@ export function panelOf(pluginId: string, uid: number): RegisteredPanel | null {
     panels.find((p) => p.pluginId === pluginId && p.uid === uid) ?? null
   );
 }
+
+// ---------------------------------------------------------------------------
+// Typed track types
+// ---------------------------------------------------------------------------
+
+export type FieldValue = number | string | boolean;
+export type PluginFieldType = "number" | "string" | "bool" | "enum";
+
+export interface PluginFieldOption {
+  value: FieldValue;
+  label: LocaText;
+}
+
+export interface PluginFieldDef {
+  key: string;
+  label: LocaText;
+  type: PluginFieldType;
+  default?: FieldValue;
+  min?: number;
+  max?: number;
+  step?: number;
+  options?: PluginFieldOption[];
+}
+
+export interface TrackTypeDef {
+  /** local id, unique within the plugin. */
+  id: string;
+  /** display name used when creating a new track of this type. */
+  trackName: LocaText;
+  /** display name of the points placed on such tracks. */
+  pointName: LocaText;
+  color?: string;
+  fields: PluginFieldDef[];
+}
+
+export interface RegisteredTrackType {
+  pluginId: string;
+  uid: number;
+  def: TrackTypeDef;
+}
+
+export const trackTypes = reactive<RegisteredTrackType[]>([]);
+
+export function typeKeyOf(pluginId: string, localId: string): string {
+  return `${pluginId}:${localId}`;
+}
+
+export function pluginIdOfType(key: string): string {
+  const i = key.indexOf(":");
+  return i > 0 ? key.slice(0, i) : key;
+}
+
+export function localIdOfType(key: string): string {
+  const i = key.indexOf(":");
+  return i >= 0 ? key.slice(i + 1) : key;
+}
+
+export function registerTrackType(
+  pluginId: string,
+  def: TrackTypeDef,
+): { ok: boolean; reason?: string } {
+  if (!pluginId || pluginId.includes(":")) {
+    return { ok: false, reason: "plugin id must not contain ':'" };
+  }
+  if (!def || typeof def.id !== "string" || !def.id || def.id.includes(":")) {
+    return { ok: false, reason: "track type id must be a non-empty string without ':'" };
+  }
+  const key = typeKeyOf(pluginId, def.id);
+  if (getTypedef(key)) {
+    return { ok: false, reason: `track type "${key}" already registered` };
+  }
+  const item: RegisteredTrackType = {
+    pluginId,
+    uid: nextUid(),
+    def: {
+      ...def,
+      fields: Array.isArray(def.fields)
+        ? def.fields.filter((f) => f && typeof f.key === "string")
+        : [],
+    },
+  };
+  trackTypes.push(item);
+  return { ok: true };
+}
+
+export function getTypedef(key: string): TrackTypeDef | null {
+  const t = trackTypes.find(
+    (x) => typeKeyOf(x.pluginId, x.def.id) === key,
+  );
+  return t ? t.def : null;
+}
+
+export function hasTypedef(key: string): boolean {
+  return getTypedef(key) !== null;
+}
+
+export function defaultForField(f: PluginFieldDef): FieldValue | undefined {
+  if (f.type === "number") {
+    return typeof f.default === "number" && Number.isFinite(f.default)
+      ? f.default
+      : 0;
+  }
+  if (f.type === "string") {
+    return typeof f.default === "string" ? f.default : "";
+  }
+  if (f.type === "bool") {
+    return f.default === true;
+  }
+  if (f.type === "enum") {
+    const opts = f.options ?? [];
+    if (typeof f.default !== "undefined") {
+      const hit = opts.find(
+        (o) => o && (o.value as FieldValue) === f.default,
+      );
+      if (hit) return f.default;
+    }
+    return opts[0]?.value ?? "";
+  }
+  return undefined;
+}
+
+export function defaultAttrsFor(key: string): Record<string, unknown> {
+  const def = getTypedef(key);
+  if (!def) return {};
+  const out: Record<string, unknown> = {};
+  for (const f of def.fields) {
+    if (!f || !f.key) continue;
+    out[f.key] = defaultForField(f);
+  }
+  return out;
+}
+
+/** Unregister every track type contributed by a plugin. */
+export function dropPluginTrackTypes(pluginId: string): void {
+  for (let i = trackTypes.length - 1; i >= 0; i--) {
+    if (trackTypes[i]?.pluginId === pluginId) trackTypes.splice(i, 1);
+  }
+}

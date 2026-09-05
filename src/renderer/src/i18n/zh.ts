@@ -78,6 +78,7 @@ export default {
     bpmTrack: "BPM 轨",
     bpmTrackHint: "拖放 BPM 点调整其后拍轴",
     addTrack: "新增踩点轨",
+    addBeatTrack: "踩点轨（节拍）",
     trackName: "轨道名…",
     changeColor: "换颜色",
     lockTip: "锁定该轨（禁止编辑内容）",
@@ -217,6 +218,9 @@ export default {
     loopInterval: "间隔（拍）",
     loopCount: "个数",
     loopHint: "主点后按间隔生成子点；子点计入踩点与导出",
+    attrsMissingTag: "缺插件",
+    attrsMissing:
+      "此类点需要安装插件 {plugin} 后才能编辑属性；原始数据已原样保留。",
     delete: "删除",
   },
 } as const;
