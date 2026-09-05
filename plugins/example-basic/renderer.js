@@ -156,6 +156,93 @@ window.__bdgPluginRegister(function activate(api) {
     },
   });
 
+  var flipKey = api.id + ":flip";
+
+  api.ui.registerExporter({
+    label: { zh: "示例:翻转点 CSV", en: "Sample: flip points CSV" },
+    run: function () {
+      var s = api.project.snapshot();
+      var lines = ["beat,timeMs,direction,power,hold"];
+      for (var i = 0; i < s.markers.length; i++) {
+        var m = s.markers[i];
+        var track = null;
+        for (var j = 0; j < s.tracks.length; j++) {
+          if (s.tracks[j].id === m.trackId) track = s.tracks[j];
+        }
+        if (!track || track.type !== flipKey || !m.attrs) continue;
+        lines.push(
+          m.beat +
+            "," +
+            m.timeMs.toFixed(3) +
+            "," +
+            m.attrs.direction +
+            "," +
+            (m.attrs.power !== undefined ? m.attrs.power : "") +
+            "," +
+            (m.attrs.hold ? 1 : 0),
+        );
+      }
+      if (lines.length === 1) {
+        api.log("exporter: no flip points to export");
+        return;
+      }
+      api.system
+        .saveFile({
+          title: "Export flip CSV",
+          defaultPath: "flip.csv",
+          filters: [{ name: "CSV", extensions: ["csv"] }],
+        })
+        .then(function (res) {
+          if (res.canceled || !res.filePath) return;
+          return api.system.writeText(res.filePath, lines.join("\n"));
+        })
+        .then(function (ok) {
+          api.log("exporter:", ok ? "saved" : "write failed");
+        });
+    },
+  });
+
+  api.ui.registerImporter({
+    label: { zh: "示例:导入翻转 CSV", en: "Sample: import flip CSV" },
+    run: function () {
+      api.system
+        .pickFile({
+          title: "Open flip CSV",
+          filters: [
+            { name: "CSV", extensions: ["csv", "txt"] },
+            { name: "All files", extensions: ["*"] },
+          ],
+        })
+        .then(function (path) {
+          if (!path) return;
+          return api.system.readText(path);
+        })
+        .then(function (res) {
+          if (!res || res.canceled || res.content === undefined) return;
+          var rows = res.content.split(/\r?\n/);
+          var trackId = null;
+          api.project.edit.batch(function () {
+            trackId = api.project.edit.addTypedTrack(flipKey);
+            for (var i = 0; i < rows.length; i++) {
+              var line = rows[i].trim();
+              if (!line || line.charAt(0) === "#") continue;
+              if (line.indexOf("beat") === 0) continue;
+              var cols = line.split(",");
+              var beat = parseFloat(cols[0]);
+              if (!isFinite(beat) || beat < 0) continue;
+              if (trackId) {
+                api.project.edit.addMarker({
+                  trackId: trackId,
+                  beat: beat,
+                });
+              }
+            }
+          });
+          api.log("importer: done, track =", trackId);
+        });
+    },
+  });
+
   api.log("contributions registered");
 
   return function dispose() {

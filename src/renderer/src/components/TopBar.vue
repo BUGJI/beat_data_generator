@@ -19,10 +19,13 @@ import {
   Setting,
   CaretBottom,
   Grid,
+  Upload,
 } from "@element-plus/icons-vue";
 import {
   actions as pluginActions,
   panels as pluginPanels,
+  importers as pluginImporters,
+  exporters as pluginExporters,
   localeText,
   openPanel,
   closePanel,
@@ -95,17 +98,22 @@ const pluginMenu = computed<PluginMenuGroup[]>(() => {
   return [...groups.values()];
 });
 
+function runPluginDef(
+  run: () => void | Promise<void>,
+  labelForErr?: string,
+): void {
+  try {
+    const r = run();
+    if (r && typeof (r as Promise<void>).then === "function") void r;
+  } catch (err) {
+    console.error(`[plugins] ${labelForErr ?? "contribution"} failed`, err);
+  }
+}
+
 function onPluginItem(item: PluginMenuChild): void {
   if (item.kind === "action") {
     const a = pluginActions.find((x) => x.uid === item.uid);
-    if (a) {
-      try {
-        const r = a.def.run();
-        if (r && typeof (r as Promise<void>).then === "function") void r;
-      } catch (err) {
-        console.error("[plugins] action failed", err);
-      }
-    }
+    if (a) runPluginDef(a.def.run);
     return;
   }
   const p = pluginPanels.find((x) => x.uid === item.uid);
@@ -155,6 +163,18 @@ function onCmd(cmd: string): void {
     const idx = Number(cmd.slice("recent-".length));
     const item = recents.value[idx];
     if (item) void openProject(item.path);
+    return;
+  }
+  if (cmd.startsWith("exp-")) {
+    const uid = Number(cmd.slice("exp-".length));
+    const e = pluginExporters.find((x) => x.uid === uid);
+    if (e) runPluginDef(e.def.run);
+    return;
+  }
+  if (cmd.startsWith("imp-")) {
+    const uid = Number(cmd.slice("imp-".length));
+    const im = pluginImporters.find((x) => x.uid === uid);
+    if (im) runPluginDef(im.def.run);
     return;
   }
   switch (cmd) {
@@ -242,6 +262,19 @@ onMounted(() => {
           <el-dropdown-item command="save-as">
             <el-icon><CopyDocument /></el-icon>{{ t("menu.saveProjectAs") }}
           </el-dropdown-item>
+          <template v-if="pluginImporters.length">
+            <el-dropdown-item disabled class="plug-head" divided>
+              {{ t("menu.import") }}
+            </el-dropdown-item>
+            <el-dropdown-item
+              v-for="im in pluginImporters"
+              :key="`imp-${im.uid}`"
+              :command="`imp-${im.uid}`"
+            >
+              <el-icon><Upload /></el-icon>
+              <span class="plug-label">{{ localeText(im.def.label) }}</span>
+            </el-dropdown-item>
+          </template>
         </el-dropdown-menu>
       </template>
     </el-dropdown>
@@ -331,6 +364,19 @@ onMounted(() => {
           <el-dropdown-item command="export-edl">
             <el-icon><Collection /></el-icon>{{ t("menu.exportEdl") }}
           </el-dropdown-item>
+          <template v-if="pluginExporters.length">
+            <el-dropdown-item disabled class="plug-head" divided>
+              {{ t("menu.pluginExports") }}
+            </el-dropdown-item>
+            <el-dropdown-item
+              v-for="ex in pluginExporters"
+              :key="`exp-${ex.uid}`"
+              :command="`exp-${ex.uid}`"
+            >
+              <el-icon><Download /></el-icon>
+              <span class="plug-label">{{ localeText(ex.def.label) }}</span>
+            </el-dropdown-item>
+          </template>
         </el-dropdown-menu>
       </template>
     </el-dropdown>

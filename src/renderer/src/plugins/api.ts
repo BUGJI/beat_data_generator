@@ -177,6 +177,16 @@ export interface PluginApi {
       combo: string;
       run: () => void | Promise<void>;
     }) => () => void;
+    /** File > Import entries; the plugin reads a file and edits the project. */
+    registerImporter: (def: {
+      label: string | Record<string, string>;
+      run: () => void | Promise<void>;
+    }) => () => void;
+    /** Export menu entries; the plugin serializes the project to a file. */
+    registerExporter: (def: {
+      label: string | Record<string, string>;
+      run: () => void | Promise<void>;
+    }) => () => void;
     openPanel: (uid: number) => void;
     closePanel: (uid: number) => void;
   };

@@ -13,6 +13,18 @@ export interface PluginActionDef {
   run: () => void | Promise<void>;
 }
 
+/** Registers a "file -> project" conversion (listed under File > Import). */
+export interface PluginImporterDef {
+  label: LocaText;
+  run: () => void | Promise<void>;
+}
+
+/** Registers a "project -> file" conversion (listed under Export). */
+export interface PluginExporterDef {
+  label: LocaText;
+  run: () => void | Promise<void>;
+}
+
 export interface PluginPanelDef {
   id: string;
   title: LocaText;
@@ -36,6 +48,8 @@ interface Entry<T> {
 export interface RegisteredAction extends Entry<PluginActionDef> {}
 export interface RegisteredPanel extends Entry<PluginPanelDef> {}
 export interface RegisteredShortcut extends Entry<PluginShortcutDef> {}
+export interface RegisteredImporter extends Entry<PluginImporterDef> {}
+export interface RegisteredExporter extends Entry<PluginExporterDef> {}
 
 export interface OpenPanelRef {
   pluginId: string;
@@ -48,6 +62,8 @@ const nextUid = (): number => ++uidCounter;
 export const actions = reactive<RegisteredAction[]>([]);
 export const panels = reactive<RegisteredPanel[]>([]);
 export const shortcuts = reactive<RegisteredShortcut[]>([]);
+export const importers = reactive<RegisteredImporter[]>([]);
+export const exporters = reactive<RegisteredExporter[]>([]);
 export const openPanels = reactive<OpenPanelRef[]>([]);
 
 export function localeText(v: LocaText | undefined): string {
@@ -140,6 +156,30 @@ function registerShortcut(
   };
 }
 
+function registerImporter(
+  pluginId: string,
+  def: PluginImporterDef,
+): () => void {
+  const item: RegisteredImporter = { pluginId, uid: nextUid(), def };
+  importers.push(item);
+  return () => {
+    const i = importers.indexOf(item);
+    if (i >= 0) importers.splice(i, 1);
+  };
+}
+
+function registerExporter(
+  pluginId: string,
+  def: PluginExporterDef,
+): () => void {
+  const item: RegisteredExporter = { pluginId, uid: nextUid(), def };
+  exporters.push(item);
+  return () => {
+    const i = exporters.indexOf(item);
+    if (i >= 0) exporters.splice(i, 1);
+  };
+}
+
 // ---- shortcut matching ----
 
 interface ComboParts {
@@ -210,6 +250,8 @@ export type UiContributions = {
   registerAction: (def: PluginActionDef) => () => void;
   registerPanel: (def: PluginPanelDef) => PanelHandle;
   registerShortcut: (def: PluginShortcutDef) => () => void;
+  registerImporter: (def: PluginImporterDef) => () => void;
+  registerExporter: (def: PluginExporterDef) => () => void;
   openPanel: (uid: number) => void;
   closePanel: (uid: number) => void;
 };
@@ -232,6 +274,16 @@ export function uiHandleFor(pluginId: string): UiContributions & {
     },
     registerShortcut: (def) => {
       const d = registerShortcut(pluginId, def);
+      disposers.push(d);
+      return d;
+    },
+    registerImporter: (def) => {
+      const d = registerImporter(pluginId, def);
+      disposers.push(d);
+      return d;
+    },
+    registerExporter: (def) => {
+      const d = registerExporter(pluginId, def);
       disposers.push(d);
       return d;
     },

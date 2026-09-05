@@ -31,6 +31,8 @@ export default {
     select: "选择",
     selectAll: "全选踩点",
     plugins: "插件",
+    import: "导入…",
+    pluginExports: "插件导出",
     exportMenu: "导出",
     view: "视图",
     zoomIn: "放大",

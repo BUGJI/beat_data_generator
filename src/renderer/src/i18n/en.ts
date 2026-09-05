@@ -34,6 +34,8 @@ export default {
     select: "Select",
     selectAll: "Select all markers",
     plugins: "Plugins",
+    import: "Import…",
+    pluginExports: "Plugin exports",
     exportMenu: "Export",
     view: "View",
     zoomIn: "Zoom In",
