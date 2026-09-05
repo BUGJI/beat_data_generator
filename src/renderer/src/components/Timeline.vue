@@ -12,6 +12,7 @@ import {
   removeMarker,
   removeBpmPoint,
   effectiveBpmFor,
+  disableFollowOnScrub,
   beatOfTime,
   timeOfBeat,
   contentEndMs,
@@ -623,12 +624,14 @@ function onPointerDown(e: PointerEvent): void {
 
   if (y < RULER_H) {
     mode = "scrub";
+    if (store.ui.playing) disableFollowOnScrub();
     return;
   }
   const lane0 = laneKindAt(y);
   if (lane0.kind === "marker" && lane0.index >= store.project.tracks.length) {
     // blank area without a track -> drag the red playhead (scrub)
     mode = "scrub";
+    if (store.ui.playing) disableFollowOnScrub();
     return;
   }
   const bpmHit = hitBpmAt(x, y);

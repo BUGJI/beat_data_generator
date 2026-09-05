@@ -26,9 +26,66 @@ let settings: SettingsData = {
   followScroll: true,
   followPercent: 90,
   followPreset: false,
+  rememberWindow: true,
 };
 const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
+const windowStatePath = (): string =>
+  join(app.getPath("userData"), "window-state.json");
+
+interface WindowState {
+  x?: number;
+  y?: number;
+  width: number;
+  height: number;
+  maximized: boolean;
+}
+
+function loadWindowState(): WindowState | null {
+  if (!settings.rememberWindow) return null;
+  try {
+    const raw = JSON.parse(
+      readFileSync(windowStatePath(), "utf-8"),
+    ) as Partial<WindowState>;
+    const width = Number(raw.width);
+    const height = Number(raw.height);
+    if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+    return {
+      x: Number.isFinite(Number(raw.x)) ? Number(raw.x) : undefined,
+      y: Number.isFinite(Number(raw.y)) ? Number(raw.y) : undefined,
+      width,
+      height,
+      maximized: raw.maximized === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function saveWindowState(): void {
+  const w = mainWindow;
+  if (!w || w.isDestroyed() || !settings.rememberWindow) return;
+  const bounds = w.getNormalBounds();
+  try {
+    writeFileSync(
+      windowStatePath(),
+      JSON.stringify(
+        {
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+          maximized: w.isMaximized(),
+        },
+        null,
+        2,
+      ),
+      "utf-8",
+    );
+  } catch (err) {
+    console.error("persist window state failed", err);
+  }
+}
 
 function sanitize(raw: Partial<SettingsData>): SettingsData {
   return {
@@ -43,6 +100,7 @@ function sanitize(raw: Partial<SettingsData>): SettingsData {
       Math.max(0, Math.round(raw.followPercent ?? 90)),
     ),
     followPreset: raw.followPreset === true,
+    rememberWindow: raw.rememberWindow !== false,
   };
 }
 
@@ -215,9 +273,12 @@ function registerIpc(): void {
 }
 
 function createWindow(): void {
+  const state = loadWindowState();
   mainWindow = new BrowserWindow({
-    width: 1360,
-    height: 860,
+    x: state?.x,
+    y: state?.y,
+    width: state?.width ?? 1360,
+    height: state?.height ?? 860,
     minWidth: 1024,
     minHeight: 660,
     show: false,
@@ -231,9 +292,13 @@ function createWindow(): void {
     },
   });
 
-  mainWindow.on("ready-to-show", () => mainWindow?.show());
+  mainWindow.on("ready-to-show", () => {
+    mainWindow?.show();
+    if (state?.maximized) mainWindow?.maximize();
+  });
 
   mainWindow.on("close", (e) => {
+    if (mainWindow && allowQuit) saveWindowState();
     if (allowQuit || !mainWindow) return;
     e.preventDefault();
     requestQuit(mainWindow);

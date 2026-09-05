@@ -24,6 +24,7 @@ export interface SettingsData {
   followScroll: boolean;
   followPercent: number;
   followPreset: boolean;
+  rememberWindow: boolean;
 }
 
 export interface IpcApi {

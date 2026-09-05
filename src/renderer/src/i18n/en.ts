@@ -117,6 +117,8 @@ export default {
       autoFollowDesc: "Scroll the timeline to follow the playhead",
       followPercent: "Auto-scroll trigger position",
       followPercentDesc: "Follow once the playhead passes this % from the left of the viewport",
+      rememberWindow: "Remember window size & position",
+      rememberWindowDesc: "Restore the last window size and maximized state on launch",
       modeMinimize: "Minimize",
       modeClose: "Close",
     },

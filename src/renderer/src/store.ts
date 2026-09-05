@@ -89,7 +89,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     pitchFollow: true,
     buffering: false,
     settingsOpen: false,
-    settings: { closeMode: "ask", devEnabled: false, followScroll: true, followPercent: 90, followPreset: false },
+    settings: { closeMode: "ask", devEnabled: false, followScroll: true, followPercent: 90, followPreset: false, rememberWindow: true },
     followManual: false,
     followActive: false,
     followLocked: false,
@@ -454,6 +454,13 @@ export function stop(): void {
   store.ui.positionMs = 0;
   store.ui.followActive = false;
   store.ui.followLocked = false;
+}
+
+export function disableFollowOnScrub(): void {
+  if (store.ui.playing) {
+    store.ui.followActive = false;
+    store.ui.followLocked = true;
+  }
 }
 
 export function clickFollow(): void {

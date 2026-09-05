@@ -42,6 +42,12 @@ const followPercent = computed({
     void patchSettings({ followPercent: v });
   },
 });
+const rememberWindow = computed({
+  get: () => store.ui.settings.rememberWindow,
+  set: (v: boolean) => {
+    void patchSettings({ rememberWindow: v });
+  },
+});
 
 const shortcutRows = computed(() => [
   { label: t("settings.shortcuts.playPause"), keys: ["Space"] },
@@ -137,6 +143,14 @@ function catLabel(key: string): string {
                   <el-slider v-model="followPercent" :min="0" :max="100" class="pct-slider" />
                   <span class="num pct-value">{{ followPercent }}%</span>
                 </div>
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{ t("settings.general.rememberWindow") }}</span>
+                  <span class="field-desc">{{ t("settings.general.rememberWindowDesc") }}</span>
+                </div>
+                <el-switch v-model="rememberWindow" size="small" />
               </div>
             </section>
 

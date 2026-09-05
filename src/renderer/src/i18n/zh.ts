@@ -119,6 +119,8 @@ export default {
       autoFollowDesc: "跟随播放头滚动时间线",
       followPercent: "自动滚动触发位置",
       followPercentDesc: "播放头越过视口左起该百分比时才滚动跟随",
+      rememberWindow: "记住窗口大小与位置",
+      rememberWindowDesc: "保留上次窗口尺寸与最大化状态，重启时恢复",
       modeMinimize: "最小化",
       modeClose: "直接关闭",
     },
