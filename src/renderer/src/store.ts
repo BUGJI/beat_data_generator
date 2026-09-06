@@ -1011,32 +1011,32 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
-let zoomAnchorMs: number | null = null;
+let zoomAnchorSec: number | null = null;
 let zoomAnchorX = 0;
 
 function keepZoomAnchor(): void {
-  if (zoomAnchorMs === null) return;
+  if (zoomAnchorSec === null) return;
   const pps = store.ui.pxPerSec;
-  const nx = zoomAnchorMs * pps - zoomAnchorX;
+  const nx = zoomAnchorSec * pps - zoomAnchorX;
   const end = contentEndMs();
   const cw = Math.max((end / 1000) * pps + 400, view.vw);
   const mx = Math.max(0, cw - view.vw);
   view.x = Math.min(mx, Math.max(0, nx));
 }
 
-function animateZoomTo(target: number, anchorMs: number | null): void {
+function animateZoomTo(target: number, anchorSec: number | null): void {
   stopZoom();
   const from = store.ui.pxPerSec;
-  if (anchorMs !== null) {
-    zoomAnchorMs = anchorMs;
-    zoomAnchorX = anchorMs * from - view.x;
+  if (anchorSec !== null) {
+    zoomAnchorSec = anchorSec;
+    zoomAnchorX = anchorSec * from - view.x;
   } else {
-    zoomAnchorMs = null;
+    zoomAnchorSec = null;
   }
   if (!store.ui.settings.animEnabled || Math.abs(target - from) < 0.001) {
     store.ui.pxPerSec = target;
     keepZoomAnchor();
-    zoomAnchorMs = null;
+    zoomAnchorSec = null;
     return;
   }
   zoom0 = from;
@@ -1051,14 +1051,21 @@ function animateZoomTo(target: number, anchorMs: number | null): void {
     } else {
       store.ui.pxPerSec = zoom1;
       keepZoomAnchor();
-      zoomAnchorMs = null;
+      zoomAnchorSec = null;
     }
   };
   zoomRaf = requestAnimationFrame(step);
 }
 
 export function zoomBy(factor: number): void {
-  animateZoomTo(clampZoom(store.ui.pxPerSec * factor), store.ui.positionMs);
+  const pps = store.ui.pxPerSec;
+  const posSec = store.ui.positionMs / 1000;
+  const ppx = posSec * pps - view.x;
+  // anchor to the playhead when it is on screen; otherwise keep the visible
+  // left edge stable so zooming never teleports the view to the start.
+  const anchorSec =
+    ppx >= 0 && ppx <= view.vw ? posSec : view.x / pps;
+  animateZoomTo(clampZoom(pps * factor), anchorSec);
 }
 
 export function contentEndMs(): number {
