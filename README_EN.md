@@ -1,15 +1,17 @@
 # Beat Data Generator
 
+> Author: **BUGJI** · License: **GNU GPL v3**
+
 A music beat-marker editor built with **Electron + Vue 3 + TypeScript + Element Plus**. Align a beat grid over an audio waveform, place beat markers and BPM change points, and generate beat data for rhythm-based applications.
 
 ## Features
 
 - **Audio import**: mp3 / wav / ogg / flac / m4a / aac / opus, with real-time waveform rendering.
 - **Beat grid**: dual ruler (time + beat). Snapping from 1 to 1/32 beat subdivisions.
-- **BPM lane**: place tempo points (absolute BPM or multiplier) to build a variable-speed tempo map; BPM can be locked.
+- **BPM lane**: add BPM points (absolute BPM or multiplier modes) to build a tempo map; supports locking the BPM lane.
 - **Multiple marker tracks**: add / rename / recolor / lock / hide tracks. Markers on hidden tracks are excluded from the playback indicator and exports.
 - **Marker editing**: click to add, drag to fine-tune, right-click to delete; nudge by snap step, multi-select (Ctrl/Cmd+click), select all.
-- **Loop groups**: a main marker can generate child markers by `interval × count`, with optional exclusion.
+- **Loop groups**: a main marker can generate child markers by `interval × count`, with optional exclusion; capped at **256** children per group to keep the editor responsive.
 - **Variable-speed playback**: 0.1–4× rate; choose pitch-following playback or pitch-preserving time stretch via soundtouchjs.
 - **Auto-follow**: the timeline scrolls once the playhead passes a configurable threshold.
 - **Undo / redo**: up to 100 steps; copy / paste marker groups (including loops).
@@ -99,4 +101,4 @@ npm run typecheck
 
 ## License
 
-MIT License.
+This project is released under the **GNU GPL v3** license (see `LICENSE`). Author: **BUGJI**.

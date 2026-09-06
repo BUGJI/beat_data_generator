@@ -348,11 +348,11 @@ const snapDiv = computed({
         >
           <svg
             viewBox="0 0 24 24"
-            width="17"
-            height="17"
+            width="15"
+            height="15"
             fill="none"
             stroke="currentColor"
-            stroke-width="2.2"
+            stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
           >
@@ -366,11 +366,11 @@ const snapDiv = computed({
           :title="t('sidebar.snapToGrid')"
           @click="toggleSnap()"
         >
-          <svg viewBox="0 0 12 12" width="13" height="13" fill="currentColor">
-            <rect x="0" y="0" width="5.4" height="5.4" rx="0.8" />
-            <rect x="6.6" y="0" width="5.4" height="5.4" rx="0.8" />
-            <rect x="0" y="6.6" width="5.4" height="5.4" rx="0.8" />
-            <rect x="6.6" y="6.6" width="5.4" height="5.4" rx="0.8" />
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
+            <rect x="3" y="3" width="7.2" height="7.2" rx="1.2" />
+            <rect x="13.8" y="3" width="7.2" height="7.2" rx="1.2" />
+            <rect x="3" y="13.8" width="7.2" height="7.2" rx="1.2" />
+            <rect x="13.8" y="13.8" width="7.2" height="7.2" rx="1.2" />
           </svg>
         </button>
         <span class="quick-divider" />
@@ -386,7 +386,7 @@ const snapDiv = computed({
             height="15"
             fill="none"
             stroke="currentColor"
-            stroke-width="2.2"
+            stroke-width="2"
             stroke-linecap="round"
           >
             <path d="M4 7h11" />
@@ -570,8 +570,8 @@ const snapDiv = computed({
   flex: none;
 }
 .follow-btn {
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 8px;
   border: 1px solid var(--bdg-border-strong);
   background: rgba(148, 163, 184, 0.08);
@@ -588,9 +588,9 @@ const snapDiv = computed({
 }
 .follow-btn.on {
   color: var(--bdg-accent);
-  border-color: var(--bdg-accent);
+  border-color: rgba(56, 189, 248, 0.45);
   background: rgba(56, 189, 248, 0.16);
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.35);
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
 }
 .quick-sub {
   font-size: 11px;

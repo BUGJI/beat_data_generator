@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "description": "Music beat-marker editor built with Electron + Vue3 + Element Plus",
   "main": "./out/main/index.js",
-  "author": "bugji",
+  "author": "BUGJI",
   "license": "GPL-3.0",
   "scripts": {
     "dev": "electron-vite dev",

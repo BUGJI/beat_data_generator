@@ -202,8 +202,10 @@ export default {
     },
     about: {
       version: "版本",
+      author: "作者",
       tech: "技术栈",
       license: "许可",
+      runtime: "运行时",
     },
   },
   keys: {

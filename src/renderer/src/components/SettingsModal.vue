@@ -15,6 +15,15 @@ import type { PluginEntry } from "../../../shared/plugin";
 import type { CloseMode } from "../../../shared/ipc";
 
 const { t, locale } = useI18n();
+const pv =
+  typeof process !== "undefined" && process.versions
+    ? process.versions
+    : null;
+const runtime = Object.freeze({
+  node: pv?.node ?? "--",
+  chrome: pv?.chrome ?? "--",
+  electron: pv?.electron ?? "--",
+});
 const cat = ref<
   "general" | "shortcuts" | "anim" | "plugins" | "dev" | "about"
 >("general");
@@ -447,11 +456,18 @@ function catLabel(key: string): string {
               </div>
               <dl class="about-meta">
                 <dt>{{ t("settings.about.version") }}</dt>
-                <dd>v0.2.0</dd>
+                <dd>v0.1.0</dd>
+                <dt>{{ t("settings.about.author") }}</dt>
+                <dd>BUGJI</dd>
                 <dt>{{ t("settings.about.tech") }}</dt>
                 <dd>Electron · Vue 3 · TypeScript · Element Plus</dd>
                 <dt>{{ t("settings.about.license") }}</dt>
-                <dd>MIT</dd>
+                <dd>GNU GPL v3</dd>
+                <dt>{{ t("settings.about.runtime") }}</dt>
+                <dd>
+                  Node.js {{ runtime.node }} · Chromium {{ runtime.chrome }} ·
+                  Electron {{ runtime.electron }}
+                </dd>
               </dl>
             </section>
           </main>

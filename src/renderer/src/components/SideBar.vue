@@ -21,6 +21,16 @@ import { view, lanesTotalH } from "../editorView";
 import { RULER_H, BPM_LANE_H, MARKER_LANE_H } from "../metrics";
 import type { MarkerTrack } from "../types";
 import {
+  Lock,
+  View,
+  Hide,
+  Timer,
+  Plus,
+  Top,
+  Bottom,
+  Close,
+} from "@element-plus/icons-vue";
+import {
   trackTypes as typedTrackTypes,
   typeKeyOf,
   localeText,
@@ -133,7 +143,7 @@ onBeforeUnmount(() => {
           :title="addBtnText"
           @click="toggleAddMenu"
         >
-          ＋
+          <el-icon><Plus /></el-icon>
         </button>
       </div>
       <div v-if="addMenuOpen" class="add-menu">
@@ -166,7 +176,7 @@ onBeforeUnmount(() => {
         <!-- BPM 专用轨头 -->
         <div v-if="isBpmRowVisible" class="head bpm-row">
           <span class="accent accent-bpm" />
-          <span class="h-icon bpm-ic">B</span>
+          <el-icon class="h-icon bpm-ic"><Timer /></el-icon>
           <span class="t-body">
             <span class="t-name">{{ t("sidebar.bpmTrack") }}</span>
             <span class="t-sub num">
@@ -181,7 +191,7 @@ onBeforeUnmount(() => {
             :title="t('sidebar.lockTip')"
             @click="setBpmLocked(!store.project.bpmLocked)"
           >
-            🔒
+            <el-icon><Lock /></el-icon>
           </button>
         </div>
 
@@ -236,7 +246,7 @@ onBeforeUnmount(() => {
               @pointerdown.stop
               @click.stop="setTrackLocked(row.track.id, !row.track.locked)"
             >
-              🔒
+              <el-icon><Lock /></el-icon>
             </button>
             <button
               class="mini icon"
@@ -245,7 +255,7 @@ onBeforeUnmount(() => {
               @pointerdown.stop
               @click.stop="setTrackHidden(row.track.id, !row.track.hidden)"
             >
-              {{ row.track.hidden ? "🙈" : "👁" }}
+              <el-icon><Hide v-if="row.track.hidden" /><View v-else /></el-icon>
             </button>
             <button
               class="mini"
@@ -253,7 +263,7 @@ onBeforeUnmount(() => {
               @pointerdown.stop
               @click.stop="moveTrack(row.track.id, -1)"
             >
-              ▲
+              <el-icon><Top /></el-icon>
             </button>
             <button
               class="mini"
@@ -261,7 +271,7 @@ onBeforeUnmount(() => {
               @pointerdown.stop
               @click.stop="moveTrack(row.track.id, 1)"
             >
-              ▼
+              <el-icon><Bottom /></el-icon>
             </button>
             <button
               class="mini danger"
@@ -269,7 +279,7 @@ onBeforeUnmount(() => {
               @pointerdown.stop
               @click.stop="removeTrack(row.track.id)"
             >
-              ✕
+              <el-icon><Close /></el-icon>
             </button>
           </span>
           <span
@@ -534,6 +544,9 @@ onBeforeUnmount(() => {
   cursor: pointer;
   padding: 0;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .mini.icon {
   font-size: 11px;

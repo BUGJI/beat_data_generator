@@ -5,6 +5,14 @@ declare global {
   interface Window {
     api: IpcApi;
   }
+
+  interface ProcessVersions {
+    node: string;
+    chrome: string;
+    electron: string;
+  }
+
+  const process: { versions: ProcessVersions };
 }
 
 declare module "*.vue" {

@@ -210,8 +210,10 @@ export default {
     },
     about: {
       version: "Version",
+      author: "Author",
       tech: "Stack",
       license: "License",
+      runtime: "Runtime",
     },
   },
   keys: {
