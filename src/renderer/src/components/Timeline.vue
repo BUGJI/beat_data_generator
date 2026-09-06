@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   store,
@@ -28,6 +28,7 @@ import {
   updateMarkerAttrs,
   historyGestureBegin,
   historyGestureEnd,
+  MAX_LOOP_CHILDREN,
 } from "../store";
 import { snapBeat, beatParts } from "../tempo";
 import {
@@ -92,6 +93,8 @@ let moved = false;
 let dragId: string | null = null;
 let dragTrackId: string | null = null;
 let dragGroupIds = new Set<string>();
+let grabStartBeat = 0;
+let mainStartBeat = 0;
 
 const hover = { x: -1, y: -1 };
 
@@ -678,6 +681,7 @@ function hitBpmAt(x: number, y: number): BpmPoint | null {
   return null;
 }
 
+const CARD_Y_OFFSET = 10;
 const cardPos = ref({ x: 0, y: 0 });
 const openCard = (x: number, y: number): void => {
   store.ui.cardOpen = true;
@@ -798,6 +802,10 @@ function onPointerDown(e: PointerEvent): void {
     dragId = main.id;
     dragTrackId = main.trackId;
     dragGroupIds = loopGroupIds(main.id);
+    // remember the clicked point (may be a child) and the main beat so the
+    // grabbed point stays under the mouse while the main translates by the same delta.
+    grabStartBeat = doSnap(mkHit.beat);
+    mainStartBeat = main.beat;
     selectSingleMarker(main.id);
     return;
   }
@@ -840,8 +848,14 @@ function onPointerMove(e: PointerEvent): void {
     if (!e.altKey && !bpmOccupy(raw)) updateBpmPoint(dragId, { beat: raw });
   } else if (mode === "dragMarker" && dragId && dragTrackId) {
     const raw = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
-    const ok = !e.altKey ? !markerOccupy(dragTrackId, raw, dragGroupIds) : true;
-    if (ok) moveMarker(dragId, raw, true);
+    // children are regenerated with fresh ids on every parent move, so refresh
+    // the exception set each frame or the parent gets blocked by its own children.
+    dragGroupIds = loopGroupIds(dragId);
+    // translate the whole group by the grabbed point's delta so the point under
+    // the cursor stays grabbed; the main moves by the same offset.
+    const mainBeat = mainStartBeat + (raw - grabStartBeat);
+    const ok = !e.altKey ? !markerOccupy(dragTrackId, mainBeat, dragGroupIds) : true;
+    if (ok) moveMarker(dragId, mainBeat, true);
   } else if (mode === "brushAdd" || mode === "brushErase") {
     brushStep(x, y);
   } else if ((mode === "placeBpm" || mode === "placeMarker") && lane) {
@@ -873,7 +887,7 @@ function onPointerUp(e: PointerEvent): void {
       if (pt)
         openCard(
           Math.min(x, rootEl.value!.clientWidth - 240),
-          Math.min(y, rootEl.value!.clientHeight - 180),
+          Math.min(y + CARD_Y_OFFSET, rootEl.value!.clientHeight - 180),
         );
     } else if (mode === "placeMarker") {
       const lane = laneKindAt(y);
@@ -886,12 +900,12 @@ function onPointerUp(e: PointerEvent): void {
     } else if (mode === "dragBpm") {
       openCard(
         Math.min(x, rootEl.value!.clientWidth - 240),
-        Math.min(y, rootEl.value!.clientHeight - 180),
+        Math.min(y + CARD_Y_OFFSET, rootEl.value!.clientHeight - 180),
       );
     } else if (mode === "dragMarker") {
       openCard(
         Math.min(x, rootEl.value!.clientWidth - 240),
-        Math.min(y, rootEl.value!.clientHeight - 180),
+        Math.min(y + CARD_Y_OFFSET, rootEl.value!.clientHeight - 180),
       );
     }
   }
@@ -903,6 +917,8 @@ function onPointerUp(e: PointerEvent): void {
   dragId = null;
   dragTrackId = null;
   dragGroupIds = new Set<string>();
+  grabStartBeat = 0;
+  mainStartBeat = 0;
   brushLastKey = "";
   activePointer = -1;
   ghostState.value = null;
@@ -917,6 +933,8 @@ function onPointerCancel(): void {
   dragId = null;
   dragTrackId = null;
   dragGroupIds = new Set<string>();
+  grabStartBeat = 0;
+  mainStartBeat = 0;
   brushLastKey = "";
   activePointer = -1;
   ghostState.value = null;
@@ -1110,18 +1128,24 @@ const loopInterval = computed({
 });
 const loopCount = computed({
   get: () => selMarker.value?.loop?.count ?? 4,
-  set: (v: number) => applyLoopPatch({ count: Math.max(1, Math.floor(v)) }),
+  set: (v: number) =>
+    applyLoopPatch({
+      count: Math.min(MAX_LOOP_CHILDREN, Math.max(1, Math.floor(v))),
+    }),
 });
 const LOOP_INT_MIN = 0.0625;
 const LOOP_INT_MAX = 256;
 
 const loopDraft = ref("");
+const loopFocus = ref(false);
 
 function loopDraftBegin(): void {
+  loopFocus.value = true;
   loopDraft.value = String(loopInterval.value);
 }
 
 function loopDraftCommit(): void {
+  loopFocus.value = false;
   const raw = loopDraft.value.trim();
   const v = Number(raw);
   if (raw === "" || !Number.isFinite(v)) {
@@ -1131,6 +1155,15 @@ function loopDraftCommit(): void {
   applyLoopPatch({ interval: clampLoopInterval(v) });
   loopDraft.value = String(loopInterval.value);
 }
+
+// keep the draft input in sync with the real interval (e.g. when another marker
+// becomes selected) unless the user is actively typing.
+watch(
+  () => [selMarker.value?.id, loopInterval.value],
+  () => {
+    if (!loopFocus.value) loopDraft.value = String(loopInterval.value);
+  },
+);
 
 function loopDraftCancel(): void {
   loopDraft.value = String(loopInterval.value);
@@ -1154,7 +1187,7 @@ function onLoopCountWheel(e: WheelEvent): void {
   e.preventDefault();
   e.stopPropagation();
   const next = loopCount.value + (e.deltaY < 0 ? 1 : -1);
-  const hi = freeInput.value ? Number.MAX_SAFE_INTEGER : 512;
+  const hi = MAX_LOOP_CHILDREN;
   if (next >= 1 && next <= hi) loopCount.value = next;
 }
 const bpmBeat = computed({
@@ -1439,7 +1472,7 @@ const summary = computed(() => {
         </div>
         <template v-if="loopOn">
           <div class="pc-loop-fields">
-            <label class="pc-field">
+            <div class="pc-field">
               <span>{{ t("prop.loopInterval") }}</span>
               <div class="pc-stepper num">
                 <button
@@ -1468,13 +1501,13 @@ const summary = computed(() => {
                   ＋
                 </button>
               </div>
-            </label>
+            </div>
             <label class="pc-field">
               <span>{{ t("prop.loopCount") }}</span>
               <el-input-number
                 v-model="loopCount"
                 :min="freeInput ? undefined : 1"
-                :max="freeInput ? undefined : 512"
+                :max="freeInput ? undefined : MAX_LOOP_CHILDREN"
                 :step="1"
                 size="small"
                 controls-position="right"
@@ -1579,7 +1612,7 @@ const summary = computed(() => {
             }}</el-radio-button>
           </el-radio-group>
         </div>
-        <label class="pc-field">
+        <div class="pc-field">
           <span>{{
             bpmMode === "mult" ? t("prop.multValue") : t("prop.absValue")
           }}</span>
@@ -1610,7 +1643,7 @@ const summary = computed(() => {
               ＋
             </button>
           </div>
-        </label>
+        </div>
         <div class="pc-sub num">
           {{ t("prop.effective") }}: {{ effBpm.toFixed(1) }} BPM
         </div>
@@ -1754,7 +1787,7 @@ const summary = computed(() => {
 .pc-field {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 6px;
   font-size: 11px;
   color: var(--bdg-text-dim);
 }
@@ -1843,9 +1876,12 @@ const summary = computed(() => {
   width: 100%;
 }
 .pc-step {
-  flex: none;
-  width: 24px;
-  height: 24px;
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  max-width: 22px;
+  box-sizing: border-box;
   border-radius: 5px;
   border: 1px solid var(--bdg-border-strong);
   background: rgba(148, 163, 184, 0.08);

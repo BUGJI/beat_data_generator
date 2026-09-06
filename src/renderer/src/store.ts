@@ -538,6 +538,10 @@ function addMarkerToStore(
   return marker;
 }
 
+/** Hard cap on batch-generated resources (loop children) to avoid freezing the
+ *  editor on a huge loop count. Enforced at the generator regardless of source. */
+export const MAX_LOOP_CHILDREN = 256;
+
 export function refreshChildren(parent: Marker): void {
   if (!parent.loop) {
     store.project.markers = store.project.markers.filter(
@@ -551,12 +555,13 @@ export function refreshChildren(parent: Marker): void {
   );
   const cfg = parent.loop;
   if (!(cfg.interval > 0) || cfg.count < 1) return;
+  const count = Math.min(cfg.count, MAX_LOOP_CHILDREN);
   const exclude = new Set(cfg.exclude ?? []);
   const used = new Set<number>();
   for (const m of store.project.markers) {
     if (m.trackId === parent.trackId) used.add(Math.round(m.beat * 1e6));
   }
-  for (let k = 1; k <= cfg.count; k++) {
+  for (let k = 1; k <= count; k++) {
     if (exclude.has(k)) continue;
     const beat = parent.beat + k * cfg.interval;
     if (used.has(Math.round(beat * 1e6))) continue;
@@ -578,7 +583,10 @@ export function updateMarkerLoop(
   } else {
     parent.loop = {
       interval: cfg.interval > 0 ? cfg.interval : 1,
-      count: Math.max(1, Math.floor(cfg.count)),
+      count: Math.min(
+        MAX_LOOP_CHILDREN,
+        Math.max(1, Math.floor(cfg.count)),
+      ),
       ...(Array.isArray(cfg.exclude) && cfg.exclude.length
         ? { exclude: cfg.exclude }
         : {}),
@@ -990,7 +998,7 @@ export async function openDevTools(): Promise<void> {
   await window.api.toggleDevTools();
 }
 
-// ---- zoom with optional 0.3s ease-out animation (interruptible) ----
+// ---- zoom with optional 0.1s ease-out animation (interruptible) ----
 
 const ZOOM_ANIM_MS = 100;
 let zoomRaf = 0;
@@ -1630,6 +1638,7 @@ interface Snap {
 const undoStack: Snap[] = [];
 const redoStack: Snap[] = [];
 let editingGesture = false;
+let gestureSnapshot: Snap | null = null;
 
 function snapshotNow(): Snap {
   const p = store.project;
@@ -1667,13 +1676,22 @@ function pushHistory(): void {
 export function historyGestureBegin(): void {
   if (editingGesture) return;
   editingGesture = true;
-  undoStack.push(snapshotNow());
+  gestureSnapshot = snapshotNow();
+  undoStack.push(gestureSnapshot);
   if (undoStack.length > 100) undoStack.shift();
   redoStack.length = 0;
 }
 
 export function historyGestureEnd(): void {
   editingGesture = false;
+  // a gesture that ended without an actual edit must not leave a no-op undo entry.
+  if (gestureSnapshot) {
+    const cur = snapshotNow();
+    if (JSON.stringify(cur) === JSON.stringify(gestureSnapshot)) {
+      undoStack.pop();
+    }
+    gestureSnapshot = null;
+  }
 }
 
 export function resetHistory(): void {
@@ -1759,7 +1777,10 @@ export function pasteMarkerGroup(): boolean {
     if (clip.loop) {
       m.loop = {
         interval: clip.loop.interval,
-        count: clip.loop.count,
+        count: Math.min(
+          MAX_LOOP_CHILDREN,
+          Math.max(1, Math.floor(clip.loop.count)),
+        ),
         ...(clip.loop.exclude && clip.loop.exclude.length
           ? { exclude: [...clip.loop.exclude] }
           : {}),

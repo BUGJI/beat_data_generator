@@ -16,18 +16,20 @@ export async function stretchAudioBuffer(
   original: AudioBuffer,
   tempo: number,
 ): Promise<AudioBuffer> {
+  const mono = original.numberOfChannels <= 1;
+  const ch = mono ? 1 : 2;
   const n = original.length;
   const outCap = Math.ceil(n / tempo) + original.sampleRate + 8192;
-  const out = new Float32Array(outCap * 2);
+  const out = new Float32Array(outCap * ch);
   const st = new SoundTouch();
   st.sampleRate = original.sampleRate;
-  st.channels = 2;
+  st.channels = ch;
   st.rate = 1;
   st.pitch = 1;
   st.tempo = tempo;
   const source = new WebAudioBufferSource(original);
   const filter = new SimpleFilter(source, st, () => {});
-  const tmp = new Float32Array(CHUNK * 2);
+  const tmp = new Float32Array(CHUNK * ch);
   let total = 0;
   let guard = 0;
   let sinceYield = 0;
@@ -35,25 +37,24 @@ export async function stretchAudioBuffer(
     const got = filter.extract(tmp, CHUNK);
     if (got === 0) break;
     if (total + got > outCap) break;
-    out.set(tmp.subarray(0, got * 2), total * 2);
+    out.set(tmp.subarray(0, got * ch), total * ch);
     total += got;
     if (++sinceYield >= 8) {
       sinceYield = 0;
       await tick();
     }
   }
-  const mono = original.numberOfChannels <= 1;
   const ctx = new OfflineAudioContext(1, 1, original.sampleRate);
   const target = ctx.createBuffer(
-    mono ? 1 : 2,
+    ch,
     Math.max(1, total),
     original.sampleRate,
   );
   const L = target.getChannelData(0);
-  for (let i = 0; i < total; i++) L[i] = out[i * 2];
+  for (let i = 0; i < total; i++) L[i] = out[i * ch];
   if (!mono) {
     const R = target.getChannelData(1);
-    for (let i = 0; i < total; i++) R[i] = out[i * 2 + 1];
+    for (let i = 0; i < total; i++) R[i] = out[i * ch + 1];
   }
   return target;
 }
