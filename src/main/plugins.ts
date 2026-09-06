@@ -205,11 +205,14 @@ function scanAll(): PluginEntry[] {
 // ---- loading / unloading main.js ----
 
 function makeContext(entry: PluginEntry): PluginContext {
-  const loadedRef = loaded.get(entry.id);
-  const h = loadedRef ?? {
-    handlers: new Map<string, (...args: unknown[]) => unknown>(),
-    disposers: [],
-  };
+  let h = loaded.get(entry.id);
+  if (!h) {
+    h = {
+      handlers: new Map<string, (...args: unknown[]) => unknown>(),
+      disposers: [],
+    };
+    loaded.set(entry.id, h);
+  }
   return {
     id: entry.id,
     dir: entry.dir,

@@ -27,6 +27,7 @@ interface ActiveRenderer {
 export const pluginEntries = reactive<PluginEntry[]>([]);
 
 const actives = new Map<string, ActiveRenderer>();
+const loading = new Set<string>();
 let bound = false;
 
 declare global {
@@ -49,31 +50,34 @@ export function pluginDescription(entry: PluginEntry): string | undefined {
 
 async function loadRenderer(entry: PluginEntry): Promise<void> {
   if (!entry.enabled || !entry.renderer) return;
-  if (actives.has(entry.id)) return;
-  const src = await window.api.readPluginRenderer(entry.id);
-  if (src == null) return;
-  let pending: Activate | null = null;
-  const prev = window.__bdgPluginRegister;
-  window.__bdgPluginRegister = (activate: Activate) => {
-    pending = activate;
-  };
+  if (actives.has(entry.id) || loading.has(entry.id)) return;
+  loading.add(entry.id);
   try {
-    const run = new Function(
-      "window",
-      `"use strict";\n${src}\n`,
-    ) as (win: Window) => void;
-    run(window);
-  } catch (err) {
-    console.error(`[plugins] renderer load failed for ${entry.id}`, err);
-    return;
-  } finally {
-    window.__bdgPluginRegister = prev;
-  }
-  if (typeof pending !== "function") {
-    console.warn(`[plugins] ${entry.id} renderer.js never called __bdgPluginRegister`);
-    return;
-  }
-  try {
+    const src = await window.api.readPluginRenderer(entry.id);
+    if (src == null) return;
+    let pending: Activate | null = null;
+    const prev = window.__bdgPluginRegister;
+    window.__bdgPluginRegister = (activate: Activate) => {
+      pending = activate;
+    };
+    try {
+      const run = new Function(
+        "window",
+        `"use strict";\n${src}\n`,
+      ) as (win: Window) => void;
+      run(window);
+    } catch (err) {
+      console.error(`[plugins] renderer load failed for ${entry.id}`, err);
+      return;
+    } finally {
+      window.__bdgPluginRegister = prev;
+    }
+    if (typeof pending !== "function") {
+      console.warn(
+        `[plugins] ${entry.id} renderer.js never called __bdgPluginRegister`,
+      );
+      return;
+    }
     const activate = pending as Activate;
     const { api, finalize } = createPluginApi({
       id: entry.id,
@@ -85,8 +89,13 @@ async function loadRenderer(entry: PluginEntry): Promise<void> {
       dispose: typeof ret === "function" ? ret : undefined,
       finalize,
     });
-  } catch (err) {
-    console.error(`[plugins] activate failed for ${entry.id}`, err);
+    // the plugin may have been disabled while the source was loading
+    const stillEnabled = pluginEntries.some(
+      (e) => e.id === entry.id && e.enabled && !!e.renderer,
+    );
+    if (!stillEnabled) disposeRenderer(entry.id);
+  } finally {
+    loading.delete(entry.id);
   }
 }
 
