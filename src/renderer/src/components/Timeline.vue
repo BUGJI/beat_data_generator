@@ -76,8 +76,14 @@ let raf = 0;
 let ro: ResizeObserver | null = null;
 
 let mode:
-  "idle" | "scrub" | "placeBpm" | "placeMarker" | "dragBpm" | "dragMarker" =
-  "idle";
+  | "idle"
+  | "scrub"
+  | "placeBpm"
+  | "placeMarker"
+  | "dragBpm"
+  | "dragMarker"
+  | "brushAdd"
+  | "brushErase" = "idle";
 let activePointer = -1;
 let gestureOn = false;
 let downX = 0;
@@ -678,9 +684,43 @@ const openCard = (x: number, y: number): void => {
   cardPos.value = { x, y };
 };
 
+// ---- quick place / erase brush ----
+
+let brushLastKey = "";
+
+function eraseMarkerAt(trackId: string, beat: number): void {
+  let best: Marker | null = null;
+  let bestDiff = Number.POSITIVE_INFINITY;
+  for (const m of markersInTrack(trackId)) {
+    const d = Math.abs(m.beat - beat);
+    if (d < bestDiff) {
+      best = m;
+      bestDiff = d;
+    }
+  }
+  if (best && bestDiff < 1 / 256) removeMarker(best.id);
+}
+
+function brushStep(x: number, y: number): void {
+  const lane = laneKindAt(y);
+  if (lane.kind !== "marker") return;
+  const track = trackAt(lane.index);
+  if (!track) return;
+  const beat = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
+  const key = `${track.id}@${beat}`;
+  if (key === brushLastKey) return;
+  brushLastKey = key;
+  if (mode === "brushAdd") {
+    addMarker(track.id, beat);
+  } else if (mode === "brushErase") {
+    eraseMarkerAt(track.id, beat);
+  }
+}
+
 // ---- events ----
 
 function onContext(e: MouseEvent): void {
+  if (store.ui.quickPlace) return; // quick-erase brush handles right button
   const rect = rootEl.value!.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
@@ -701,7 +741,7 @@ function onContext(e: MouseEvent): void {
 }
 
 function onPointerDown(e: PointerEvent): void {
-  if (e.button !== 0) return;
+  if (e.button !== 0 && !(store.ui.quickPlace && e.button === 2)) return;
   // a fresh press dismisses the card; it reopens only on a clean click/release
   store.ui.cardOpen = false;
   const rect = rootEl.value!.getBoundingClientRect();
@@ -712,6 +752,19 @@ function onPointerDown(e: PointerEvent): void {
   moved = false;
   activePointer = e.pointerId;
   rootEl.value!.setPointerCapture(activePointer);
+
+  // right-button quick-erase brush (sweep deletes markers under the cursor)
+  if (e.button === 2) {
+    const rl = laneKindAt(y);
+    if (rl.kind === "marker" && rl.index < store.project.tracks.length) {
+      mode = "brushErase";
+      brushLastKey = "";
+      historyGestureBegin();
+      gestureOn = true;
+      brushStep(x, y);
+    }
+    return;
+  }
 
   if (y < RULER_H) {
     mode = "scrub";
@@ -748,6 +801,18 @@ function onPointerDown(e: PointerEvent): void {
     selectSingleMarker(main.id);
     return;
   }
+  if (store.ui.quickPlace) {
+    const ql = laneKindAt(y);
+    if (ql.kind === "marker" && ql.index < store.project.tracks.length) {
+      // sweep-placement brush over empty lane cells
+      mode = "brushAdd";
+      brushLastKey = "";
+      historyGestureBegin();
+      gestureOn = true;
+      brushStep(x, y);
+      return;
+    }
+  }
   const lane = laneKindAt(y);
   mode = lane.kind === "bpm" ? "placeBpm" : "placeMarker";
   if (lane.kind === "marker") closeCard();
@@ -777,6 +842,8 @@ function onPointerMove(e: PointerEvent): void {
     const raw = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
     const ok = !e.altKey ? !markerOccupy(dragTrackId, raw, dragGroupIds) : true;
     if (ok) moveMarker(dragId, raw, true);
+  } else if (mode === "brushAdd" || mode === "brushErase") {
+    brushStep(x, y);
   } else if ((mode === "placeBpm" || mode === "placeMarker") && lane) {
     updateGhost(lane);
   }
@@ -836,6 +903,7 @@ function onPointerUp(e: PointerEvent): void {
   dragId = null;
   dragTrackId = null;
   dragGroupIds = new Set<string>();
+  brushLastKey = "";
   activePointer = -1;
   ghostState.value = null;
 }
@@ -849,6 +917,7 @@ function onPointerCancel(): void {
   dragId = null;
   dragTrackId = null;
   dragGroupIds = new Set<string>();
+  brushLastKey = "";
   activePointer = -1;
   ghostState.value = null;
 }

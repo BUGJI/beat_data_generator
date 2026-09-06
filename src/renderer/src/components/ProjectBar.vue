@@ -373,6 +373,29 @@ const snapDiv = computed({
             <rect x="6.6" y="6.6" width="5.4" height="5.4" rx="0.8" />
           </svg>
         </button>
+        <span class="quick-divider" />
+        <button
+          class="quick-icon"
+          :class="{ on: store.ui.quickPlace }"
+          :title="t('follow.quickTip')"
+          @click="store.ui.quickPlace = !store.ui.quickPlace"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2.2"
+            stroke-linecap="round"
+          >
+            <path d="M4 7h11" />
+            <path d="M4 12h14" />
+            <path d="M4 17h8" />
+            <circle cx="19" cy="6" r="1.7" fill="currentColor" stroke="none" />
+            <circle cx="19.5" cy="12" r="1.7" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
       </div>
     </div>
   </section>

@@ -12,6 +12,8 @@ export default {
     stopTip: "Stopped: toggle on to start the next playback already following",
     glowTip:
       "Glow: when on, the lane header and track lane briefly light up each time that track has a marker pass (same detection as the beat light)",
+    quickTip:
+      "Quick place: hold the left button and sweep over lanes to place markers; hold the right button and sweep to delete markers there",
     pctTip: "Auto-follow trigger position (% from the left of the viewport)",
   },
   app: {

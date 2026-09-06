@@ -38,6 +38,7 @@ import {
   getTypedef,
   localeText,
 } from "./plugins/registry";
+import { view } from "./editorView";
 
 interface ProjectState extends BeatProject {
   projectPath: string | null;
@@ -80,6 +81,8 @@ interface UIState {
   glowEnabled: boolean;
   /** per-track pulse sequence used to re-trigger 0.1s glow effects. */
   glowSeqs: Record<string, number>;
+  /** quick draw/erase mode: press-drag places/deletes markers under the cursor. */
+  quickPlace: boolean;
 }
 
 export const store = reactive<{ project: ProjectState; ui: UIState }>({
@@ -137,6 +140,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     overlapCount: 0,
     glowEnabled: false,
     glowSeqs: {},
+    quickPlace: false,
   },
 });
 
@@ -1007,11 +1011,32 @@ function easeOutCubic(t: number): number {
   return 1 - Math.pow(1 - t, 3);
 }
 
-function animateZoomTo(target: number): void {
+let zoomAnchorMs: number | null = null;
+let zoomAnchorX = 0;
+
+function keepZoomAnchor(): void {
+  if (zoomAnchorMs === null) return;
+  const pps = store.ui.pxPerSec;
+  const nx = zoomAnchorMs * pps - zoomAnchorX;
+  const end = contentEndMs();
+  const cw = Math.max((end / 1000) * pps + 400, view.vw);
+  const mx = Math.max(0, cw - view.vw);
+  view.x = Math.min(mx, Math.max(0, nx));
+}
+
+function animateZoomTo(target: number, anchorMs: number | null): void {
   stopZoom();
   const from = store.ui.pxPerSec;
+  if (anchorMs !== null) {
+    zoomAnchorMs = anchorMs;
+    zoomAnchorX = anchorMs * from - view.x;
+  } else {
+    zoomAnchorMs = null;
+  }
   if (!store.ui.settings.animEnabled || Math.abs(target - from) < 0.001) {
     store.ui.pxPerSec = target;
+    keepZoomAnchor();
+    zoomAnchorMs = null;
     return;
   }
   zoom0 = from;
@@ -1020,14 +1045,20 @@ function animateZoomTo(target: number): void {
   const step = (): void => {
     const k = Math.min(1, (performance.now() - zoomStart) / ZOOM_ANIM_MS);
     store.ui.pxPerSec = zoom0 + (zoom1 - zoom0) * easeOutCubic(k);
-    if (k < 1) zoomRaf = requestAnimationFrame(step);
-    else store.ui.pxPerSec = zoom1;
+    keepZoomAnchor();
+    if (k < 1) {
+      zoomRaf = requestAnimationFrame(step);
+    } else {
+      store.ui.pxPerSec = zoom1;
+      keepZoomAnchor();
+      zoomAnchorMs = null;
+    }
   };
   zoomRaf = requestAnimationFrame(step);
 }
 
 export function zoomBy(factor: number): void {
-  animateZoomTo(clampZoom(store.ui.pxPerSec * factor));
+  animateZoomTo(clampZoom(store.ui.pxPerSec * factor), store.ui.positionMs);
 }
 
 export function contentEndMs(): number {
@@ -1048,6 +1079,7 @@ export function fitZoom(viewportWidthPx: number): void {
   const len = Math.max(1, contentEndMs());
   animateZoomTo(
     clampZoom(viewportWidthPx / (len / 1000)),
+    null,
   );
 }
 
