@@ -100,3 +100,9 @@ module.exports = function activate(ctx) {
 npm run typecheck   # 改动编辑器代码后跑类型检查
 npm run build
 ```
+
+## 许可与发布
+
+- 你编写的插件属于你自己的作品(版权归你),可自行选择开源协议。
+- 宿主编辑器 **Beat Data Generator** 以 **GNU GPL v3** 发布(作者 BUGJI)。插件由宿主加载器装载运行,分发插件时建议注明与宿主的关联。
+- 官方插件模板/脚手架见 <https://github.com/BUGJI/bdg_plugin_template>。
