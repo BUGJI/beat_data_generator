@@ -15,6 +15,8 @@ export default {
     quickTip:
       "Quick place: hold the left button and sweep over lanes to place markers; hold the right button and sweep to delete markers there",
     pctTip: "Auto-follow trigger position (% from the left of the viewport)",
+    timeAlignTip:
+      "Time align: pins every marker to its current absolute time for this session, so BPM / offset edits don't move them; toggling off reverts to beat-snapped positions",
   },
   app: {
     name: "Beat Data Generator",
@@ -140,11 +142,17 @@ export default {
     autoSave: "Changes are saved immediately",
     cats: {
       general: "General",
+      appearance: "Appearance",
       shortcuts: "Shortcuts",
       anim: "Animation",
       plugins: "Plugins",
       dev: "Developer",
       about: "About",
+    },
+    appearance: {
+      autoHideGrid: "Auto-hide grid lines",
+      autoHideGridDesc:
+        "Caps the drawn subdivision detail by zoom to keep rendering fast: at most 1/16 below 500 px/s, 1/8 below 250 px/s, and 1/4 below 100 px/s. Your snap setting is unchanged \u2014 only the display is affected; beat and bar lines always show.",
     },
     general: {
       language: "Language",

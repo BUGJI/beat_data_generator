@@ -39,6 +39,7 @@ let settings: SettingsData = {
   devEnabled: false,
   devFreeInput: false,
   animEnabled: true,
+  gridAutoHide: true,
   followScroll: true,
   followPercent: 90,
   followPreset: false,
@@ -194,6 +195,7 @@ function sanitize(raw: Partial<SettingsData>): SettingsData {
     devEnabled: raw.devEnabled === true,
     devFreeInput: raw.devFreeInput === true,
     animEnabled: raw.animEnabled !== false,
+    gridAutoHide: raw.gridAutoHide !== false,
     followScroll: raw.followScroll !== false,
     followPercent: Math.min(
       100,

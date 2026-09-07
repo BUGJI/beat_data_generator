@@ -83,6 +83,8 @@ interface UIState {
   glowSeqs: Record<string, number>;
   /** quick draw/erase mode: press-drag places/deletes markers under the cursor. */
   quickPlace: boolean;
+  /** session-only: pin markers to absolute time so BPM/offset edits don't move them. */
+  timeAlign: boolean;
 }
 
 export const store = reactive<{ project: ProjectState; ui: UIState }>({
@@ -122,6 +124,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
       devEnabled: false,
       devFreeInput: false,
       animEnabled: true,
+      gridAutoHide: true,
       followScroll: true,
       followPercent: 90,
       followPreset: false,
@@ -141,6 +144,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     glowEnabled: false,
     glowSeqs: {},
     quickPlace: false,
+    timeAlign: false,
   },
 });
 
@@ -256,7 +260,39 @@ export const findMarker = (id: string): Marker | undefined =>
 export const findBpmPoint = (id: string): BpmPoint | undefined =>
   store.project.bpmPoints.find((p) => p.id === id);
 
-export const markerTime = (m: Marker): number => timeOfBeat(m.beat);
+// session-only absolute-time anchors used while `timeAlign` is on. Markers are
+// always stored as beats; when time-aligned they are displayed/exported at these
+// fixed times so BPM/offset edits don't move them. Cleared when toggled off.
+const timeAnchors = new Map<string, number>();
+
+export const markerTime = (m: Marker): number => {
+  if (store.ui.timeAlign) {
+    const ms = timeAnchors.get(m.id);
+    if (typeof ms === "number" && Number.isFinite(ms)) return ms;
+  }
+  return timeOfBeat(m.beat);
+};
+
+export function timeAlignOn(): boolean {
+  return store.ui.timeAlign;
+}
+
+export function toggleTimeAlign(): boolean {
+  store.ui.timeAlign = !store.ui.timeAlign;
+  if (store.ui.timeAlign) {
+    for (const m of store.project.markers) {
+      timeAnchors.set(m.id, timeOfBeat(m.beat));
+    }
+  } else {
+    timeAnchors.clear();
+  }
+  return store.ui.timeAlign;
+}
+
+function setTimeAnchor(m: Marker): void {
+  if (store.ui.timeAlign) timeAnchors.set(m.id, timeOfBeat(m.beat));
+}
+
 export const markerCount = (): number =>
   store.project.markers.filter((m) => !isTrackHidden(m.trackId)).length;
 
@@ -535,6 +571,7 @@ function addMarkerToStore(
   if (!track) return null;
   const marker: Marker = { id: makeId(), trackId, beat, ...extra };
   store.project.markers.push(marker);
+  setTimeAnchor(marker);
   return marker;
 }
 
@@ -685,6 +722,7 @@ export function moveMarker(
   if (blocked) return false;
   pushHistory();
   m.beat = beat;
+  setTimeAnchor(m);
   if (m.loop) refreshChildren(m);
   store.project.dirty = true;
   return true;
@@ -1080,7 +1118,7 @@ export function contentEndMs(): number {
   const map = tempoMap();
   const cands: number[] = [];
   if (store.ui.hasAudio) cands.push(engine.durationMs());
-  for (const m of store.project.markers) cands.push(map.timeOfBeat(m.beat));
+  for (const m of store.project.markers) cands.push(markerTime(m));
   for (const p of store.project.bpmPoints) cands.push(map.timeOfBeat(p.beat));
   const audioLen = store.ui.hasAudio ? engine.durationMs() : 0;
   const base = cands.length ? Math.max(...cands) : 0;
@@ -1241,6 +1279,8 @@ function freshProject(): void {
   store.ui.selected = { kind: null, id: null };
   store.ui.multi = [];
   store.ui.cardOpen = false;
+  store.ui.timeAlign = false;
+  timeAnchors.clear();
   resetHistory();
   markSaved();
   addTrack(undefined, false);
@@ -1469,11 +1509,10 @@ export async function saveProjectQuick(): Promise<void> {
 }
 
 export function exportLines(): string[] {
-  const map = tempoMap();
   const seen = new Set<string>();
   const lines: string[] = [];
   const all = visibleMarkers().map((m) => ({
-    t: map.timeOfBeat(m.beat),
+    t: markerTime(m),
   }));
   all.sort((a, b) => a.t - b.t);
   for (const item of all) {
@@ -1517,7 +1556,6 @@ function tcFromMs(ms: number): string {
 }
 
 export function edlContent(): { text: string; count: number } {
-  const map = tempoMap();
   const clip =
     (store.project.audioName ? baseName(store.project.audioName) : null) ||
     store.project.name ||
@@ -1526,7 +1564,7 @@ export function edlContent(): { text: string; count: number } {
   const seen = new Set<string>();
   let n = 0;
   for (const m of visibleMarkers()) {
-    const t = map.timeOfBeat(m.beat);
+    const t = markerTime(m);
     const inTc = tcFromMs(t);
     if (seen.has(inTc)) continue;
     seen.add(inTc);

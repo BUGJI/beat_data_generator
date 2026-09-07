@@ -14,6 +14,7 @@ import {
   markerCount,
   visibleMarkers,
   clickFollow,
+  toggleTimeAlign,
 } from "../store";
 import { SNAP_DIVISIONS } from "../metrics";
 
@@ -394,6 +395,26 @@ const snapDiv = computed({
             <path d="M4 17h8" />
             <circle cx="19" cy="6" r="1.7" fill="currentColor" stroke="none" />
             <circle cx="19.5" cy="12" r="1.7" fill="currentColor" stroke="none" />
+          </svg>
+        </button>
+        <button
+          class="quick-icon"
+          :class="{ on: store.ui.timeAlign }"
+          :title="t('follow.timeAlignTip')"
+          @click="toggleTimeAlign()"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="8.5" />
+            <path d="M12 8v4l3 2" />
           </svg>
         </button>
       </div>

@@ -25,13 +25,27 @@ const runtime = Object.freeze({
   electron: pv?.electron ?? "--",
 });
 const cat = ref<
-  "general" | "shortcuts" | "anim" | "plugins" | "dev" | "about"
+  | "general"
+  | "appearance"
+  | "shortcuts"
+  | "anim"
+  | "plugins"
+  | "dev"
+  | "about"
 >("general");
 
-type CatKey = "general" | "shortcuts" | "anim" | "plugins" | "dev" | "about";
+type CatKey =
+  | "general"
+  | "appearance"
+  | "shortcuts"
+  | "anim"
+  | "plugins"
+  | "dev"
+  | "about";
 
 const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "general", icon: "⚙" },
+  { key: "appearance", icon: "◩" },
   { key: "shortcuts", icon: "⌨" },
   { key: "anim", icon: "✺" },
   { key: "plugins", icon: "▤" },
@@ -97,6 +111,13 @@ const animEnabled = computed({
   get: () => store.ui.settings.animEnabled,
   set: (v: boolean) => {
     void patchSettings({ animEnabled: v });
+  },
+});
+
+const gridAutoHide = computed({
+  get: () => store.ui.settings.gridAutoHide,
+  set: (v: boolean) => {
+    void patchSettings({ gridAutoHide: v });
   },
 });
 
@@ -311,6 +332,22 @@ function catLabel(key: string): string {
                     t("settings.general.autoSaveMinutesUnit")
                   }}</span>
                 </div>
+              </div>
+            </section>
+
+            <!-- 外观 -->
+            <section v-if="cat === 'appearance'">
+              <h3>{{ t("settings.cats.appearance") }}</h3>
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.appearance.autoHideGrid")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.appearance.autoHideGridDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="gridAutoHide" size="small" />
               </div>
             </section>
 

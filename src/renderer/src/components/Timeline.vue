@@ -15,6 +15,7 @@ import {
   disableFollowOnScrub,
   beatOfTime,
   timeOfBeat,
+  markerTime as storeMarkerTime,
   contentEndMs,
   seekTo,
   formatTime,
@@ -385,25 +386,35 @@ function drawGridLines(
     ctx.fillStyle = isBar ? COLORS.gridBar : COLORS.gridBeat;
     ctx.fillRect(x, RULER_H, isBar ? 1.25 : 1, H - RULER_H);
   }
-  // subdivisions when zoomed & snap on
+  // subdivisions when zoomed & snap on. With auto-hide the displayed detail is
+  // capped by the current zoom so a dense/zoomed-out grid can't stall rendering.
   if (store.ui.snapEnabled && store.ui.snapDiv > 1) {
-    const div = store.ui.snapDiv;
+    const div = store.ui.settings.gridAutoHide
+      ? cappedSnapDiv(pps)
+      : store.ui.snapDiv;
     const b0s = Math.max(0, Math.floor(beatOfTime(t0) * div) - 1);
     const b1s = Math.ceil(beatOfTime(t1) * div) + 1;
     for (let s = b0s; s <= b1s; s++) {
       const beat = s / div;
       if (Math.abs(beat * div - Math.round(beat * div)) > 1e-9) continue;
       if (Math.abs(beat - Math.round(beat)) < 1e-6) continue;
-      const tm = timeOfBeat(beat);
-      const prev = timeOfBeat(beat - 1 / div);
-      if ((tm - prev) * pps < 6) break;
-      const x = X(tm);
+      const x = X(timeOfBeat(beat));
       if (x < -2 || x > W + 2) continue;
       ctx.fillStyle = COLORS.gridSub;
       ctx.fillRect(x, RULER_H, 1, H - RULER_H);
     }
   }
   void endMs;
+}
+
+/** Coarsest subdivision (as a snapDiv value) to draw for a given zoom when
+ *  auto-hide is on: finer subdivisions are hidden below the matching zoom tier. */
+function cappedSnapDiv(pps: number): number {
+  const actual = store.ui.snapDiv;
+  if (pps < 100) return Math.min(actual, 4);
+  if (pps < 250) return Math.min(actual, 8);
+  if (pps < 500) return Math.min(actual, 16);
+  return actual;
 }
 
 function drawBpmLaneContent(
@@ -535,7 +546,7 @@ function drawMarkerLanesContent(
     const track = trackAt(r.i);
     if (!track) continue;
     for (const m of markersInTrack(track.id)) {
-      const x = X(timeOfBeat(m.beat));
+      const x = X(storeMarkerTime(m));
       if (x < -16 || x > W + 16) continue;
       const sel =
         store.ui.selected.kind === "marker" && store.ui.selected.id === m.id;
@@ -564,7 +575,7 @@ function drawMarkerLanesContent(
         ctx.globalAlpha = 1;
       }
       if (sel) {
-        const label = formatTime(timeOfBeat(m.beat));
+        const label = formatTime(storeMarkerTime(m));
         ctx.font = "10px Consolas, monospace";
         const tw = ctx.measureText(label).width;
         ctx.fillStyle = "rgba(20,23,27,0.92)";
@@ -667,7 +678,7 @@ function hitMarkerAt(x: number, y: number): Marker | null {
   const track = trackAt(lane.index);
   if (!track) return null;
   for (const m of markersInTrack(track.id)) {
-    if (Math.abs(timeToScreenX(timeOfBeat(m.beat)) - x) <= HIT_PX) return m;
+    if (Math.abs(timeToScreenX(storeMarkerTime(m)) - x) <= HIT_PX) return m;
   }
   return null;
 }
@@ -1268,7 +1279,7 @@ const selectedTrackId = computed<string>({
   },
 });
 const markerTime = computed(() =>
-  selMarker.value ? timeOfBeat(selMarker.value.beat) : 0,
+  selMarker.value ? storeMarkerTime(selMarker.value) : 0,
 );
 const bpmTime = computed(() =>
   selBpm.value ? timeOfBeat(selBpm.value.beat) : 0,

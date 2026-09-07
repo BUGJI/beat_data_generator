@@ -12,6 +12,8 @@ export default {
     quickTip:
       "快速放置：开启后按住左键扫过即可在轨道上放点，按住右键扫过即可删除该处的点",
     pctTip: "自动跟随触发位置（视口左起百分比）",
+    timeAlignTip:
+      "时间轴对齐：开启后所有轨道的踩点固定为当前绝对时间，修改 BPM 或偏移不再同步它们（仅本次会话，关闭即恢复按节拍）",
   },
   app: {
     name: "Beat Data Generator",
@@ -138,11 +140,17 @@ export default {
     autoSave: "修改即时保存",
     cats: {
       general: "常规",
+      appearance: "外观",
       shortcuts: "快捷键",
       anim: "动画",
       plugins: "插件",
       dev: "开发者",
       about: "关于",
+    },
+    appearance: {
+      autoHideGrid: "自动隐藏网格线",
+      autoHideGridDesc:
+        "开启后按缩放限制显示的细分线：低于 500px/s 细分最多到 1/16，低于 250px/s 最多到 1/8，低于 100px/s 最多到 1/4；仅影响显示、不改变吸附设置，拍线与小节线始终显示。",
     },
     general: {
       language: "语言",

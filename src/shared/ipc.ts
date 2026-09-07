@@ -42,6 +42,8 @@ export interface SettingsData {
   devEnabled: boolean;
   devFreeInput: boolean;
   animEnabled: boolean;
+  /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
+  gridAutoHide: boolean;
   followScroll: boolean;
   followPercent: number;
   followPreset: boolean;
