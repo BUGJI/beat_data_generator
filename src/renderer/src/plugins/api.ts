@@ -202,6 +202,8 @@ export interface PluginApi {
     writeText: (path: string, content: string) => Promise<boolean>;
     openWindow: (opts: OpenWindowOptions) => Promise<void>;
     openPluginsFolder: () => Promise<void>;
+    /** Absolute filesystem path of the loaded audio, or null when none. */
+    audioPath: () => string | null;
   };
 
   /** Register custom track types whose points share the built-in beat timeline. */
@@ -239,6 +241,10 @@ export function createPluginApi(binding: PluginBinding): {
   const snapshot = (): ProjectView => {
     const map = tempoMap();
     const p = store.project;
+    // hidden tracks (and their markers) are withheld from plugins.
+    const hiddenSet = new Set(
+      p.tracks.filter((t) => t.hidden === true).map((t) => t.id),
+    );
     return {
       name: p.name,
       baseBpm: p.baseBpm,
@@ -246,15 +252,19 @@ export function createPluginApi(binding: PluginBinding): {
       audioName: p.audioName,
       audioMd5: p.audioMd5,
       bpmLocked: p.bpmLocked === true,
-      tracks: p.tracks.map((t) => ({
-        id: t.id,
-        name: t.name,
-        color: t.color,
-        locked: t.locked === true,
-        hidden: t.hidden === true,
-        type: (t as { type?: string }).type ?? "beat",
-      })),
-      markers: p.markers.map((m) => {
+      tracks: p.tracks
+        .filter((t) => t.hidden !== true)
+        .map((t) => ({
+          id: t.id,
+          name: t.name,
+          color: t.color,
+          locked: t.locked === true,
+          hidden: t.hidden === true,
+          type: (t as { type?: string }).type ?? "beat",
+        })),
+      markers: p.markers
+        .filter((m) => !hiddenSet.has(m.trackId))
+        .map((m) => {
         const out: MarkerView = {
           id: m.id,
           trackId: m.trackId,
@@ -367,6 +377,8 @@ export function createPluginApi(binding: PluginBinding): {
       writeText: (path, content) => window.api.writeTextFile(path, content),
       openWindow: (opts) => window.api.openWindow(opts),
       openPluginsFolder: () => window.api.openPluginsFolder(),
+      /** absolute filesystem path of the currently loaded audio, or null. */
+      audioPath: () => store.project.audioPath,
     },
 
     callMain: (method, ...args) =>

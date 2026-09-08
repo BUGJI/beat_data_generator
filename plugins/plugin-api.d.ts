@@ -218,6 +218,8 @@ interface PluginApi {
       height?: number;
     }) => Promise<void>;
     openPluginsFolder: () => Promise<void>;
+    /** Absolute filesystem path of the loaded audio, or null when none. */
+    audioPath: () => string | null;
   };
 
   /** Route a free-form call to this plugin's main.js handler. */

@@ -86,7 +86,7 @@ module.exports = function activate(ctx) {
 
 编辑器渲染层是沙箱(`sandbox:true` + `contextIsolation`)。插件拿到的是受限桥接:
 
-- 数据/编辑/播放/选区/事件、`api.system.pickFile/saveFile/readText/writeText`、`openWindow(加载任意页面)`、`callMain`;
+- 数据/编辑/播放/选区/事件、`api.system.pickFile/saveFile/readText/writeText`、`openWindow(加载任意页面)`、`api.system.audioPath()`(当前加载音频的绝对路径，便于 main.js 用 Node 读取并打包)、`callMain`;
 - 需要任意 Node 能力时让插件自带 `main.js` 处理。本系统**不弹权限确认**,安装插件即视为信任。
 
 ## 示例

@@ -46,18 +46,35 @@
         font-size: 11px;
         margin-left: 4px;
       }
+      .main {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        gap: 16px;
+        padding: 14px 20px 0;
+      }
       .actions {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
+        width: 250px;
+        flex: none;
+        display: flex;
+        flex-direction: column;
         gap: 10px;
-        padding: 14px 20px 4px;
+        padding-top: 6px;
+      }
+      .actions-title {
+        font-size: 23px;
+        font-weight: 800;
+        letter-spacing: 0.4px;
+        color: #e6ebf2;
+        padding: 2px 2px 10px;
       }
       .big {
-        border: 1px solid rgba(148, 163, 184, 0.22);
-        background: #171c24;
+        width: 100%;
+        border: none;
+        background: transparent;
         color: var(--c, #e6ebf2);
         border-radius: 10px;
-        padding: 16px 10px;
+        padding: 14px 10px;
         font-family: inherit;
         font-size: 14px;
         cursor: pointer;
@@ -68,18 +85,17 @@
         gap: 8px;
       }
       .big:hover {
-        border-color: #38bdf8;
-        background: rgba(56, 189, 248, 0.1);
+        background: rgba(56, 189, 248, 0.08);
       }
       .big.primary {
         --c: #38bdf8;
       }
       .recent-wrap {
         flex: 1;
-        min-height: 0;
+        min-width: 0;
         display: flex;
         flex-direction: column;
-        padding: 12px 20px 0;
+        padding-left: 18px;
       }
       .recent-title {
         font-size: 12px;
@@ -134,14 +150,16 @@
       <span class="sub">踩点标记 · 节拍对齐</span>
     </div>
 
-    <div class="actions">
-      <button class="big primary" id="btn-new">＋ 新建工程</button>
-      <button class="big" id="btn-open">打开工程…</button>
-    </div>
-
-    <div class="recent-wrap">
-      <div class="recent-title">最近工程</div>
-      <div class="list" id="list"></div>
+    <div class="main">
+      <div class="actions">
+        <div class="actions-title">开始创作</div>
+        <button class="big primary" id="btn-new">＋ 新建工程</button>
+        <button class="big" id="btn-open">打开工程…</button>
+      </div>
+      <div class="recent-wrap">
+        <div class="recent-title">最近工程</div>
+        <div class="list" id="list"></div>
+      </div>
     </div>
 
     <div class="foot">
