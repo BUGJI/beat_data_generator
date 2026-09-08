@@ -169,6 +169,9 @@ export default {
       autoSaveDesc: "每隔一段时间自动保存当前工程",
       autoSaveMinutes: "自动保存间隔",
       autoSaveMinutesUnit: "分钟（1–60）",
+      checkUpdates: "打开时静默检测更新",
+      checkUpdatesDesc:
+        "应用启动时静默检查是否有新版本；发现新版本会弹出通知，点击可打开下载页面。",
       modeMinimize: "最小化",
       modeClose: "直接关闭",
     },

@@ -173,6 +173,9 @@ export default {
       autoSaveDesc: "Automatically save the project on an interval",
       autoSaveMinutes: "Auto-save interval",
       autoSaveMinutesUnit: "minutes (1–60)",
+      checkUpdates: "Check for updates on startup",
+      checkUpdatesDesc:
+        "Silently looks for a new version when the app opens; if one is found, a notification appears that opens the download page.",
       modeMinimize: "Minimize",
       modeClose: "Close",
     },

@@ -125,6 +125,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
       devFreeInput: false,
       animEnabled: true,
       gridAutoHide: true,
+      checkUpdates: true,
       followScroll: true,
       followPercent: 90,
       followPreset: false,

@@ -145,6 +145,12 @@ const autoSave = computed({
     void patchSettings({ autoSave: v });
   },
 });
+const checkUpdates = computed({
+  get: () => store.ui.settings.checkUpdates,
+  set: (v: boolean) => {
+    void patchSettings({ checkUpdates: v });
+  },
+});
 const autoSaveMinutes = computed({
   get: () => store.ui.settings.autoSaveMinutes,
   set: (v: number) => {
@@ -311,6 +317,18 @@ function catLabel(key: string): string {
                   }}</span>
                 </div>
                 <el-switch v-model="autoSave" size="small" />
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.general.checkUpdates")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.general.checkUpdatesDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="checkUpdates" size="small" />
               </div>
 
               <div v-if="autoSave" class="field-row col">

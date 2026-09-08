@@ -32,7 +32,14 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "BUGJI",
+        "repo": "beat_data_generator"
+      }
+    ]
   },
   "scripts": {
     "dev": "electron-vite dev",
@@ -46,6 +53,7 @@
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
     "element-plus": "^2.14.5",
+    "electron-updater": "^6.6.2",
     "soundtouchjs": "^0.3.0",
     "vue": "^3.5.42",
     "vue-i18n": "^11.4.10"

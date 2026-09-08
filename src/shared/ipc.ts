@@ -44,6 +44,8 @@ export interface SettingsData {
   animEnabled: boolean;
   /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
   gridAutoHide: boolean;
+  /** silently check for updates on startup and notify when one is available. */
+  checkUpdates: boolean;
   followScroll: boolean;
   followPercent: number;
   followPreset: boolean;

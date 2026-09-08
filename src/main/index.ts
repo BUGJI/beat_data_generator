@@ -1,4 +1,5 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Notification, shell } from "electron";
+import { autoUpdater } from "electron-updater";
 import { createHash } from "crypto";
 import { readFile, writeFile } from "fs/promises";
 import { readFileSync, writeFileSync } from "fs";
@@ -40,6 +41,7 @@ let settings: SettingsData = {
   devFreeInput: false,
   animEnabled: true,
   gridAutoHide: true,
+  checkUpdates: true,
   followScroll: true,
   followPercent: 90,
   followPreset: false,
@@ -196,6 +198,7 @@ function sanitize(raw: Partial<SettingsData>): SettingsData {
     devFreeInput: raw.devFreeInput === true,
     animEnabled: raw.animEnabled !== false,
     gridAutoHide: raw.gridAutoHide !== false,
+    checkUpdates: raw.checkUpdates !== false,
     followScroll: raw.followScroll !== false,
     followPercent: Math.min(
       100,
@@ -567,6 +570,7 @@ function registerIpc(): void {
       settings = sanitize({ ...settings, ...patch });
       persistSettings();
       if (!settings.devEnabled) closeDevToolsAll();
+      if (settings.checkUpdates) checkUpdatesSilent();
       return settings;
     },
   );
@@ -788,12 +792,50 @@ function createWindow(): void {
   }
 }
 
+// ---- silent update check (opt-in via settings.checkUpdates) ----
+
+let updaterReady = false;
+
+function setupUpdater(): void {
+  if (updaterReady) return;
+  updaterReady = true;
+  autoUpdater.autoDownload = false; // notify first, open the release page on click
+  let notified = false;
+  autoUpdater.on("update-available", (info) => {
+    if (notified || !Notification.isSupported()) return;
+    notified = true;
+    const n = new Notification({
+      title: "Beat Data Generator 更新可用",
+      body: `发现新版本 v${info.version}，点击打开下载页面。`,
+      silent: false,
+    });
+    n.on("click", () => {
+      void shell.openExternal(
+        "https://github.com/BUGJI/beat_data_generator/releases",
+      );
+    });
+    n.show();
+  });
+  autoUpdater.on("error", (err) => {
+    console.error("[updater]", err);
+  });
+}
+
+function checkUpdatesSilent(): void {
+  if (!settings.checkUpdates) return;
+  setupUpdater();
+  void autoUpdater.checkForUpdates().catch((err) => {
+    console.error("[updater] check failed", err);
+  });
+}
+
 app.whenReady().then(() => {
   loadSettings();
   loadLastDirs();
   loadRecents();
   registerIpc();
   installPluginManager();
+  checkUpdatesSilent();
   createWindow();
 
   app.on("before-quit", (e) => {
