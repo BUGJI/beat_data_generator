@@ -4,3 +4,8 @@ dist/
 *.log
 .DS_Store
 .vite/
+
+# only the shipped sample plugin is tracked; other plugin dirs are local/test plugins
+plugins/*
+!plugins/example-basic
+!plugins/plugin-api.d.ts
