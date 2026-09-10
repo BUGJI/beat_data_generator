@@ -68,6 +68,8 @@ export class PlaybackEngine {
   stretched: AudioBuffer | null = null;
   stretchedFor = 0;
 
+  private metronome: AudioBuffer | null = null;
+
   onTick: (() => void) | null = null;
 
   private ensureCtx(): AudioContext {
@@ -101,6 +103,23 @@ export class PlaybackEngine {
     this.volume = v;
     if (this.gain && this.ctx) {
       this.gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  setMetronome(buffer: AudioBuffer | null): void {
+    this.metronome = buffer;
+  }
+
+  /** play the metronome click `count` times simultaneously (overlapping markers). */
+  playMetronome(count: number): void {
+    if (!this.metronome || count < 1) return;
+    const ctx = this.ensureCtx();
+    if (!ctx || !this.gain) return;
+    for (let i = 0; i < count; i++) {
+      const src = ctx.createBufferSource();
+      src.buffer = this.metronome;
+      src.connect(this.gain);
+      src.start();
     }
   }
 

@@ -52,6 +52,10 @@ export interface SettingsData {
   rememberWindow: boolean;
   autoSave: boolean;
   autoSaveMinutes: number;
+  /** hold Ctrl when pressing Space to play at the current rate; plain Space plays at 1x. */
+  ctrlSpeedPlay: boolean;
+  /** optional audio file played once each time a beat marker is passed (empty = disabled). */
+  metronomePath: string;
 }
 
 export interface IpcApi {

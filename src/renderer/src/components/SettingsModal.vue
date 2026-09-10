@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { store, setSettingsOpen, patchSettings, openDevTools } from "../store";
+import { store, setSettingsOpen, patchSettings, openDevTools, loadMetronome } from "../store";
 import { setLocale, LOCALES } from "../i18n";
 import {
   pluginEntries,
@@ -157,6 +157,32 @@ const autoSaveMinutes = computed({
     void patchSettings({ autoSaveMinutes: v });
   },
 });
+
+const ctrlSpeedPlay = computed({
+  get: () => store.ui.settings.ctrlSpeedPlay,
+  set: (v: boolean) => {
+    void patchSettings({ ctrlSpeedPlay: v });
+  },
+});
+
+const metronomePath = computed(() => store.ui.settings.metronomePath);
+
+async function pickMetronome(): Promise<void> {
+  const path = await window.api.pickFile(t("settings.general.metronomePickTitle"), [
+    {
+      name: t("settings.general.metronomeAudioFilter"),
+      extensions: ["wav", "mp3", "ogg", "flac", "m4a", "aac", "webm"],
+    },
+  ]);
+  if (!path) return;
+  await loadMetronome(path);
+  patchSettings({ metronomePath: path });
+}
+
+async function clearMetronome(): Promise<void> {
+  await loadMetronome("");
+  patchSettings({ metronomePath: "" });
+}
 
 const shortcutRows = computed(() => [
   { label: t("settings.shortcuts.save"), keys: ["Ctrl", "S"] },
@@ -351,6 +377,44 @@ function catLabel(key: string): string {
                   }}</span>
                 </div>
               </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.general.ctrlSpeedPlay")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.general.ctrlSpeedPlayDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="ctrlSpeedPlay" size="small" />
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.general.metronome")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.general.metronomeDesc")
+                  }}</span>
+                </div>
+                <div class="metronome-row">
+                  <span class="num metronome-path">{{
+                    metronomePath || t("settings.general.metronomeNone")
+                  }}</span>
+                  <el-button size="small" @click="pickMetronome()">{{
+                    t("settings.general.metronomePickBtn")
+                  }}</el-button>
+                  <el-button
+                    v-if="metronomePath"
+                    size="small"
+                    type="danger"
+                    plain
+                    @click="clearMetronome()"
+                  >{{ t("settings.general.metronomeClear") }}</el-button>
+                </div>
+              </div>
             </section>
 
             <!-- 外观 -->
@@ -511,7 +575,7 @@ function catLabel(key: string): string {
               </div>
               <dl class="about-meta">
                 <dt>{{ t("settings.about.version") }}</dt>
-                <dd>v0.1.0</dd>
+                <dd>v0.1.6</dd>
                 <dt>{{ t("settings.about.author") }}</dt>
                 <dd>BUGJI</dd>
                 <dt>{{ t("settings.about.tech") }}</dt>
@@ -833,5 +897,20 @@ function catLabel(key: string): string {
   min-width: 34px;
   text-align: right;
   color: var(--bdg-accent);
+}
+.metronome-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 55%;
+}
+.metronome-path {
+  font-size: 11px;
+  color: var(--bdg-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 </style>

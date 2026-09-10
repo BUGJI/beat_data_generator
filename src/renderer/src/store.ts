@@ -132,6 +132,8 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
       rememberWindow: true,
       autoSave: true,
       autoSaveMinutes: 5,
+      ctrlSpeedPlay: false,
+      metronomePath: "",
     },
     followManual: false,
     followActive: false,
@@ -217,6 +219,7 @@ function tickBeatFlash(): void {
     const ev = flashEvents[flashIdx] as FlashEvent;
     flashIdx++;
     store.ui.beatPulse++;
+    engine.playMetronome(ev.n);
     if (ev.n >= 2) {
       store.ui.overlapPulse++;
       store.ui.overlapCount = ev.n;
@@ -382,6 +385,20 @@ export function selectAllMarkers(): boolean {
   store.ui.multi = mains.slice(1).map((m) => m.id);
   store.ui.cardOpen = false;
   return true;
+}
+
+/** Replace the selection with the given main-marker ids (dragging a box). */
+export function boxSelectMarkers(ids: string[]): void {
+  const mains = ids.filter((id) => findMarker(id) && !findMarker(id)!.parentId);
+  if (!mains.length) {
+    store.ui.selected = { kind: null, id: null };
+    store.ui.multi = [];
+    store.ui.cardOpen = false;
+    return;
+  }
+  store.ui.selected = { kind: "marker", id: mains[0] };
+  store.ui.multi = mains.slice(1);
+  store.ui.cardOpen = false;
 }
 
 /** Clear selection and dismiss the floating property card. */
@@ -871,8 +888,8 @@ export function setPosition(ms: number): void {
   refreshBeatFlash(ms);
 }
 
-const needStretch = (): boolean =>
-  !store.ui.pitchFollow && Math.abs(store.ui.rate - 1) > 1e-4;
+const needStretch = (rate: number): boolean =>
+  !store.ui.pitchFollow && Math.abs(rate - 1) > 1e-4;
 
 let buildSeq = 0;
 
@@ -895,7 +912,7 @@ async function ensureStretched(rate: number): Promise<AudioBuffer | null> {
   }
 }
 
-async function playNow(): Promise<void> {
+async function playNow(rateOverride?: number): Promise<void> {
   if (!store.ui.hasAudio || store.ui.buffering) return;
   const dur = engine.durationMs();
   if (store.ui.positionMs >= dur) {
@@ -906,9 +923,9 @@ async function playNow(): Promise<void> {
   store.ui.playing = true;
   store.ui.followActive = store.ui.followManual;
   store.ui.followLocked = false;
-  const rate = store.ui.rate;
+  const rate = rateOverride ?? store.ui.rate;
   const orig = engine.sourceBuffer!;
-  if (!needStretch()) {
+  if (!needStretch(rate)) {
     engine.playFrom(store.ui.positionMs, {
       buf: orig,
       contentRate: 1,
@@ -925,8 +942,8 @@ async function playNow(): Promise<void> {
   });
 }
 
-export function play(): void {
-  void playNow();
+export function play(rate?: number): void {
+  void playNow(rate);
 }
 
 export function pause(): void {
@@ -936,9 +953,9 @@ export function pause(): void {
   store.ui.playing = false;
 }
 
-export function togglePlay(): void {
+export function togglePlay(rate?: number): void {
   if (store.ui.playing || store.ui.buffering) pause();
-  else play();
+  else play(rate);
 }
 
 export function stop(): void {
@@ -1014,8 +1031,28 @@ export async function loadSettings(): Promise<void> {
     const got = await window.api.getSettings();
     store.ui.settings = { ...store.ui.settings, ...got };
     store.ui.followManual = got.followPreset;
+    if (got.metronomePath) void loadMetronome(got.metronomePath);
   } catch {
     /* fallback defaults */
+  }
+}
+
+/** Load and cache the metronome click audio (empty path clears it). */
+export async function loadMetronome(path: string): Promise<void> {
+  if (!path) {
+    engine.setMetronome(null);
+    return;
+  }
+  try {
+    const res = await window.api.readAudioFile(path);
+    if (!res?.data) {
+      engine.setMetronome(null);
+      return;
+    }
+    const buf = await engine.decode(res.data);
+    engine.setMetronome(buf);
+  } catch {
+    engine.setMetronome(null);
   }
 }
 

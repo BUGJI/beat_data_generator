@@ -178,6 +178,17 @@ export default {
         "Silently looks for a new version when the app opens; if one is found, a notification appears that opens the download page.",
       modeMinimize: "Minimize",
       modeClose: "Close",
+      ctrlSpeedPlay: "Hold Ctrl to play at speed",
+      ctrlSpeedPlayDesc:
+        "When on, pressing Ctrl+Space (play) plays at the current rate and plain Space plays at 1x; when off, plain Space always plays at the current rate.",
+      metronome: "Metronome click",
+      metronomeDesc:
+        "Optional audio file (empty = disabled). A click plays each time a marker is passed; when several markers coincide, several clicks play at once.",
+      metronomeNone: "Not set",
+      metronomePickBtn: "Choose audio file…",
+      metronomeClear: "Clear",
+      metronomePickTitle: "Choose metronome file",
+      metronomeAudioFilter: "Audio files",
     },
     shortcuts: {
       note: "Shortcuts are read-only for now; rebinding will come later.",

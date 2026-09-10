@@ -25,6 +25,7 @@ import {
   toggleMarkerSelect,
   markerSelectionIds,
   resolveMainMarker,
+  boxSelectMarkers,
   updateMarkerLoop,
   updateMarkerAttrs,
   historyGestureBegin,
@@ -85,7 +86,9 @@ let mode:
   | "dragBpm"
   | "dragMarker"
   | "brushAdd"
-  | "brushErase" = "idle";
+  | "brushErase"
+  | "boxSelect"
+  | "pan" = "idle";
 let activePointer = -1;
 let gestureOn = false;
 let downX = 0;
@@ -96,6 +99,11 @@ let dragTrackId: string | null = null;
 let dragGroupIds = new Set<string>();
 let grabStartBeat = 0;
 let mainStartBeat = 0;
+let boxRect: { x0: number; y0: number; x1: number; y1: number } | null = null;
+let panStartX = 0;
+let panStartY = 0;
+let panStartViewX = 0;
+let panStartViewY = 0;
 
 const hover = { x: -1, y: -1 };
 
@@ -218,6 +226,7 @@ function draw(): void {
   drawBpmLaneContent(ctx, W, H, t0, t1, X);
   drawMarkerLanesContent(ctx, W, H, t0, t1, X);
   drawGhost(ctx, W, H, X);
+  drawSelectionBox(ctx);
   drawPlayhead(ctx, W, H, X);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
@@ -604,6 +613,26 @@ function drawDiamond(
   ctx.fill();
 }
 
+function drawSelectionBox(ctx: CanvasRenderingContext2D): void {
+  const b = boxRect;
+  if (!b) return;
+  const x = b.x0;
+  const y = b.y0;
+  const w = b.x1 - b.x0;
+  const h = b.y1 - b.y0;
+  ctx.save();
+  ctx.strokeStyle = COLORS.markerSelected;
+  ctx.globalAlpha = 0.9;
+  ctx.lineWidth = 1.25;
+  ctx.setLineDash([4, 3]);
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
+  ctx.globalAlpha = 0.12;
+  ctx.fillStyle = COLORS.markerSelected;
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+
 function drawGhost(
   ctx: CanvasRenderingContext2D,
   W: number,
@@ -732,6 +761,32 @@ function brushStep(x: number, y: number): void {
   }
 }
 
+function setBox(x: number, y: number): void {
+  boxRect = {
+    x0: Math.min(downX, x),
+    y0: Math.min(downY, y),
+    x1: Math.max(downX, x),
+    y1: Math.max(downY, y),
+  };
+}
+
+function applyBoxSelection(): void {
+  const b = boxRect;
+  if (!b) return;
+  const picked: string[] = [];
+  store.project.tracks.forEach((tr, idx) => {
+    // screen y of this lane's vertical centre
+    const my = RULER_H - view.y + BPM_LANE_H + idx * MARKER_LANE_H + MARKER_LANE_H / 2;
+    if (my < b.y0 || my > b.y1) return;
+    for (const m of markersInTrack(tr.id)) {
+      if (m.parentId) continue; // box selects the loop parents only
+      const mx = timeToScreenX(storeMarkerTime(m));
+      if (mx >= b.x0 && mx <= b.x1) picked.push(m.id);
+    }
+  });
+  boxSelectMarkers(picked);
+}
+
 // ---- events ----
 
 function onContext(e: MouseEvent): void {
@@ -756,6 +811,19 @@ function onContext(e: MouseEvent): void {
 }
 
 function onPointerDown(e: PointerEvent): void {
+  // middle-button drag pans the timeline (same as Shift+wheel horizontal scroll)
+  if (e.button === 1) {
+    store.ui.cardOpen = false;
+    const rect = rootEl.value!.getBoundingClientRect();
+    panStartX = e.clientX - rect.left;
+    panStartY = e.clientY - rect.top;
+    panStartViewX = view.x;
+    panStartViewY = view.y;
+    mode = "pan";
+    activePointer = e.pointerId;
+    rootEl.value!.setPointerCapture(activePointer);
+    return;
+  }
   if (e.button !== 0 && !(store.ui.quickPlace && e.button === 2)) return;
   // a fresh press dismisses the card; it reopens only on a clean click/release
   store.ui.cardOpen = false;
@@ -764,6 +832,7 @@ function onPointerDown(e: PointerEvent): void {
   const y = e.clientY - rect.top;
   downX = x;
   downY = y;
+  boxRect = null;
   moved = false;
   activePointer = e.pointerId;
   rootEl.value!.setPointerCapture(activePointer);
@@ -845,6 +914,13 @@ function onPointerMove(e: PointerEvent): void {
   hover.y = y;
   if (Math.abs(x - downX) > 3 || Math.abs(y - downY) > 3) moved = true;
 
+  if (mode === "pan") {
+    setScroll(
+      panStartViewX - (x - panStartX),
+      panStartViewY - (y - panStartY),
+    );
+    return;
+  }
   const lane = laneKindAt(y);
   if (mode === "scrub") {
     seekPlayhead(screenToTime(x));
@@ -858,7 +934,9 @@ function onPointerMove(e: PointerEvent): void {
     const raw = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
     if (!e.altKey && !bpmOccupy(raw)) updateBpmPoint(dragId, { beat: raw });
   } else if (mode === "dragMarker" && dragId && dragTrackId) {
-    const raw = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
+    // holding Alt temporarily disables snap (free, un-gridded drag)
+    const rawBeat = Math.max(0, beatOfTime(screenToTime(x)));
+    const raw = e.altKey ? rawBeat : doSnap(rawBeat);
     // children are regenerated with fresh ids on every parent move, so refresh
     // the exception set each frame or the parent gets blocked by its own children.
     dragGroupIds = loopGroupIds(dragId);
@@ -869,6 +947,12 @@ function onPointerMove(e: PointerEvent): void {
     if (ok) moveMarker(dragId, mainBeat, true);
   } else if (mode === "brushAdd" || mode === "brushErase") {
     brushStep(x, y);
+  } else if (mode === "placeMarker" && moved) {
+    // quick place is off: a drag on a marker lane turns into a box selection
+    mode = "boxSelect";
+    setBox(x, y);
+  } else if (mode === "boxSelect") {
+    setBox(x, y);
   } else if ((mode === "placeBpm" || mode === "placeMarker") && lane) {
     updateGhost(lane);
   }
@@ -888,6 +972,8 @@ function onPointerUp(e: PointerEvent): void {
   const rect = rootEl.value!.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
+
+  if (mode === "boxSelect") applyBoxSelection();
 
   if (!moved) {
     if (mode === "scrub") {
@@ -932,6 +1018,7 @@ function onPointerUp(e: PointerEvent): void {
   mainStartBeat = 0;
   brushLastKey = "";
   activePointer = -1;
+  boxRect = null;
   ghostState.value = null;
 }
 
@@ -948,6 +1035,7 @@ function onPointerCancel(): void {
   mainStartBeat = 0;
   brushLastKey = "";
   activePointer = -1;
+  boxRect = null;
   ghostState.value = null;
 }
 
@@ -1390,6 +1478,23 @@ const summary = computed(() => {
   const mm = store.project.markers.length;
   return `${t("sidebar.markerTrack")} × ${store.project.tracks.length} · ${t("sidebar.markers")} ${mm}`;
 });
+
+/** When multiple markers are selected, show start/end ms of the selection range. */
+const selectionMs = computed<string | null>(() => {
+  const ids = markerSelectionIds();
+  if (ids.length < 2) return null;
+  let lo = Number.POSITIVE_INFINITY;
+  let hi = Number.NEGATIVE_INFINITY;
+  for (const id of ids) {
+    const m = store.project.markers.find((x) => x.id === id);
+    if (!m) continue;
+    const ms = storeMarkerTime(m);
+    if (ms < lo) lo = ms;
+    if (ms > hi) hi = ms;
+  }
+  if (!Number.isFinite(lo)) return null;
+  return `⌖ ${Math.round(lo)}ms – ${Math.round(hi)}ms`;
+});
 </script>
 
 <template>
@@ -1431,6 +1536,8 @@ const summary = computed(() => {
       <span v-if="store.ui.snapEnabled" class="num"
         >snap 1/{{ store.ui.snapDiv }}</span
       >
+      <span v-if="selectionMs" class="sep">·</span>
+      <span v-if="selectionMs" class="num">{{ selectionMs }}</span>
     </div>
 
     <div

@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog, Notification, shell } from "electron";
+import { app, BrowserWindow, ipcMain, dialog, Menu, Notification, shell } from "electron";
 import { autoUpdater } from "electron-updater";
 import { createHash } from "crypto";
 import { readFile, writeFile } from "fs/promises";
@@ -48,6 +48,8 @@ let settings: SettingsData = {
   rememberWindow: true,
   autoSave: true,
   autoSaveMinutes: 5,
+  ctrlSpeedPlay: false,
+  metronomePath: "",
 };
 const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
@@ -211,6 +213,9 @@ function sanitize(raw: Partial<SettingsData>): SettingsData {
       60,
       Math.max(1, Math.round(raw.autoSaveMinutes ?? 5)),
     ),
+    ctrlSpeedPlay: raw.ctrlSpeedPlay === true,
+    metronomePath:
+      typeof raw.metronomePath === "string" ? raw.metronomePath : "",
   };
 }
 
@@ -836,6 +841,8 @@ app.whenReady().then(() => {
   registerIpc();
   installPluginManager();
   checkUpdatesSilent();
+  // remove the default app menu so pressing Alt no longer pops the File/Edit/View/Window bar
+  Menu.setApplicationMenu(null);
   createWindow();
 
   app.on("before-quit", (e) => {

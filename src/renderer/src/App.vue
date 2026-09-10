@@ -76,7 +76,13 @@ function onKeydown(e: KeyboardEvent): void {
   }
   if (code === "Space") {
     e.preventDefault();
-    togglePlay();
+    const ctrlPlay = store.ui.settings.ctrlSpeedPlay;
+    if (ctrlPlay) {
+      if (e.ctrlKey || e.metaKey) togglePlay();
+      else togglePlay(1);
+    } else {
+      togglePlay();
+    }
     return;
   }
   if (code === "Home") {

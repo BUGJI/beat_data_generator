@@ -174,6 +174,17 @@ export default {
         "应用启动时静默检查是否有新版本；发现新版本会弹出通知，点击可打开下载页面。",
       modeMinimize: "最小化",
       modeClose: "直接关闭",
+      ctrlSpeedPlay: "按住 Ctrl 才变速播放",
+      ctrlSpeedPlayDesc:
+        "开启后：按住 Ctrl+空格(播放) 按当前倍速播放，直接空格则按原速播放；关闭时直接空格即按当前倍速播放。",
+      metronome: "打拍音",
+      metronomeDesc:
+        "设置打拍音文件（可选，默认留空则不播放）。播放经过踩点时响一次；多个踩点重合时同时响多声。",
+      metronomeNone: "未选择",
+      metronomePickBtn: "选择音频文件…",
+      metronomeClear: "清除",
+      metronomePickTitle: "选择打拍音文件",
+      metronomeAudioFilter: "音频文件",
     },
     shortcuts: {
       note: "当前快捷键为只读展示，自定义改键将在后续版本提供。",
