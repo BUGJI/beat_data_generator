@@ -11,6 +11,7 @@ import {
   moveMarker,
   removeMarker,
   updateMarkerAttrs,
+  updateMarkerLoop,
   addBpmPoint,
   removeBpmPoint,
   setBaseBpm,
@@ -129,6 +130,11 @@ export interface PluginApi {
       setMarkerAttrs: (
         id: string,
         attrs: Record<string, unknown>,
+      ) => void;
+      /** Set a main marker's loop group config (undo aware); null clears it. */
+      setMarkerLoop: (
+        id: string,
+        cfg: { interval: number; count: number; exclude?: number[] } | null,
       ) => void;
       addBpmPoint: (beat: number) => string | null;
       removeBpmPoint: (id: string) => void;
@@ -310,6 +316,7 @@ export function createPluginApi(binding: PluginBinding): {
         removeMarker,
         addTypedTrack: (typeKey, name) => addTypedTrack(typeKey, name),
         setMarkerAttrs: (id, attrs) => updateMarkerAttrs(id, attrs),
+        setMarkerLoop: (id, cfg) => updateMarkerLoop(id, cfg),
         addBpmPoint: (beat) => addBpmPoint(beat)?.id ?? null,
         removeBpmPoint,
         setBaseBpm,

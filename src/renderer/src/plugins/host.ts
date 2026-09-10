@@ -84,11 +84,25 @@ async function loadRenderer(entry: PluginEntry): Promise<void> {
       version: entry.version,
       dir: entry.dir,
     });
-    const ret = activate(api);
-    actives.set(entry.id, {
-      dispose: typeof ret === "function" ? ret : undefined,
-      finalize,
-    });
+    let ret: (() => void) | undefined;
+    try {
+      const r = activate(api) as void | (() => void);
+      ret = typeof r === "function" ? r : undefined;
+    } catch (err) {
+      // activate() threw partway through mounting; clean up any contributions
+      // that were already registered so nothing leaks.
+      console.error(
+        `[plugins] activate() threw for ${entry.id}; contributions were cleaned up`,
+        err,
+      );
+      try {
+        finalize();
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
+    actives.set(entry.id, { dispose: ret, finalize });
     // the plugin may have been disabled while the source was loading
     const stillEnabled = pluginEntries.some(
       (e) => e.id === entry.id && e.enabled && !!e.renderer,

@@ -9,6 +9,19 @@ import {
 import { pluginEntries, pluginName } from "../plugins/host";
 
 const cleanups = new Map<string, () => void>();
+// Cache the ref callback per panel key. An inline arrow would be recreated on
+// every render; Vue then treats the ref as "changed" and re-invokes it with
+// null (unmout) then the element (re-mount) every render, which clears the
+// plugin panel inputs while dragging/resizing the window.
+const panelRefs = new Map<string, (el: unknown) => void>();
+function panelRefFor(key: string): (el: unknown) => void {
+  let cb = panelRefs.get(key);
+  if (!cb) {
+    cb = (el) => bindPanel(key, el as HTMLElement | null);
+    panelRefs.set(key, cb);
+  }
+  return cb;
+}
 
 interface Card {
   pluginId: string;
@@ -167,14 +180,14 @@ onBeforeUnmount(() => {
   window.removeEventListener("pointerup", onWinUp);
 });
 
-function bindPanel(
-  pluginId: string,
-  uid: number,
-  el: HTMLElement | null,
-): void {
-  const key = `${pluginId}:${uid}`;
+function bindPanel(key: string, el: HTMLElement | null): void {
   if (el) {
-    const p = allPanels.find((x) => x.pluginId === pluginId && x.uid === uid);
+    const sep = key.indexOf(":");
+    const pluginId = key.slice(0, sep);
+    const uid = Number(key.slice(sep + 1));
+    const p = allPanels.find(
+      (x) => x.pluginId === pluginId && x.uid === uid,
+    );
     if (!p) return;
     try {
       const ret = p.def.mount(el);
@@ -218,10 +231,7 @@ function onClose(card: Card): void {
       </div>
       <div
         class="pw-body"
-        :ref="
-          (el: unknown) =>
-            bindPanel(card.pluginId, card.uid, el as HTMLElement | null)
-        "
+        :ref="panelRefFor(card.key)"
       />
       <div
         class="pw-resize"

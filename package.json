@@ -1,6 +1,6 @@
 {
   "name": "beat-data-generator",
-  "version": "0.1.6",
+  "version": "0.1.9",
   "description": "Music beat-marker editor built with Electron + Vue3 + Element Plus",
   "main": "./out/main/index.js",
   "author": "BUGJI",
