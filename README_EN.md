@@ -7,16 +7,20 @@ A music beat-marker editor built with **Electron + Vue 3 + TypeScript + Element 
 ## Features
 
 - **Audio import**: mp3 / wav / ogg / flac / m4a / aac / opus, with real-time waveform rendering.
+- **Audio intelligence**: on load, auto-detect BPM, place beat markers, find the best looping segment, and keep a live BPM readout plus a mel spectrogram in a collapsible analysis panel. Powered by **pleco-xa**, computed asynchronously in a Web Worker; each capability is an independent toggle in Settings.
 - **Beat grid**: dual ruler (time + beat). Snapping from 1 to 1/32 beat subdivisions.
 - **BPM lane**: add BPM points (absolute BPM or multiplier modes) to build a tempo map; supports locking the BPM lane.
-- **Multiple marker tracks**: add / rename / recolor / lock / hide tracks. Markers on hidden tracks are excluded from the playback indicator and exports.
+- **Multiple marker tracks**: add / rename / recolor / lock / hide tracks. Markers on hidden tracks are excluded from the playback indicator and exports. Plugins can also register typed tracks.
 - **Marker editing**: click to add, drag to fine-tune, right-click to delete; nudge by snap step, multi-select (Ctrl/Cmd+click), select all.
 - **Loop groups**: a main marker can generate child markers by `interval × count`, with optional exclusion; capped at **256** children per group to keep the editor responsive.
 - **Variable-speed playback**: 0.1–4× rate; choose pitch-following playback or pitch-preserving time stretch via soundtouchjs.
+- **Metronome click**: plays a tick each time a marker is passed; a custom audio file can be selected (empty disables it).
 - **Auto-follow**: the timeline scrolls once the playhead passes a configurable threshold.
 - **Undo / redo**: up to 100 steps; copy / paste marker groups (including loops).
+- **Sticky notes**: place floating notes on the timeline, edit them with double-click (Markdown).
 - **Project files**: `.bdg` (JSON). Audio is referenced by a path relative to the project plus an MD5, verified / auto-relinked on open.
 - **Exports**: timestamp list `.txt` (millisecond precision, de-duplicated) and **CMX3600 EDL** `.edl` (25 fps, non-drop).
+- **Plugin system**: extend with new import/export formats, floating sidebar panels, custom shortcuts, standalone preview windows, and typed tracks. See `docs/plugin-system.md`.
 - **Auto-save**: configurable interval (1–60 min) saves the current project in the background.
 - **Extras**: bilingual UI (中文 / English), welcome screen with recent projects, window-state memory, close-mode settings, dark theme.
 
@@ -30,6 +34,7 @@ A music beat-marker editor built with **Electron + Vue 3 + TypeScript + Element 
 | UI library | Element Plus + @element-plus/icons-vue |
 | i18n | vue-i18n |
 | Time-stretch | soundtouchjs |
+| Audio intelligence | pleco-xa (async via Web Worker) |
 | Waveform | Canvas (custom) |
 
 ## Project Layout
@@ -41,12 +46,15 @@ src/
 ├── shared/          # IPC type definitions shared by main & renderer
 └── renderer/        # Vue renderer
     └── src/
-        ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar etc.
+        ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar / AnalysisPanel etc.
         ├── i18n/         # Chinese & English strings (zh / en)
+        ├── plugins/      # Plugin host: registry / events / bridge API
         ├── store.ts      # Global state & domain logic (markers, tracks, BPM, history, IO)
         ├── engine.ts     # Web Audio playback engine
         ├── tempo.ts      # beat↔time mapping and tempo map builder
         ├── stretch.ts    # soundtouchjs time stretch wrapper
+        ├── analysis.ts   # Audio intelligence bridge (pleco-xa, async in Web Worker)
+        ├── analysis.worker.ts # Analysis worker (BPM / beats / loop / spectrogram)
         ├── editorView.ts # viewport / scroll / zoom model
         └── metrics.ts    # drawing metrics & palette
 ```

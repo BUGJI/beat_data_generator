@@ -7,16 +7,20 @@
 ## 功能特性
 
 - **音频加载**：支持 mp3 / wav / ogg / flac / m4a / aac / opus，实时绘制波形图。
+- **音频智能分析**：载入音频后自动检测 BPM、节拍打点、找出最佳循环段落，并在播放中实时刷新 BPM、渲染梅尔频谱到可折叠的分析面板。基于 **pleco-xa**，重计算均在 Web Worker 中异步进行，每项能力可独立开关（见设置）。
 - **节拍网格**：双轴（时间轴 + 节拍轴），以拍为单位吸附放置（1 ~ 1/32 拍细分）。
 - **BPM 速度轨**：可放置 BPM 点（绝对 BPM 或倍数两种模式）构建变速（tempo map）；支持锁定 BPM。
-- **多踩点轨道**：轨道可增删、重命名、换色、锁定与隐藏；隐藏轨道的踩点不计入播放指示灯与导出。
+- **多踩点轨道**：轨道可增删、重命名、换色、锁定与隐藏；隐藏轨道的踩点不计入播放指示灯与导出。插件还可注册“类型化轨道”。
 - **踩点编辑**：点击添加、拖动微调、右键删除；支持按吸附步进微调、多选（Ctrl/Cmd+点击）、全选。
 - **循环组**：单个主踩点可按“间隔拍数 × 个数”批量生成子点，并可排除指定项；单个循环组最多生成 **256** 个子点以防编辑器卡死。
 - **变速播放**：0.1–4 倍速播放；可选“变调跟随”或基于 soundtouchjs 的“保调变速”。
+- **打拍音**：播放经过踩点时发出打拍音，可选用自定义音频文件（默认留空则不播放）。
 - **自动跟随**：播放时播放头越过阈值自动滚动跟随时间线。
 - **撤销 / 重做**：最多 100 步历史；支持复制 / 粘贴踩点组（含循环）。
+- **便签**：在时间线上放置浮动静默便签，双击编辑（Markdown）。
 - **工程文件**：`.bdg`（JSON）保存，音频以相对路径记录并附带 MD5，重新打开时自动校验、自动重链。
 - **导出**：时间戳列表 `.txt`（毫秒精度去重）与 **CMX3600 EDL** `.edl`（25fps non-drop）。
+- **插件系统**：可扩展新的导入 / 导出格式、侧栏浮动静默面板、自定义快捷键、独立预览窗口与类型化轨道；详情见 `docs/plugin-system.md`。
 - **自动保存**：可配置间隔（1–60 分钟）后台自动保存当前工程。
 - **其他**：多语言界面（中文 / English）、欢迎页与最近工程、记住窗口位置、退出模式设置、深色主题。
 
@@ -32,6 +36,7 @@
 | 组件库 | Element Plus + @element-plus/icons-vue |
 | 国际化 | vue-i18n |
 | 音频变速 | soundtouchjs |
+| 音频智能分析 | pleco-xa（Web Worker 异步） |
 | 波形绘制 | Canvas（自绘） |
 
 ## 项目结构
@@ -43,12 +48,15 @@ src/
 ├── shared/          # 主/渲染进程共享的 IPC 类型定义
 └── renderer/        # Vue 渲染进程
     └── src/
-        ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar 等
+        ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar / AnalysisPanel 等
         ├── i18n/         # 中英文案（zh / en）
+        ├── plugins/      # 插件宿主：注册表 / 事件 / 桥接 API
         ├── store.ts      # 全局状态与业务逻辑（标记、轨道、BPM、历史、导入导出）
         ├── engine.ts     # Web Audio 播放引擎
         ├── tempo.ts      # 节拍 ↔ 时间换算与 tempo map
         ├── stretch.ts    # soundtouchjs 时间拉伸
+        ├── analysis.ts   # 音频智能分析桥接（pleco-xa，Web Worker 异步）
+        ├── analysis.worker.ts # 分析 Worker（BPM / 节拍 / 循环 / 频谱）
         ├── editorView.ts # 视口 / 滚动 / 缩放模型
         └── metrics.ts    # 绘制度量与配色
 ```
