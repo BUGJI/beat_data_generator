@@ -12,6 +12,7 @@ import {
   applySpeed,
   bpmAtTime,
 } from "../store";
+import { analysis } from "../analysis";
 
 const { t } = useI18n();
 
@@ -25,6 +26,10 @@ const totalLabel = computed(() =>
   hasAudio.value ? formatTime(contentEndMs()) : "--:--.---",
 );
 const bpmLabel = computed(() => bpmAtTime(store.ui.positionMs).toFixed(1));
+const liveBpmOn = computed(() => store.ui.settings.audioLiveBpm && !!analysis.liveBpm);
+const liveBpmLabel = computed(() =>
+  analysis.liveBpm ? analysis.liveBpm.toFixed(1) : "--",
+);
 
 const speed = computed({
   get: () => store.ui.rate,
@@ -76,7 +81,12 @@ onBeforeUnmount(() => {
     <div class="rate-zone">
       <div class="tr-left num">
         <span class="bpm-dot" />
-        BPM {{ bpmLabel }}
+        <span class="bpm-main">BPM {{ bpmLabel }}</span>
+        <span
+          v-if="liveBpmOn"
+          class="live-bpm"
+          :title="t('transport.bpmReadout')"
+        >{{ t("transport.bpmReadout") }}: {{ liveBpmLabel }}</span>
       </div>
       <div
         class="rate-ctl"
@@ -227,6 +237,18 @@ onBeforeUnmount(() => {
   height: 8px;
   border-radius: 50%;
   background: #f59e0b;
+}
+.bpm-main {
+  font-weight: 700;
+}
+.live-bpm {
+  font-size: 11px;
+  color: var(--bdg-accent);
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.22);
+  padding: 1px 7px;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 .tr-controls {
   flex: 1;

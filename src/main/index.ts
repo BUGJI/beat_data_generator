@@ -35,6 +35,9 @@ let welcomeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 let allowQuit = false;
 const recents: RecentProject[] = [];
 const MAX_RECENTS = 9;
+/** Bump to force migration of persisted settings defaults. */
+const SETTINGS_VERSION = 2;
+
 let settings: SettingsData = {
   closeMode: "ask",
   devEnabled: false,
@@ -48,9 +51,16 @@ let settings: SettingsData = {
   rememberWindow: true,
   autoSave: true,
   autoSaveMinutes: 5,
-  ctrlSpeedPlay: false,
-  metronomePath: "",
-};
+    ctrlSpeedPlay: false,
+    metronomePath: "",
+    settingsVersion: SETTINGS_VERSION,
+    audioAutoBpm: true,
+    audioAutoBeats: false,
+    audioLoopDetect: false,
+    audioLiveBpm: false,
+    audioSpectrum: false,
+    audioPanel: true,
+  };
 const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
 const lastDirsPath = (): string =>
@@ -216,6 +226,13 @@ function sanitize(raw: Partial<SettingsData>): SettingsData {
     ctrlSpeedPlay: raw.ctrlSpeedPlay === true,
     metronomePath:
       typeof raw.metronomePath === "string" ? raw.metronomePath : "",
+    settingsVersion: Number(raw.settingsVersion ?? 0),
+    audioAutoBpm: raw.audioAutoBpm !== false,
+    audioAutoBeats: raw.audioAutoBeats !== false,
+    audioLoopDetect: raw.audioLoopDetect !== false,
+    audioLiveBpm: raw.audioLiveBpm !== false,
+    audioSpectrum: raw.audioSpectrum !== false,
+    audioPanel: raw.audioPanel !== false,
   };
 }
 
@@ -224,10 +241,26 @@ function loadSettings(): void {
     const raw = JSON.parse(
       readFileSync(settingsPath(), "utf-8"),
     ) as Partial<SettingsData>;
+    let changed = false;
+    // Migration: v1 shipped with auto audio-analysis toggles defaulting on.
+    // Reset the analysis toggles to their current defaults so residual
+    // enabled values from those early builds stop auto-running on load.
+    if ((raw.settingsVersion ?? 0) < SETTINGS_VERSION) {
+      raw.audioAutoBpm = true;
+      raw.audioAutoBeats = false;
+      raw.audioLoopDetect = false;
+      raw.audioLiveBpm = false;
+      raw.audioSpectrum = false;
+      raw.audioPanel = true;
+      raw.settingsVersion = SETTINGS_VERSION;
+      changed = true;
+    }
     settings = sanitize(raw);
+    if (changed) persistSettings();
   } catch {
     persistSettings();
   }
+  persistSettings();
 }
 
 function persistSettings(): void {

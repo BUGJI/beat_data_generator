@@ -63,6 +63,9 @@ export default {
     relink: "Re-choose audio",
     baseBpm: "Base BPM (beat 0)",
     bpmTooltip: "Spacing of the beat grid",
+    detectBpm: "Detect",
+    detectBpmTip:
+      "Analyze the audio and set the detected BPM into this field.",
     offset: "Offset (ms)",
     offsetTooltip: "Beat grid offset vs. time axis",
     duration: "Duration",
@@ -90,6 +93,7 @@ export default {
     bpmTrackHint: "drag BPM points to adjust following beats",
     addTrack: "Add marker track",
     addBeatTrack: "Marker track (beat)",
+    addNote: "Add a sticky note (floating on the timeline)",
     trackName: "Track name…",
     changeColor: "Change color",
     lockTip: "Lock track (block content editing)",
@@ -142,17 +146,12 @@ export default {
     autoSave: "Changes are saved immediately",
     cats: {
       general: "General",
-      appearance: "Appearance",
+      edit: "Editing",
+      audio: "Audio",
+      display: "Display",
       shortcuts: "Shortcuts",
-      anim: "Animation",
       plugins: "Plugins",
-      dev: "Developer",
-      about: "About",
-    },
-    appearance: {
-      autoHideGrid: "Auto-hide grid lines",
-      autoHideGridDesc:
-        "Caps the drawn subdivision detail by zoom to keep rendering fast: at most 1/16 below 500 px/s, 1/8 below 250 px/s, and 1/4 below 100 px/s. Your snap setting is unchanged \u2014 only the display is affected; beat and bar lines always show.",
+      advanced: "Advanced",
     },
     general: {
       language: "Language",
@@ -161,26 +160,44 @@ export default {
       closeModeDesc: "Applies to window X and all quit paths",
       modeAsk: "Ask",
       modeAskDesc: "Ask before quitting",
+      modeMinimize: "Minimize",
+      modeClose: "Close",
+    },
+    edit: {
       autoFollow: "Auto-scroll while playing",
       autoFollowDesc: "Scroll the timeline to follow the playhead",
       followPercent: "Auto-scroll trigger position",
       followPercentDesc:
         "Follow once the playhead passes this % from the left of the viewport",
-      rememberWindow: "Remember window size & position",
-      rememberWindowDesc:
-        "Restore the last window size and maximized state on launch",
       autoSave: "Auto-save",
       autoSaveDesc: "Automatically save the project on an interval",
       autoSaveMinutes: "Auto-save interval",
       autoSaveMinutesUnit: "minutes (1–60)",
-      checkUpdates: "Check for updates on startup",
-      checkUpdatesDesc:
-        "Silently looks for a new version when the app opens; if one is found, a notification appears that opens the download page.",
-      modeMinimize: "Minimize",
-      modeClose: "Close",
       ctrlSpeedPlay: "Hold Ctrl to play at speed",
       ctrlSpeedPlayDesc:
         "When on, pressing Ctrl+Space (play) plays at the current rate and plain Space plays at 1x; when off, plain Space always plays at the current rate.",
+    },
+    audio: {
+      tagline:
+        "Audio intelligence powered by pleco-xa. Each capability is an independent switch.",
+      autoBpm: "Auto-detect BPM",
+      autoBpmDesc:
+        "On load, detect the tempo and apply it to the project BPM (skipped while BPM is locked).",
+      autoBeats: "Beat marker placement",
+      autoBeatsDesc:
+        "On load, place a marker at every detected beat on a dedicated “Auto Beat” track (keeps other tracks unchanged).",
+      loopDetect: "Smart loop detection",
+      loopDetectDesc:
+        "On load, find the best looping segment and show its time range as a hint in the analysis panel.",
+      liveBpm: "Live BPM",
+      liveBpmDesc:
+        "While playing, refresh a real-time BPM readout in the panel. Never modifies the project.",
+      spectrum: "Spectrum panel",
+      spectrumDesc:
+        "Compute a mel spectrogram and render it in the audio analysis panel.",
+      panel: "Analysis panel button",
+      panelDesc: "Show the audio analysis panel button in the top bar.",
+      metronomeTitle: "Metronome",
       metronome: "Metronome click",
       metronomeDesc:
         "Optional audio file (empty = disabled). A click plays each time a marker is passed; when several markers coincide, several clicks play at once.",
@@ -189,6 +206,27 @@ export default {
       metronomeClear: "Clear",
       metronomePickTitle: "Choose metronome file",
       metronomeAudioFilter: "Audio files",
+      reanalyze: "Re-analyze",
+      applyBpm: "Apply BPM",
+      genBeats: "Generate Auto Beat track",
+      detectedBpm: "Detected BPM",
+      liveBpmTitle: "Live BPM",
+      loopTitle: "Loop section",
+      loopNone: "No loop detected",
+      confidence: "confidence",
+      spectrumTitle: "Spectrum",
+      spectrumHint:
+        "Turn on “Spectrum panel” to show the mel spectrogram here.",
+      noAudio: "Load audio first to analyze.",
+      addBeats: "Add beat track",
+    },
+    display: {
+      autoHideGrid: "Auto-hide grid lines",
+      autoHideGridDesc:
+        "Caps the drawn subdivision detail by zoom to keep rendering fast: at most 1/16 below 500 px/s, 1/8 below 250 px/s, and 1/4 below 100 px/s. Your snap setting is unchanged \u2014 only the display is affected; beat and bar lines always show.",
+      editor: "Editor animations",
+      editorDesc:
+        "Zoom/pan the timeline with an interruptible 0.1s ease-out",
     },
     shortcuts: {
       note: "Shortcuts are read-only for now; rebinding will come later.",
@@ -205,7 +243,15 @@ export default {
       zoom: "Zoom (Ctrl + wheel)",
       pan: "Scroll vertically / horizontally",
     },
-    dev: {
+    advanced: {
+      window: "Window & Startup",
+      rememberWindow: "Remember window size & position",
+      rememberWindowDesc:
+        "Restore the last window size and maximized state on launch",
+      checkUpdates: "Check for updates on startup",
+      checkUpdatesDesc:
+        "Silently looks for a new version when the app opens; if one is found, a notification appears that opens the download page.",
+      developer: "Developer",
       master: "Developer options",
       masterDesc: "When off, devtools are disabled and the entry is hidden",
       freeInput: "Remove input limits",
@@ -215,11 +261,12 @@ export default {
       openToolsDesc: "Closes first, then reopens the DevTools window.",
       disabledNote:
         "Developer options are off. Enable the switch to use DevTools.",
-    },
-    anim: {
-      editor: "Editor animations",
-      editorDesc:
-        "Zoom/pan the timeline with an interruptible 0.1s ease-out",
+      about: "About",
+      version: "Version",
+      author: "Author",
+      tech: "Stack",
+      license: "License",
+      runtime: "Runtime",
     },
     plugins: {
       title: "Plugins",
@@ -230,17 +277,16 @@ export default {
         "Drop a plugin folder into the plugins directory (or the project's plugins/ dir), then click “Rescan & reload”.",
       version: "Version",
     },
-    about: {
-      version: "Version",
-      author: "Author",
-      tech: "Stack",
-      license: "License",
-      runtime: "Runtime",
-    },
   },
   keys: {
     marker: "Marker",
     bpmPoint: "BPM Point",
+  },
+  note: {
+    title: "Note",
+    editHint: "Double-click to edit (Markdown)",
+    lock: "Lock / unlock",
+    delete: "Delete note",
   },
   prop: {
     beatPos: "Beat position (decimal)",

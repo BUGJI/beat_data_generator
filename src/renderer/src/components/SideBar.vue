@@ -13,6 +13,7 @@ import {
   setTrackLocked,
   setTrackHidden,
   setBpmLocked,
+  addNote,
   closeCard,
   timeOfBeat,
   formatTime,
@@ -73,6 +74,13 @@ function onPickAdd(key: string): void {
   addMenuOpen.value = false;
   if (key) addTypedTrack(key);
   else addTrack();
+}
+
+function onAddNote(): void {
+  addNote({
+    timeMs: store.ui.positionMs,
+    y: BPM_LANE_H + MARKER_LANE_H / 2,
+  });
 }
 
 const isBpmRowVisible = computed(() => {
@@ -137,6 +145,17 @@ onBeforeUnmount(() => {
     <div class="corner" :style="{ height: RULER_H + 'px' }">
       <div class="corner-row">
         <span class="corner-text">{{ t("sidebar.tracks") }}</span>
+        <button
+          class="add-btn note-btn"
+          :title="t('sidebar.addNote')"
+          @click="onAddNote"
+        >
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 2h12l4 4V22H4z" />
+            <path d="M16 2v4h4" />
+            <path d="M8 13h8M8 17h8" />
+          </svg>
+        </button>
         <button
           class="add-btn"
           :class="{ on: addMenuOpen }"

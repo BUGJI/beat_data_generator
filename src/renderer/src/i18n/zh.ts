@@ -60,6 +60,8 @@ export default {
     relink: "重新选择音频",
     baseBpm: "基础 BPM（拍0）",
     bpmTooltip: "决定节拍轴网格的间距",
+    detectBpm: "检测",
+    detectBpmTip: "分析音频，把检测到的 BPM 填入此框。",
     offset: "偏移 (ms)",
     offsetTooltip: "节拍网格相对时间轴的偏移",
     duration: "时长",
@@ -87,6 +89,7 @@ export default {
     bpmTrackHint: "拖放 BPM 点调整其后拍轴",
     addTrack: "新增踩点轨",
     addBeatTrack: "踩点轨（节拍）",
+    addNote: "添加便签（悬浮在时间线轨道上）",
     trackName: "轨道名…",
     changeColor: "换颜色",
     lockTip: "锁定该轨（禁止编辑内容）",
@@ -140,17 +143,12 @@ export default {
     autoSave: "修改即时保存",
     cats: {
       general: "常规",
-      appearance: "外观",
+      edit: "编辑",
+      audio: "音频",
+      display: "显示",
       shortcuts: "快捷键",
-      anim: "动画",
       plugins: "插件",
-      dev: "开发者",
-      about: "关于",
-    },
-    appearance: {
-      autoHideGrid: "自动隐藏网格线",
-      autoHideGridDesc:
-        "开启后按缩放限制显示的细分线：低于 500px/s 细分最多到 1/16，低于 250px/s 最多到 1/8，低于 100px/s 最多到 1/4；仅影响显示、不改变吸附设置，拍线与小节线始终显示。",
+      advanced: "高级",
     },
     general: {
       language: "语言",
@@ -159,24 +157,43 @@ export default {
       closeModeDesc: "作用于窗口 X 与所有退出路径",
       modeAsk: "询问",
       modeAskDesc: "退出前询问",
+      modeMinimize: "最小化",
+      modeClose: "直接关闭",
+    },
+    edit: {
       autoFollow: "播放时自动滚动跟随",
       autoFollowDesc: "跟随播放头滚动时间线",
       followPercent: "自动滚动触发位置",
       followPercentDesc: "播放头越过视口左起该百分比时才滚动跟随",
-      rememberWindow: "记住窗口大小与位置",
-      rememberWindowDesc: "保留上次窗口尺寸与最大化状态，重启时恢复",
       autoSave: "自动保存",
       autoSaveDesc: "每隔一段时间自动保存当前工程",
       autoSaveMinutes: "自动保存间隔",
       autoSaveMinutesUnit: "分钟（1–60）",
-      checkUpdates: "打开时静默检测更新",
-      checkUpdatesDesc:
-        "应用启动时静默检查是否有新版本；发现新版本会弹出通知，点击可打开下载页面。",
-      modeMinimize: "最小化",
-      modeClose: "直接关闭",
       ctrlSpeedPlay: "按住 Ctrl 才变速播放",
       ctrlSpeedPlayDesc:
         "开启后：按住 Ctrl+空格(播放) 按当前倍速播放，直接空格则按原速播放；关闭时直接空格即按当前倍速播放。",
+    },
+    audio: {
+      tagline:
+        "音频智能分析由 pleco-xa 提供。每项能力都是独立开关。",
+      autoBpm: "自动检测 BPM",
+      autoBpmDesc:
+        "载入音频时检测速度并写入工程 BPM（BPM 被锁定时跳过不覆盖）。",
+      autoBeats: "节拍打点",
+      autoBeatsDesc:
+        "载入音频时在每条检测到的拍位放一个标记，写入独立的“自动节拍”轨道（不动其它轨道）。",
+      loopDetect: "智能循环检测",
+      loopDetectDesc:
+        "载入音频时找出最佳循环段落，在分析面板里显示其起止时间作为提示。",
+      liveBpm: "实时刷新 BPM",
+      liveBpmDesc:
+        "播放过程中在面板实时刷新 BPM 读数。绝不影响工程 BPM。",
+      spectrum: "频谱分析面板",
+      spectrumDesc:
+        "计算梅尔频谱图并渲染到音频分析面板。",
+      panel: "分析面板按钮",
+      panelDesc: "在顶部工具栏显示音频分析面板的开关按钮。",
+      metronomeTitle: "打拍音",
       metronome: "打拍音",
       metronomeDesc:
         "设置打拍音文件（可选，默认留空则不播放）。播放经过踩点时响一次；多个踩点重合时同时响多声。",
@@ -185,6 +202,26 @@ export default {
       metronomeClear: "清除",
       metronomePickTitle: "选择打拍音文件",
       metronomeAudioFilter: "音频文件",
+      reanalyze: "重新分析",
+      applyBpm: "应用 BPM",
+      genBeats: "生成自动节拍轨道",
+      detectedBpm: "检测到的 BPM",
+      liveBpmTitle: "实时 BPM",
+      loopTitle: "循环段落",
+      loopNone: "未检测到循环",
+      confidence: "置信度",
+      spectrumTitle: "频谱",
+      spectrumHint:
+        "打开“频谱分析面板”开关，可在此显示梅尔频谱图。",
+      noAudio: "请先载入音频再分析。",
+      addBeats: "添加节拍轨道",
+    },
+    display: {
+      autoHideGrid: "自动隐藏网格线",
+      autoHideGridDesc:
+        "开启后按缩放限制显示的细分线：低于 500px/s 细分最多到 1/16，低于 250px/s 最多到 1/8，低于 100px/s 最多到 1/4；仅影响显示、不改变吸附设置，拍线与小节线始终显示。",
+      editor: "编辑器动画",
+      editorDesc: "缩放、平移时间轴时使用 0.1s 缓出动画（可打断，不阻塞操作）",
     },
     shortcuts: {
       note: "当前快捷键为只读展示，自定义改键将在后续版本提供。",
@@ -201,7 +238,14 @@ export default {
       zoom: "缩放（时间线 Ctrl+滚轮）",
       pan: "上下/左右滚动",
     },
-    dev: {
+    advanced: {
+      window: "窗口与启动",
+      rememberWindow: "记住窗口大小与位置",
+      rememberWindowDesc: "保留上次窗口尺寸与最大化状态，重启时恢复",
+      checkUpdates: "打开时静默检测更新",
+      checkUpdatesDesc:
+        "应用启动时静默检查是否有新版本；发现新版本会弹出通知，点击可打开下载页面。",
+      developer: "开发者",
       master: "开发者选项",
       masterDesc: "关闭时禁用调试工具并隐藏入口",
       freeInput: "去除输入限制",
@@ -209,10 +253,12 @@ export default {
       openTools: "打开浏览器调试工具",
       openToolsDesc: "点击先关闭再重新打开调试工具窗口。",
       disabledNote: "开发者选项已关闭，开启总开关以使用调试工具。",
-    },
-    anim: {
-      editor: "编辑器动画",
-      editorDesc: "缩放、平移时间轴时使用 0.1s 缓出动画（可打断，不阻塞操作）",
+      about: "关于",
+      version: "版本",
+      author: "作者",
+      tech: "技术栈",
+      license: "许可",
+      runtime: "运行时",
     },
     plugins: {
       title: "插件",
@@ -222,17 +268,16 @@ export default {
       noneHint: "把插件文件夹放进插件目录（或项目内 plugins/ 目录），然后点“重新扫描并加载”。",
       version: "版本",
     },
-    about: {
-      version: "版本",
-      author: "作者",
-      tech: "技术栈",
-      license: "许可",
-      runtime: "运行时",
-    },
   },
   keys: {
     marker: "踩点",
     bpmPoint: "BPM 点",
+  },
+  note: {
+    title: "便签",
+    editHint: "双击编辑（Markdown）",
+    lock: "锁定 / 解锁",
+    delete: "删除便签",
   },
   prop: {
     beatPos: "拍位置（十进制拍）",

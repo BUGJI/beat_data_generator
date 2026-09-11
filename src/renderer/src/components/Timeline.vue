@@ -30,6 +30,10 @@ import {
   updateMarkerAttrs,
   historyGestureBegin,
   historyGestureEnd,
+  updateNote,
+  removeNote,
+  setNoteLocked,
+  setNoteText,
   MAX_LOOP_CHILDREN,
 } from "../store";
 import { snapBeat, beatParts } from "../tempo";
@@ -55,7 +59,8 @@ import {
   MIN_PX_PER_SEC,
   BEATS_PER_BAR,
 } from "../metrics";
-import type { BpmMode, Marker, MarkerTrack, BpmPoint } from "../types";
+import type { BpmMode, Marker, MarkerTrack, BpmPoint, ProjectNote } from "../types";
+import { render as mdRender, escapeHtml } from "slimdown-js";
 import {
   getTypedef,
   pluginIdOfType,
@@ -108,6 +113,107 @@ let panStartViewY = 0;
 const hover = { x: -1, y: -1 };
 
 const trackAt = (i: number): MarkerTrack | undefined => store.project.tracks[i];
+
+// ---- sticky notes overlay ----
+
+const editingNoteId = ref<string | null>(null);
+const editingDraft = ref("");
+let dragNoteId: string | null = null;
+let dragGrab: { dx: number; dy: number } | null = null;
+let dragTarget: { timeMs: number; y: number } | null = null;
+let dragRaf = 0;
+
+function isOverNote(e: Event): boolean {
+  const t = e.target;
+  return t instanceof Element && !!t.closest(".note");
+}
+
+const noteOf = (id: string): ProjectNote | undefined =>
+  store.project.notes.find((n) => n.id === id);
+
+const noteTextOf = (id: string): string => noteOf(id)?.text ?? "";
+
+const noteLayouts = computed(() =>
+  store.project.notes.map((n) => ({
+    id: n.id,
+    left: timeToScreenX(n.timeMs),
+    top: RULER_H + n.y - view.y,
+    locked: n.locked === true,
+  })),
+);
+
+function noteHtml(text: string): string {
+  return text ? mdRender(escapeHtml(text)) : "";
+}
+
+function onNoteDown(e: PointerEvent, note: ProjectNote | undefined): void {
+  if (!note || note.locked) return;
+  if (e.button !== 0) return;
+  const target = e.target as HTMLElement;
+  if (target.closest("textarea") || target.closest(".note-edit")) return;
+  if (target.closest(".note-tools")) return;
+  dragNoteId = note.id;
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+  dragGrab = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+  historyGestureBegin();
+  window.addEventListener("pointermove", onNoteDragMove);
+  window.addEventListener("pointerup", onNoteDragEnd);
+  e.preventDefault();
+}
+
+function onNoteDragMove(e: PointerEvent): void {
+  if (!dragNoteId || !dragGrab || !rootEl.value) return;
+  const rect = rootEl.value.getBoundingClientRect();
+  const cx = e.clientX - rect.left - dragGrab.dx;
+  const cy = e.clientY - rect.top - dragGrab.dy;
+  const timeMs = ((cx + view.x) / store.ui.pxPerSec) * 1000;
+  const y = cy - RULER_H + view.y;
+  dragTarget = { timeMs, y };
+  if (!dragRaf) {
+    dragRaf = requestAnimationFrame(applyNoteDrag);
+  }
+  e.preventDefault();
+}
+
+function applyNoteDrag(): void {
+  dragRaf = 0;
+  if (!dragNoteId || !dragTarget) return;
+  const t = dragTarget;
+  dragTarget = null;
+  updateNote(dragNoteId, t);
+}
+
+function onNoteDragEnd(): void {
+  window.removeEventListener("pointermove", onNoteDragMove);
+  window.removeEventListener("pointerup", onNoteDragEnd);
+  // cancel any in-flight frame and flush the final position so the drag
+  // always releases cleanly instead of staying stuck to the cursor.
+  if (dragRaf) {
+    cancelAnimationFrame(dragRaf);
+    dragRaf = 0;
+  }
+  applyNoteDrag();
+  historyGestureEnd();
+  dragNoteId = null;
+  dragGrab = null;
+  dragTarget = null;
+}
+
+function startNoteEdit(note: ProjectNote | undefined): void {
+  if (!note || note.locked) return;
+  editingNoteId.value = note.id;
+  editingDraft.value = note.text;
+}
+
+function commitNoteEdit(): void {
+  if (!editingNoteId.value) return;
+  setNoteText(editingNoteId.value, editingDraft.value);
+  editingNoteId.value = null;
+}
+
+function cancelNoteEdit(): void {
+  editingNoteId.value = null;
+}
 
 function loopGroupIds(mainId: string): Set<string> {
   const s = new Set<string>([mainId]);
@@ -907,6 +1013,7 @@ function onPointerDown(e: PointerEvent): void {
 }
 
 function onPointerMove(e: PointerEvent): void {
+  if (isOverNote(e)) return; // note drag is handled by the note overlay, not the canvas
   const rect = rootEl.value!.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
@@ -968,6 +1075,7 @@ function seekPlayhead(msRaw?: number): void {
 }
 
 function onPointerUp(e: PointerEvent): void {
+  if (isOverNote(e)) return; // note drag is handled by the note overlay, not the canvas
   if (activePointer !== e.pointerId) return;
   const rect = rootEl.value!.getBoundingClientRect();
   const x = e.clientX - rect.left;
@@ -1510,6 +1618,57 @@ const selectionMs = computed<string | null>(() => {
   >
     <canvas ref="canvasEl" class="editor-canvas" />
 
+    <div class="notes-layer">
+      <div
+        v-for="nl in noteLayouts"
+        :key="nl.id"
+        class="note"
+        :class="{ locked: nl.locked }"
+        :style="{ left: nl.left + 'px', top: nl.top + 'px' }"
+        @pointerdown.stop="onNoteDown($event, noteOf(nl.id))"
+        @wheel.stop
+        @contextmenu.stop
+      >
+        <div class="note-head">
+          <span class="note-grip">⠿</span>
+          <span class="note-title">{{ t("note.title") }}</span>
+          <span class="note-tools">
+            <button
+              class="note-tool"
+              :title="t('note.lock')"
+              @click.stop="setNoteLocked(nl.id, !nl.locked)"
+            >
+              {{ nl.locked ? "🔒" : "🔓" }}
+            </button>
+            <button
+              class="note-tool"
+              :title="t('note.delete')"
+              @click.stop="removeNote(nl.id)"
+            >
+              ✕
+            </button>
+          </span>
+        </div>
+        <div v-if="editingNoteId === nl.id" class="note-edit">
+          <textarea
+            v-model="editingDraft"
+            spellcheck="false"
+            @blur="commitNoteEdit"
+            @keydown.esc.stop.prevent="cancelNoteEdit"
+            @keydown.ctrl.enter.stop.prevent="commitNoteEdit"
+            @pointerdown.stop
+          />
+        </div>
+        <div
+          v-else
+          class="note-body md"
+          :title="t('note.editHint')"
+          @dblclick.stop="startNoteEdit(noteOf(nl.id))"
+          v-html="noteHtml(noteTextOf(nl.id))"
+        />
+      </div>
+    </div>
+
     <div
       v-if="!store.ui.hasAudio && store.project.markers.length === 0"
       class="editor-hint"
@@ -1790,6 +1949,142 @@ const selectionMs = computed<string | null>(() => {
   inset: 0;
   pointer-events: none;
   display: block;
+}
+.notes-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 2;
+}
+.note {
+  position: absolute;
+  pointer-events: auto;
+  width: 180px;
+  min-height: 70px;
+  background: #232942;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-left: 3px solid var(--bdg-accent);
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  user-select: none;
+}
+.note.locked {
+  border-left-color: #fbbf24;
+}
+.note.locked .note-body {
+  opacity: 0.6;
+}
+.note-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 6px;
+  background: rgba(148, 163, 184, 0.12);
+  cursor: grab;
+}
+.note.locked .note-head {
+  cursor: default;
+}
+.note-grip {
+  color: var(--bdg-text-dim);
+  font-size: 12px;
+  line-height: 1;
+}
+.note-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--bdg-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.note-tools {
+  display: inline-flex;
+  gap: 2px;
+}
+.note-tool {
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--bdg-text-dim);
+  cursor: pointer;
+  border-radius: 5px;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.note-tool:hover {
+  background: rgba(148, 163, 184, 0.18);
+  color: var(--bdg-text);
+}
+.note-body {
+  padding: 6px 8px 7px;
+  font-size: 12px;
+  cursor: default;
+  position: relative;
+}
+.note-body::after {
+  content: "dbl-click:edit";
+  position: absolute;
+  right: 6px;
+  bottom: -2px;
+  font-size: 9px;
+  color: rgba(148, 163, 184, 0.35);
+  line-height: 1;
+}
+.note-body.md h1 {
+  font-size: 14px;
+  margin: 0 0 4px;
+}
+.note-body.md h2,
+.note-body.md h3 {
+  font-size: 12.5px;
+  margin: 0 0 3px;
+}
+.note-body.md p {
+  margin: 0 0 4px;
+  white-space: pre-wrap;
+}
+.note-body.md ul,
+.note-body.md ol {
+  padding-left: 16px;
+  margin: 0 0 4px;
+}
+.note-body.md li {
+  margin-bottom: 1px;
+}
+.note-body.md code {
+  background: rgba(148, 163, 184, 0.15);
+  padding: 0 3px;
+  border-radius: 3px;
+  font-size: 11px;
+}
+.note-body.md a {
+  color: var(--bdg-accent);
+}
+.note-edit {
+  padding: 6px;
+}
+.note-edit textarea {
+  width: 100%;
+  min-height: 76px;
+  background: #10131a;
+  border: 1px solid var(--bdg-border-strong);
+  border-radius: 6px;
+  color: var(--bdg-text);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  resize: vertical;
+  padding: 4px 6px;
+  outline: none;
+  user-select: text;
 }
 .editor-hint {
   position: absolute;

@@ -27,6 +27,18 @@ export interface MarkerTrack {
   type?: string;
 }
 
+export interface ProjectNote {
+  id: string;
+  /** Anchor time (ms) along the timeline — controls the horizontal position. */
+  timeMs: number;
+  /** Vertical offset (px) within the track/lane region of the timeline. */
+  y: number;
+  /** Markdown body rendered via slimdown-js. */
+  text: string;
+  /** Locked notes cannot be moved or edited. */
+  locked?: boolean;
+}
+
 export type BpmMode = "abs" | "mult";
 
 export interface BpmPoint {
@@ -48,6 +60,7 @@ export interface BeatProject {
   tracks: MarkerTrack[];
   markers: Marker[];
   bpmPoints: BpmPoint[];
+  notes: ProjectNote[];
 }
 
 export interface WaveData {

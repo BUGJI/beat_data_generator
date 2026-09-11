@@ -12,6 +12,7 @@ import {
   RefreshLeft,
   RefreshRight,
   Remove,
+  DataAnalysis,
   Select,
   ZoomIn,
   ZoomOut,
@@ -417,6 +418,22 @@ onMounted(() => {
         </el-button>
       </el-tooltip>
     </div>
+
+    <el-tooltip
+      v-if="store.ui.settings.audioPanel"
+      :content="t('settings.cats.audio')"
+      placement="bottom"
+    >
+      <el-button
+        class="ana-btn"
+        size="small"
+        text
+        :type="store.ui.analysisOpen ? 'primary' : ''"
+        @click="store.ui.analysisOpen = !store.ui.analysisOpen"
+      >
+        <el-icon><DataAnalysis /></el-icon>
+      </el-button>
+    </el-tooltip>
 
     <el-tooltip :content="t('settings.title')" placement="bottom">
       <el-button class="help-btn" size="small" text @click="setSettingsOpen(true)">

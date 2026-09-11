@@ -16,6 +16,7 @@ import {
   clickFollow,
   toggleTimeAlign,
 } from "../store";
+import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
 
 const { t } = useI18n();
@@ -179,6 +180,28 @@ const snapDiv = computed({
     if (d !== null) store.ui.snapDiv = d;
   },
 });
+
+const detecting = ref(false);
+
+async function onDetectBpm(): Promise<void> {
+  if (detecting.value) return;
+  if (analysis.bpm != null && !analysis.analyzing) {
+    detecting.value = true;
+    try {
+      applyDetectedBpm();
+    } finally {
+      detecting.value = false;
+    }
+    return;
+  }
+  detecting.value = true;
+  try {
+    await analyzeCurrent();
+    applyDetectedBpm();
+  } finally {
+    detecting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -209,16 +232,28 @@ const snapDiv = computed({
           <span class="field-label" :title="t('sidebar.bpmTooltip')">
             {{ t("sidebar.baseBpm") }}
           </span>
-          <el-input-number
-            v-model="baseBpm"
-            :min="freeInput ? undefined : 20"
-            :max="freeInput ? undefined : 999"
-            :step="1"
-            :precision="freeInput ? undefined : 1"
-            size="small"
-            controls-position="right"
-            class="num"
-          />
+          <div class="bpm-row">
+            <el-input-number
+              v-model="baseBpm"
+              :min="freeInput ? undefined : 20"
+              :max="freeInput ? undefined : 999"
+              :step="1"
+              :precision="freeInput ? undefined : 1"
+              size="small"
+              controls-position="right"
+              class="num bpm-input"
+            />
+            <el-button
+              size="small"
+              class="detect-btn"
+              :title="t('sidebar.detectBpmTip')"
+              :loading="detecting"
+              :disabled="detecting || analysis.analyzing"
+              @click="onDetectBpm"
+            >
+              {{ t("sidebar.detectBpm") }}
+            </el-button>
+          </div>
         </label>
         <label class="field">
           <span class="field-label" :title="t('sidebar.offsetTooltip')">
@@ -484,6 +519,18 @@ const snapDiv = computed({
 .field-label {
   font-size: 11px;
   color: var(--bdg-text-dim);
+}
+.bpm-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.bpm-input {
+  flex: 1;
+  min-width: 0;
+}
+.detect-btn {
+  flex: none;
 }
 .snap-row {
   display: flex;

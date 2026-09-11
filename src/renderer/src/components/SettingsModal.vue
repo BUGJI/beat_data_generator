@@ -26,31 +26,31 @@ const runtime = Object.freeze({
 });
 const cat = ref<
   | "general"
-  | "appearance"
+  | "edit"
+  | "audio"
+  | "display"
   | "shortcuts"
-  | "anim"
   | "plugins"
-  | "dev"
-  | "about"
+  | "advanced"
 >("general");
 
 type CatKey =
   | "general"
-  | "appearance"
+  | "edit"
+  | "audio"
+  | "display"
   | "shortcuts"
-  | "anim"
   | "plugins"
-  | "dev"
-  | "about";
+  | "advanced";
 
 const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "general", icon: "⚙" },
-  { key: "appearance", icon: "◩" },
+  { key: "edit", icon: "✎" },
+  { key: "audio", icon: "🎵" },
+  { key: "display", icon: "◩" },
   { key: "shortcuts", icon: "⌨" },
-  { key: "anim", icon: "✺" },
   { key: "plugins", icon: "▤" },
-  { key: "dev", icon: "⬢" },
-  { key: "about", icon: "ⓘ" },
+  { key: "advanced", icon: "⬢" },
 ];
 
 const pluginBusy = ref<string | null>(null);
@@ -167,10 +167,35 @@ const ctrlSpeedPlay = computed({
 
 const metronomePath = computed(() => store.ui.settings.metronomePath);
 
+const audioAutoBpm = computed({
+  get: () => store.ui.settings.audioAutoBpm,
+  set: (v: boolean) => void patchSettings({ audioAutoBpm: v }),
+});
+const audioAutoBeats = computed({
+  get: () => store.ui.settings.audioAutoBeats,
+  set: (v: boolean) => void patchSettings({ audioAutoBeats: v }),
+});
+const audioLoopDetect = computed({
+  get: () => store.ui.settings.audioLoopDetect,
+  set: (v: boolean) => void patchSettings({ audioLoopDetect: v }),
+});
+const audioLiveBpm = computed({
+  get: () => store.ui.settings.audioLiveBpm,
+  set: (v: boolean) => void patchSettings({ audioLiveBpm: v }),
+});
+const audioSpectrum = computed({
+  get: () => store.ui.settings.audioSpectrum,
+  set: (v: boolean) => void patchSettings({ audioSpectrum: v }),
+});
+const audioPanel = computed({
+  get: () => store.ui.settings.audioPanel,
+  set: (v: boolean) => void patchSettings({ audioPanel: v }),
+});
+
 async function pickMetronome(): Promise<void> {
-  const path = await window.api.pickFile(t("settings.general.metronomePickTitle"), [
+  const path = await window.api.pickFile(t("settings.audio.metronomePickTitle"), [
     {
-      name: t("settings.general.metronomeAudioFilter"),
+      name: t("settings.audio.metronomeAudioFilter"),
       extensions: ["wav", "mp3", "ogg", "flac", "m4a", "aac", "webm"],
     },
   ]);
@@ -288,14 +313,19 @@ function catLabel(key: string): string {
                   }}</el-radio-button>
                 </el-radio-group>
               </div>
+            </section>
+
+            <!-- 编辑 -->
+            <section v-if="cat === 'edit'">
+              <h3>{{ t("settings.cats.edit") }}</h3>
 
               <div class="field-row">
                 <div class="field-info">
                   <span class="field-name">{{
-                    t("settings.general.autoFollow")
+                    t("settings.edit.autoFollow")
                   }}</span>
                   <span class="field-desc">{{
-                    t("settings.general.autoFollowDesc")
+                    t("settings.edit.autoFollowDesc")
                   }}</span>
                 </div>
                 <el-switch v-model="followScroll" size="small" />
@@ -304,10 +334,10 @@ function catLabel(key: string): string {
               <div v-if="followScroll" class="field-row col">
                 <div class="field-info">
                   <span class="field-name">{{
-                    t("settings.general.followPercent")
+                    t("settings.edit.followPercent")
                   }}</span>
                   <span class="field-desc">{{
-                    t("settings.general.followPercentDesc")
+                    t("settings.edit.followPercentDesc")
                   }}</span>
                 </div>
                 <div class="pct-row">
@@ -324,43 +354,31 @@ function catLabel(key: string): string {
               <div class="field-row">
                 <div class="field-info">
                   <span class="field-name">{{
-                    t("settings.general.rememberWindow")
+                    t("settings.edit.ctrlSpeedPlay")
                   }}</span>
                   <span class="field-desc">{{
-                    t("settings.general.rememberWindowDesc")
+                    t("settings.edit.ctrlSpeedPlayDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="rememberWindow" size="small" />
+                <el-switch v-model="ctrlSpeedPlay" size="small" />
               </div>
 
               <div class="field-row">
                 <div class="field-info">
                   <span class="field-name">{{
-                    t("settings.general.autoSave")
+                    t("settings.edit.autoSave")
                   }}</span>
                   <span class="field-desc">{{
-                    t("settings.general.autoSaveDesc")
+                    t("settings.edit.autoSaveDesc")
                   }}</span>
                 </div>
                 <el-switch v-model="autoSave" size="small" />
               </div>
 
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.general.checkUpdates")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.general.checkUpdatesDesc")
-                  }}</span>
-                </div>
-                <el-switch v-model="checkUpdates" size="small" />
-              </div>
-
               <div v-if="autoSave" class="field-row col">
                 <div class="field-info">
                   <span class="field-name">{{
-                    t("settings.general.autoSaveMinutes")
+                    t("settings.edit.autoSaveMinutes")
                   }}</span>
                 </div>
                 <div class="pct-row">
@@ -373,38 +391,106 @@ function catLabel(key: string): string {
                     class="num minutes-input"
                   />
                   <span class="muted">{{
-                    t("settings.general.autoSaveMinutesUnit")
+                    t("settings.edit.autoSaveMinutesUnit")
                   }}</span>
                 </div>
+              </div>
+            </section>
+
+            <!-- 音频 -->
+            <section v-if="cat === 'audio'">
+              <h3>{{ t("settings.cats.audio") }}</h3>
+              <p class="muted audio-tagline">{{ t("settings.audio.tagline") }}</p>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.audio.autoBpm")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.audio.autoBpmDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="audioAutoBpm" size="small" />
               </div>
 
               <div class="field-row">
                 <div class="field-info">
                   <span class="field-name">{{
-                    t("settings.general.ctrlSpeedPlay")
+                    t("settings.audio.autoBeats")
                   }}</span>
                   <span class="field-desc">{{
-                    t("settings.general.ctrlSpeedPlayDesc")
+                    t("settings.audio.autoBeatsDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="ctrlSpeedPlay" size="small" />
+                <el-switch v-model="audioAutoBeats" size="small" />
               </div>
 
               <div class="field-row">
                 <div class="field-info">
                   <span class="field-name">{{
-                    t("settings.general.metronome")
+                    t("settings.audio.loopDetect")
                   }}</span>
                   <span class="field-desc">{{
-                    t("settings.general.metronomeDesc")
+                    t("settings.audio.loopDetectDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="audioLoopDetect" size="small" />
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.audio.liveBpm")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.audio.liveBpmDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="audioLiveBpm" size="small" />
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.audio.spectrum")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.audio.spectrumDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="audioSpectrum" size="small" />
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.audio.panel")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.audio.panelDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="audioPanel" size="small" />
+              </div>
+
+              <div class="sub-head">{{ t("settings.audio.metronomeTitle") }}</div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.audio.metronome")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.audio.metronomeDesc")
                   }}</span>
                 </div>
                 <div class="metronome-row">
                   <span class="num metronome-path">{{
-                    metronomePath || t("settings.general.metronomeNone")
+                    metronomePath || t("settings.audio.metronomeNone")
                   }}</span>
                   <el-button size="small" @click="pickMetronome()">{{
-                    t("settings.general.metronomePickBtn")
+                    t("settings.audio.metronomePickBtn")
                   }}</el-button>
                   <el-button
                     v-if="metronomePath"
@@ -412,24 +498,36 @@ function catLabel(key: string): string {
                     type="danger"
                     plain
                     @click="clearMetronome()"
-                  >{{ t("settings.general.metronomeClear") }}</el-button>
+                  >{{ t("settings.audio.metronomeClear") }}</el-button>
                 </div>
               </div>
             </section>
 
-            <!-- 外观 -->
-            <section v-if="cat === 'appearance'">
-              <h3>{{ t("settings.cats.appearance") }}</h3>
+            <!-- 显示 -->
+            <section v-if="cat === 'display'">
+              <h3>{{ t("settings.cats.display") }}</h3>
               <div class="field-row">
                 <div class="field-info">
                   <span class="field-name">{{
-                    t("settings.appearance.autoHideGrid")
+                    t("settings.display.autoHideGrid")
                   }}</span>
                   <span class="field-desc">{{
-                    t("settings.appearance.autoHideGridDesc")
+                    t("settings.display.autoHideGridDesc")
                   }}</span>
                 </div>
                 <el-switch v-model="gridAutoHide" size="small" />
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.display.editor")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.display.editorDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="animEnabled" size="small" />
               </div>
             </section>
 
@@ -449,22 +547,6 @@ function catLabel(key: string): string {
                   </tr>
                 </tbody>
               </table>
-            </section>
-
-            <!-- 动画 -->
-            <section v-if="cat === 'anim'">
-              <h3>{{ t("settings.cats.anim") }}</h3>
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.anim.editor")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.anim.editorDesc")
-                  }}</span>
-                </div>
-                <el-switch v-model="animEnabled" size="small" />
-              </div>
             </section>
 
             <!-- 插件 -->
@@ -521,14 +603,45 @@ function catLabel(key: string): string {
               </div>
             </section>
 
-            <!-- 开发者 -->
-            <section v-if="cat === 'dev'">
-              <h3>{{ t("settings.cats.dev") }}</h3>
+            <!-- 高级 -->
+            <section v-if="cat === 'advanced'">
+              <h3>{{ t("settings.cats.advanced") }}</h3>
+
+              <div class="sub-head">{{ t("settings.advanced.window") }}</div>
+
               <div class="field-row">
                 <div class="field-info">
-                  <span class="field-name">{{ t("settings.dev.master") }}</span>
+                  <span class="field-name">{{
+                    t("settings.advanced.rememberWindow")
+                  }}</span>
                   <span class="field-desc">{{
-                    t("settings.dev.masterDesc")
+                    t("settings.advanced.rememberWindowDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="rememberWindow" size="small" />
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.advanced.checkUpdates")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.advanced.checkUpdatesDesc")
+                  }}</span>
+                </div>
+                <el-switch v-model="checkUpdates" size="small" />
+              </div>
+
+              <div class="sub-head">{{ t("settings.advanced.developer") }}</div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.advanced.master")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.advanced.masterDesc")
                   }}</span>
                 </div>
                 <el-switch v-model="devEnabled" size="small" />
@@ -537,10 +650,10 @@ function catLabel(key: string): string {
               <div class="field-row">
                 <div class="field-info">
                   <span class="field-name">{{
-                    t("settings.dev.freeInput")
+                    t("settings.advanced.freeInput")
                   }}</span>
                   <span class="field-desc">{{
-                    t("settings.dev.freeInputDesc")
+                    t("settings.advanced.freeInputDesc")
                   }}</span>
                 </div>
                 <el-switch
@@ -557,15 +670,13 @@ function catLabel(key: string): string {
                   :loading="devOpenBusy"
                   @click="onOpenDevTools()"
                 >
-                  {{ t("settings.dev.openTools") }}
+                  {{ t("settings.advanced.openTools") }}
                 </el-button>
-                <p class="muted">{{ t("settings.dev.openToolsDesc") }}</p>
+                <p class="muted">{{ t("settings.advanced.openToolsDesc") }}</p>
               </div>
-            </section>
 
-            <!-- 关于 -->
-            <section v-if="cat === 'about'">
-              <h3>{{ t("settings.cats.about") }}</h3>
+              <div class="sub-head">{{ t("settings.advanced.about") }}</div>
+
               <div class="about-card">
                 <div class="about-logo">◈</div>
                 <div>
@@ -574,15 +685,15 @@ function catLabel(key: string): string {
                 </div>
               </div>
               <dl class="about-meta">
-                <dt>{{ t("settings.about.version") }}</dt>
-                <dd>v0.1.6</dd>
-                <dt>{{ t("settings.about.author") }}</dt>
+                <dt>{{ t("settings.advanced.version") }}</dt>
+                <dd>v0.1.19</dd>
+                <dt>{{ t("settings.advanced.author") }}</dt>
                 <dd>BUGJI</dd>
-                <dt>{{ t("settings.about.tech") }}</dt>
+                <dt>{{ t("settings.advanced.tech") }}</dt>
                 <dd>Electron · Vue 3 · TypeScript · Element Plus</dd>
-                <dt>{{ t("settings.about.license") }}</dt>
+                <dt>{{ t("settings.advanced.license") }}</dt>
                 <dd>GNU GPL v3</dd>
-                <dt>{{ t("settings.about.runtime") }}</dt>
+                <dt>{{ t("settings.advanced.runtime") }}</dt>
                 <dd>
                   Node.js {{ runtime.node }} · Chromium {{ runtime.chrome }} ·
                   Electron {{ runtime.electron }}
@@ -699,6 +810,21 @@ function catLabel(key: string): string {
 .content h3 {
   margin: 0 0 14px;
   font-size: 15px;
+}
+.audio-tagline {
+  margin: -6px 0 4px;
+}
+.sub-head {
+  margin: 18px 0 2px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bdg-border);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bdg-text-dim);
+  letter-spacing: 0.04em;
+}
+.sub-head:first-of-type {
+  border-top: none;
 }
 .field-row {
   display: flex;

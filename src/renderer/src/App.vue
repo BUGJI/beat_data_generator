@@ -7,6 +7,7 @@ import Timeline from "./components/Timeline.vue";
 import TransportBar from "./components/TransportBar.vue";
 import SettingsModal from "./components/SettingsModal.vue";
 import PluginPanels from "./components/PluginPanels.vue";
+import AnalysisPanel from "./components/AnalysisPanel.vue";
 import { setScroll } from "./editorView";
 import {
   store,
@@ -151,5 +152,6 @@ onBeforeUnmount(() => {
     <TransportBar />
     <SettingsModal />
     <PluginPanels />
+    <AnalysisPanel />
   </div>
 </template>

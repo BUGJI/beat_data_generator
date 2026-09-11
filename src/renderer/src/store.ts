@@ -29,6 +29,7 @@ import type {
   BpmPoint,
   Marker,
   MarkerTrack,
+  ProjectNote,
   Segment,
   WaveData,
 } from "./types";
@@ -68,6 +69,8 @@ interface UIState {
   buffering: boolean;
   settingsOpen: boolean;
   settings: SettingsData;
+  /** session-only: audio analysis panel open state. */
+  analysisOpen: boolean;
   followManual: boolean;
   followActive: boolean;
   followLocked: boolean;
@@ -101,6 +104,7 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
     tracks: [],
     markers: [],
     bpmPoints: [],
+    notes: [],
     projectPath: null,
     dirty: false,
   },
@@ -134,7 +138,15 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
       autoSaveMinutes: 5,
       ctrlSpeedPlay: false,
       metronomePath: "",
+      settingsVersion: 0,
+      audioAutoBpm: true,
+      audioAutoBeats: false,
+      audioLoopDetect: false,
+      audioLiveBpm: false,
+      audioSpectrum: false,
+      audioPanel: true,
     },
+    analysisOpen: false,
     followManual: false,
     followActive: false,
     followLocked: false,
@@ -772,6 +784,71 @@ export function changeMarkerTrack(id: string, trackId: string): boolean {
   return true;
 }
 
+// ---------- sticky notes ----------
+
+export function addNote(opts: {
+  timeMs: number;
+  y: number;
+  text?: string;
+}): ProjectNote {
+  const note: ProjectNote = {
+    id: makeId(),
+    timeMs: Math.max(0, opts.timeMs),
+    y: Math.max(0, opts.y),
+    text:
+      opts.text ??
+      (document.documentElement.lang !== "en"
+        ? "**注意** 双击编辑，拖动定位"
+        : "**Note** double-click to edit, drag to move"),
+    locked: false,
+  };
+  pushHistory();
+  store.project.notes.push(note);
+  store.project.dirty = true;
+  return note;
+}
+
+export function updateNote(
+  id: string,
+  patch: { timeMs?: number; y?: number },
+): boolean {
+  const n = store.project.notes.find((x) => x.id === id);
+  if (!n || n.locked) return false;
+  pushHistory();
+  if (patch.timeMs !== undefined) n.timeMs = Math.max(0, patch.timeMs);
+  // Notes float freely; no alignment to tracks/lanes. A generous soft bound
+  // keeps them usable without ever clamping onto a lane edge (which made the
+  // note look "stuck" to the cursor at a boundary).
+  if (patch.y !== undefined) n.y = Math.max(0, Math.min(20000, patch.y));
+  store.project.dirty = true;
+  return true;
+}
+
+export function removeNote(id: string): void {
+  const i = store.project.notes.findIndex((x) => x.id === id);
+  if (i < 0) return;
+  pushHistory();
+  store.project.notes.splice(i, 1);
+  store.project.dirty = true;
+}
+
+export function setNoteLocked(id: string, locked: boolean): void {
+  const n = store.project.notes.find((x) => x.id === id);
+  if (!n || n.locked === locked) return;
+  pushHistory();
+  n.locked = locked;
+  store.project.dirty = true;
+}
+
+export function setNoteText(id: string, text: string): void {
+  const n = store.project.notes.find((x) => x.id === id);
+  if (!n || n.locked) return;
+  if (n.text === text) return;
+  pushHistory();
+  n.text = text;
+  store.project.dirty = true;
+}
+
 // ---------- bpm points ----------
 
 export const isBpmLocked = (): boolean => store.project.bpmLocked === true;
@@ -1254,6 +1331,9 @@ async function decodeAndApply(
     store.project.name = name.replace(/\.[^.]+$/, "");
   }
   store.project.dirty = true;
+  // Run pleco-xa analysis (BPM / beats / loop / spectrum) against the new
+  // audio, honoring each independent audio-analysis setting toggle.
+  void import("./analysis").then((m) => m.onAudioLoaded());
   return true;
 }
 
@@ -1300,6 +1380,7 @@ function freshProject(): void {
   store.project.markers = [];
   store.project.bpmPoints = [];
   store.project.tracks = [];
+  store.project.notes = [];
   store.project.name = "";
   store.project.baseBpm = 120;
   store.project.offsetMs = 0;
@@ -1356,6 +1437,7 @@ export async function openProject(explicitPath?: string): Promise<void> {
       tracks?: MarkerTrack[];
       markers?: unknown[];
       bpmPoints?: unknown[];
+      notes?: unknown[];
     };
     if (raw?.app !== "beat-data-generator" || raw?.markers === undefined)
       throw new Error("bad");
@@ -1462,6 +1544,21 @@ export async function openProject(explicitPath?: string): Promise<void> {
       }
     }
 
+    for (const it of (raw.notes ?? []) as Array<Record<string, unknown>>) {
+      if (!it || typeof it !== "object") continue;
+      const tms = Number(it.timeMs);
+      if (!Number.isFinite(tms) || tms < 0) continue;
+      const y = Number(it.y);
+      if (!Number.isFinite(y) || y < 0) continue;
+      store.project.notes.push({
+        id: String(it.id ?? makeId()),
+        timeMs: tms,
+        y,
+        text: typeof it.text === "string" ? it.text : "",
+        locked: it.locked === true,
+      });
+    }
+
     store.project.projectPath = res.filePath ?? null;
     store.project.dirty = false;
     store.ui.selected = { kind: null, id: null };
@@ -1510,6 +1607,7 @@ export function projectJson(): string {
     tracks: p.tracks,
     markers: [...p.markers].sort((a, b) => a.beat - b.beat),
     bpmPoints: [...p.bpmPoints].sort((a, b) => a.beat - b.beat),
+    notes: p.notes,
   };
   return JSON.stringify(doc, null, 2);
 }
@@ -1709,6 +1807,7 @@ interface Snap {
   tracks: unknown;
   markers: unknown;
   bpmPoints: unknown;
+  notes: unknown;
 }
 
 const undoStack: Snap[] = [];
@@ -1725,6 +1824,7 @@ function snapshotNow(): Snap {
       tracks: p.tracks,
       markers: p.markers,
       bpmPoints: p.bpmPoints,
+      notes: p.notes,
     }),
   ) as Snap;
 }
@@ -1736,6 +1836,7 @@ function applySnap(snap: Snap): void {
   p.tracks = snap.tracks as MarkerTrack[];
   p.markers = snap.markers as Marker[];
   p.bpmPoints = snap.bpmPoints as BpmPoint[];
+  p.notes = snap.notes as ProjectNote[];
   store.ui.selected = { kind: null, id: null };
   store.ui.multi = [];
   store.ui.cardOpen = false;

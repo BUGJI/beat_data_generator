@@ -56,6 +56,20 @@ export interface SettingsData {
   ctrlSpeedPlay: boolean;
   /** optional audio file played once each time a beat marker is passed (empty = disabled). */
   metronomePath: string;
+  /** Incremented when settings defaults change, to migrate silently. */
+  settingsVersion: number;
+  /** On audio load, auto-detect BPM and apply to baseBpm (only when not locked). */
+  audioAutoBpm: boolean;
+  /** On audio load, place markers at detected beats on a dedicated "auto beat" track. */
+  audioAutoBeats: boolean;
+  /** On audio load, run loop detection and keep the best loop segment as a hint. */
+  audioLoopDetect: boolean;
+  /** While playing, periodically refresh a live BPM readout (never modifies the project). */
+  audioLiveBpm: boolean;
+  /** Compute and show a spectrum / mel spectrogram in the audio analysis panel. */
+  audioSpectrum: boolean;
+  /** Show the audio analysis panel button in the top bar. */
+  audioPanel: boolean;
 }
 
 export interface IpcApi {

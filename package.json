@@ -1,6 +1,6 @@
 {
   "name": "beat-data-generator",
-  "version": "0.1.9",
+  "version": "0.1.19",
   "description": "Music beat-marker editor built with Electron + Vue3 + Element Plus",
   "main": "./out/main/index.js",
   "author": "BUGJI",
@@ -52,8 +52,10 @@
   },
   "dependencies": {
     "@element-plus/icons-vue": "^2.3.2",
-    "element-plus": "^2.14.5",
     "electron-updater": "^6.6.2",
+    "element-plus": "^2.14.5",
+    "pleco-xa": "^2.0.5",
+    "slimdown-js": "^1.5.4",
     "soundtouchjs": "^0.3.0",
     "vue": "^3.5.42",
     "vue-i18n": "^11.4.10"
