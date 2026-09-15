@@ -490,7 +490,6 @@ function drawGridLines(
   X: (t: number) => number,
   endMs: number,
 ): void {
-  const pps = store.ui.pxPerSec;
   const b0 = Math.max(0, Math.floor(beatOfTime(t0)) - 1);
   const b1 = Math.ceil(beatOfTime(t1)) + 1;
   for (let b = b0; b <= b1; b++) {
@@ -504,22 +503,54 @@ function drawGridLines(
   // subdivisions when zoomed & snap on. With auto-hide the displayed detail is
   // capped by the current zoom so a dense/zoomed-out grid can't stall rendering.
   if (store.ui.snapEnabled && store.ui.snapDiv > 1) {
-    const div = store.ui.settings.gridAutoHide
-      ? cappedSnapDiv(pps)
-      : store.ui.snapDiv;
-    const b0s = Math.max(0, Math.floor(beatOfTime(t0) * div) - 1);
-    const b1s = Math.ceil(beatOfTime(t1) * div) + 1;
-    for (let s = b0s; s <= b1s; s++) {
-      const beat = s / div;
-      if (Math.abs(beat * div - Math.round(beat * div)) > 1e-9) continue;
-      if (Math.abs(beat - Math.round(beat)) < 1e-6) continue;
-      const x = X(timeOfBeat(beat));
-      if (x < -2 || x > W + 2) continue;
-      ctx.fillStyle = COLORS.gridSub;
-      ctx.fillRect(x, RULER_H, 1, H - RULER_H);
+    const div = gridSubDiv(t0, t1);
+    if (div > 0) {
+      const b0s = Math.max(0, Math.floor(beatOfTime(t0) * div) - 1);
+      const b1s = Math.ceil(beatOfTime(t1) * div) + 1;
+      for (let s = b0s; s <= b1s; s++) {
+        const beat = s / div;
+        if (Math.abs(beat * div - Math.round(beat * div)) > 1e-9) continue;
+        if (Math.abs(beat - Math.round(beat)) < 1e-6) continue;
+        const x = X(timeOfBeat(beat));
+        if (x < -2 || x > W + 2) continue;
+        ctx.fillStyle = COLORS.gridSub;
+        ctx.fillRect(x, RULER_H, 1, H - RULER_H);
+      }
     }
   }
   void endMs;
+}
+
+// Smallest on-screen spacing (px) a subdivision line may have before it is
+// hidden. Chosen to match the finest spacing the power-of-two tiers already
+// allow (~12 px at their zoom boundaries), so non power-of-two grids like 1/5
+// actually hide at a similar density instead of staying drawn far too long.
+const MIN_SUB_PX = 12;
+
+/** Subdivision denominator to draw for a given zoom.
+ *  - Power-of-two grids halve cleanly, so auto-hide caps them via the classic
+ *    1/4 → 1/8 → 1/16 zoom tiers (see cappedSnapDiv).
+ *  - Non power-of-two grids (e.g. 1/5) cannot be coarsened into a different
+ *    denominator, so they keep the exact snapDiv and are shown only while a
+ *    sub-beat is wide enough on screen; when too dense they are suppressed
+ *    entirely (returning 0) instead of substituting 1/4-style lines.
+ *  With auto-hide off, the full grid is always drawn. */
+function gridSubDiv(t0: number, t1: number): number {
+  const actual = store.ui.snapDiv;
+  if (actual <= 1 || !store.ui.settings.gridAutoHide) return actual;
+  if ((actual & (actual - 1)) === 0) return cappedSnapDiv(store.ui.pxPerSec);
+  const pps = store.ui.pxPerSec;
+  const b0 = Math.max(0, Math.floor(beatOfTime(t0)));
+  const b1 = Math.min(Math.max(0, Math.ceil(beatOfTime(t1))), b0 + 4096);
+  let minSecPerBeat = Infinity;
+  for (let b = b0; b < b1; b++) {
+    const d = timeOfBeat(b + 1) - timeOfBeat(b);
+    if (d < minSecPerBeat) minSecPerBeat = d;
+  }
+  if (!Number.isFinite(minSecPerBeat) || (pps * minSecPerBeat) / actual < MIN_SUB_PX) {
+    return 0;
+  }
+  return actual;
 }
 
 /** Coarsest subdivision (as a snapDiv value) to draw for a given zoom when

@@ -300,6 +300,18 @@ export function toggleTimeAlign(): boolean {
       timeAnchors.set(m.id, timeOfBeat(m.beat));
     }
   } else {
+    // Commit each marker back to the exact beat of its anchored absolute time,
+    // so markers keep the positions shown while aligned (adjusting BPM/offset
+    // during the session no longer snaps them back to the grid).
+    historyGestureBegin();
+    for (const m of store.project.markers) {
+      const ms = timeAnchors.get(m.id);
+      if (typeof ms === "number" && Number.isFinite(ms)) {
+        m.beat = Math.max(0, beatOfTime(ms));
+      }
+    }
+    store.project.dirty = true;
+    historyGestureEnd();
     timeAnchors.clear();
   }
   return store.ui.timeAlign;
