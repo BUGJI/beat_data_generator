@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/**
+ * Tailwind theme bridged onto the runtime `--bdg-*` design tokens produced by
+ * `theme.ts`. Because the values are `var(...)`, a theme switch repaints every
+ * Tailwind utility without rebuilding — same single-source-of-truth as the
+ * canvas palette.
+ */
+@theme {
+  --color-surface: var(--bdg-bg);
+  --color-panel: var(--bdg-bg-panel);
+  --color-raised: var(--bdg-bg-raised);
+  --color-sunken: var(--bdg-bg-sunken);
+  --color-menu: var(--bdg-menu);
+
+  --color-fg: var(--bdg-text);
+  --color-fg-dim: var(--bdg-text-dim);
+  --color-fg-faint: var(--bdg-text-faint);
+
+  --color-line: var(--bdg-border);
+  --color-line-strong: var(--bdg-border-strong);
+
+  --color-accent: var(--bdg-accent);
+  --color-accent-2: var(--bdg-accent-2);
+  --color-danger: var(--bdg-danger);
+  --color-amber: var(--bdg-amber);
+  --color-bpm: var(--bdg-bpm);
+
+  --radius-ui: 6px;
+
+  --font-sans:
+    "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system,
+    sans-serif;
+  --font-mono: "Cascadia Mono", "Consolas", monospace;
+}
+
+@layer base {
+  html.dark {
+    color-scheme: dark;
+  }
+  html {
+    color-scheme: light;
+  }
+}

@@ -2,7 +2,6 @@
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  store,
   setSettingsOpen,
   patchSettings,
   openDevTools,
@@ -28,7 +27,15 @@ import {
 } from "../plugins/host";
 import type { PluginEntry } from "../../../shared/plugin";
 import type { CloseMode } from "../../../shared/ipc";
+import { useSettingsStore } from "../stores/settings";
+import UiButton from "./ui/UiButton.vue";
+import UiColorPicker from "./ui/UiColorPicker.vue";
+import UiNumberInput from "./ui/UiNumberInput.vue";
+import UiRadioGroup from "./ui/UiRadioGroup.vue";
+import UiSlider from "./ui/UiSlider.vue";
+import UiSwitch from "./ui/UiSwitch.vue";
 
+const settings = useSettingsStore();
 const { t, locale } = useI18n();
 const pv =
   typeof process !== "undefined" && process.versions
@@ -74,12 +81,12 @@ const cats: Array<{ key: CatKey; icon: string }> = [
 // ---- theme editor ----
 const themeSpec = computed<ThemeSpec>(() =>
   resolveTheme(
-    store.ui.settings.themePreset,
-    store.ui.settings.themeOverrides as ThemeOverrides,
+    settings.settings.themePreset,
+    settings.settings.themeOverrides as ThemeOverrides,
   ),
 );
 const themeOverrides = computed<ThemeOverrides>(
-  () => store.ui.settings.themeOverrides as ThemeOverrides,
+  () => settings.settings.themeOverrides as ThemeOverrides,
 );
 const themeGroups: Array<{ key: string; tokens: (keyof ThemeSpec)[] }> = [
   { key: "surfaces", tokens: ["bg", "panel", "raised", "sunken", "menu"] },
@@ -124,28 +131,28 @@ async function onOpenPluginsFolder(): Promise<void> {
 }
 
 watch(
-  () => store.ui.settingsOpen,
+  () => settings.settingsOpen,
   (open) => {
     if (open) void refreshPlugins();
   },
 );
 
 const closeMode = computed<CloseMode>({
-  get: () => store.ui.settings.closeMode,
+  get: () => settings.settings.closeMode,
   set: (v: CloseMode) => {
     void patchSettings({ closeMode: v });
   },
 });
 
 const devEnabled = computed({
-  get: () => store.ui.settings.devEnabled,
+  get: () => settings.settings.devEnabled,
   set: (v: boolean) => {
     void patchSettings({ devEnabled: v });
   },
 });
 
 const devFreeInput = computed({
-  get: () => store.ui.settings.devFreeInput,
+  get: () => settings.settings.devFreeInput,
   set: (v: boolean) => {
     void patchSettings({ devFreeInput: v });
   },
@@ -158,88 +165,99 @@ const language = computed<string>({
   },
 });
 
+const languageOptions = computed(() =>
+  LOCALES.map((l) => ({ value: l.value as string, label: l.label })),
+);
+const closeModeOptions = computed<Array<{ value: string; label: string }>>(
+  () => [
+    { value: "ask", label: t("settings.general.modeAsk") },
+    { value: "minimize", label: t("settings.general.modeMinimize") },
+    { value: "close", label: t("settings.general.modeClose") },
+  ],
+);
+
 const animEnabled = computed({
-  get: () => store.ui.settings.animEnabled,
+  get: () => settings.settings.animEnabled,
   set: (v: boolean) => {
     void patchSettings({ animEnabled: v });
   },
 });
 
 const gridAutoHide = computed({
-  get: () => store.ui.settings.gridAutoHide,
+  get: () => settings.settings.gridAutoHide,
   set: (v: boolean) => {
     void patchSettings({ gridAutoHide: v });
   },
 });
 
 const followScroll = computed({
-  get: () => store.ui.settings.followScroll,
+  get: () => settings.settings.followScroll,
   set: (v: boolean) => {
     void patchSettings({ followScroll: v });
   },
 });
 const followPercent = computed({
-  get: () => store.ui.settings.followPercent,
+  get: () => settings.settings.followPercent,
   set: (v: number) => {
     void patchSettings({ followPercent: v });
   },
 });
 const rememberWindow = computed({
-  get: () => store.ui.settings.rememberWindow,
+  get: () => settings.settings.rememberWindow,
   set: (v: boolean) => {
     void patchSettings({ rememberWindow: v });
   },
 });
 const autoSave = computed({
-  get: () => store.ui.settings.autoSave,
+  get: () => settings.settings.autoSave,
   set: (v: boolean) => {
     void patchSettings({ autoSave: v });
   },
 });
 const checkUpdates = computed({
-  get: () => store.ui.settings.checkUpdates,
+  get: () => settings.settings.checkUpdates,
   set: (v: boolean) => {
     void patchSettings({ checkUpdates: v });
   },
 });
 const autoSaveMinutes = computed({
-  get: () => store.ui.settings.autoSaveMinutes,
+  get: () => settings.settings.autoSaveMinutes,
   set: (v: number) => {
     void patchSettings({ autoSaveMinutes: v });
   },
 });
 
 const ctrlSpeedPlay = computed({
-  get: () => store.ui.settings.ctrlSpeedPlay,
+  get: () => settings.settings.ctrlSpeedPlay,
   set: (v: boolean) => {
     void patchSettings({ ctrlSpeedPlay: v });
   },
 });
 
-const metronomePath = computed(() => store.ui.settings.metronomePath);
+const metronomePath = computed(() => settings.settings.metronomePath);
 
 const audioAutoBpm = computed({
-  get: () => store.ui.settings.audioAutoBpm,
+  get: () => settings.settings.audioAutoBpm,
   set: (v: boolean) => void patchSettings({ audioAutoBpm: v }),
 });
 const audioAutoBeats = computed({
-  get: () => store.ui.settings.audioAutoBeats,
+  get: () => settings.settings.audioAutoBeats,
   set: (v: boolean) => void patchSettings({ audioAutoBeats: v }),
 });
 const audioLoopDetect = computed({
-  get: () => store.ui.settings.audioLoopDetect,
+  get: () => settings.settings.audioLoopDetect,
   set: (v: boolean) => void patchSettings({ audioLoopDetect: v }),
 });
 const audioLiveBpm = computed({
-  get: () => store.ui.settings.audioLiveBpm,
+  get: () => settings.settings.audioLiveBpm,
   set: (v: boolean) => void patchSettings({ audioLiveBpm: v }),
 });
 const audioSpectrum = computed({
-  get: () => store.ui.settings.audioSpectrum,
+  get: () => settings.settings.audioSpectrum,
   set: (v: boolean) => void patchSettings({ audioSpectrum: v }),
 });
 const audioPanel = computed({
-  get: () => store.ui.settings.audioPanel,
+  get: () => settings.settings.audioPanel,
   set: (v: boolean) => void patchSettings({ audioPanel: v }),
 });
 
@@ -280,7 +298,7 @@ const shortcutRows = computed(() => [
 
 const devOpenBusy = ref(false);
 async function onOpenDevTools(): Promise<void> {
-  if (!store.ui.settings.devEnabled) return;
+  if (!settings.settings.devEnabled) return;
   devOpenBusy.value = true;
   await openDevTools();
   setTimeout(() => {
@@ -296,7 +314,7 @@ function catLabel(key: string): string {
 <template>
   <teleport to="body">
     <div
-      v-if="store.ui.settingsOpen"
+      v-if="settings.settingsOpen"
       class="mask"
       @click.self="setSettingsOpen(false)"
     >
@@ -333,14 +351,7 @@ function catLabel(key: string): string {
                     t("settings.general.languageDesc")
                   }}</span>
                 </div>
-                <el-radio-group v-model="language">
-                  <el-radio-button
-                    v-for="l in LOCALES"
-                    :key="l.value"
-                    :value="l.value"
-                    >{{ l.label }}</el-radio-button
-                  >
-                </el-radio-group>
+                <UiRadioGroup v-model="language" :options="languageOptions" />
               </div>
 
               <div class="field-row">
@@ -352,17 +363,12 @@ function catLabel(key: string): string {
                     t("settings.general.closeModeDesc")
                   }}</span>
                 </div>
-                <el-radio-group v-model="closeMode" class="mode-group">
-                  <el-radio-button value="ask">{{
-                    t("settings.general.modeAsk")
-                  }}</el-radio-button>
-                  <el-radio-button value="minimize">{{
-                    t("settings.general.modeMinimize")
-                  }}</el-radio-button>
-                  <el-radio-button value="close">{{
-                    t("settings.general.modeClose")
-                  }}</el-radio-button>
-                </el-radio-group>
+                <UiRadioGroup
+                  class="mode-group"
+                  :model-value="closeMode"
+                  :options="closeModeOptions"
+                  @update:model-value="(v: string) => (closeMode = v as CloseMode)"
+                />
               </div>
             </section>
 
@@ -379,7 +385,7 @@ function catLabel(key: string): string {
                     t("settings.edit.autoFollowDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="followScroll" size="small" />
+                <UiSwitch v-model="followScroll" />
               </div>
 
               <div v-if="followScroll" class="field-row col">
@@ -392,7 +398,7 @@ function catLabel(key: string): string {
                   }}</span>
                 </div>
                 <div class="pct-row">
-                  <el-slider
+                  <UiSlider
                     v-model="followPercent"
                     :min="0"
                     :max="100"
@@ -411,7 +417,7 @@ function catLabel(key: string): string {
                     t("settings.edit.ctrlSpeedPlayDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="ctrlSpeedPlay" size="small" />
+                <UiSwitch v-model="ctrlSpeedPlay" />
               </div>
 
               <div class="field-row">
@@ -423,7 +429,7 @@ function catLabel(key: string): string {
                     t("settings.edit.autoSaveDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="autoSave" size="small" />
+                <UiSwitch v-model="autoSave" />
               </div>
 
               <div v-if="autoSave" class="field-row col">
@@ -433,13 +439,12 @@ function catLabel(key: string): string {
                   }}</span>
                 </div>
                 <div class="pct-row">
-                  <el-input-number
+                  <UiNumberInput
                     v-model="autoSaveMinutes"
                     :min="1"
                     :max="60"
                     :step="1"
-                    size="small"
-                    class="num minutes-input"
+                    class="minutes-input"
                   />
                   <span class="muted">{{
                     t("settings.edit.autoSaveMinutesUnit")
@@ -462,7 +467,7 @@ function catLabel(key: string): string {
                     t("settings.audio.autoBpmDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="audioAutoBpm" size="small" />
+                <UiSwitch v-model="audioAutoBpm" />
               </div>
 
               <div class="field-row">
@@ -474,7 +479,7 @@ function catLabel(key: string): string {
                     t("settings.audio.autoBeatsDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="audioAutoBeats" size="small" />
+                <UiSwitch v-model="audioAutoBeats" />
               </div>
 
               <div class="field-row">
@@ -486,7 +491,7 @@ function catLabel(key: string): string {
                     t("settings.audio.loopDetectDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="audioLoopDetect" size="small" />
+                <UiSwitch v-model="audioLoopDetect" />
               </div>
 
               <div class="field-row">
@@ -498,7 +503,7 @@ function catLabel(key: string): string {
                     t("settings.audio.liveBpmDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="audioLiveBpm" size="small" />
+                <UiSwitch v-model="audioLiveBpm" />
               </div>
 
               <div class="field-row">
@@ -510,7 +515,7 @@ function catLabel(key: string): string {
                     t("settings.audio.spectrumDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="audioSpectrum" size="small" />
+                <UiSwitch v-model="audioSpectrum" />
               </div>
 
               <div class="field-row">
@@ -522,7 +527,7 @@ function catLabel(key: string): string {
                     t("settings.audio.panelDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="audioPanel" size="small" />
+                <UiSwitch v-model="audioPanel" />
               </div>
 
               <div class="sub-head">{{ t("settings.audio.metronomeTitle") }}</div>
@@ -540,16 +545,16 @@ function catLabel(key: string): string {
                   <span class="num metronome-path">{{
                     metronomePath || t("settings.audio.metronomeNone")
                   }}</span>
-                  <el-button size="small" @click="pickMetronome()">{{
+                  <UiButton size="sm" @click="pickMetronome()">{{
                     t("settings.audio.metronomePickBtn")
-                  }}</el-button>
-                  <el-button
+                  }}</UiButton>
+                  <UiButton
                     v-if="metronomePath"
-                    size="small"
-                    type="danger"
-                    plain
+                    size="sm"
+                    variant="danger"
                     @click="clearMetronome()"
-                  >{{ t("settings.audio.metronomeClear") }}</el-button>
+                    >{{ t("settings.audio.metronomeClear") }}</UiButton
+                  >
                 </div>
               </div>
             </section>
@@ -566,7 +571,7 @@ function catLabel(key: string): string {
                     t("settings.display.autoHideGridDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="gridAutoHide" size="small" />
+                <UiSwitch v-model="gridAutoHide" />
               </div>
 
               <div class="field-row">
@@ -578,7 +583,7 @@ function catLabel(key: string): string {
                     t("settings.display.editorDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="animEnabled" size="small" />
+                <UiSwitch v-model="animEnabled" />
               </div>
             </section>
 
@@ -592,7 +597,7 @@ function catLabel(key: string): string {
                   v-for="p in THEME_PRESETS"
                   :key="p.id"
                   class="theme-preset"
-                  :class="{ active: store.ui.settings.themePreset === p.id }"
+                  :class="{ active: settings.settings.themePreset === p.id }"
                   @click="setThemePreset(p.id)"
                 >
                   <span class="swatches">
@@ -607,14 +612,13 @@ function catLabel(key: string): string {
 
               <div class="sub-head theme-custom-head">
                 <span>{{ t("settings.theme.custom") }}</span>
-                <el-button
-                  size="small"
-                  text
+                <UiButton
+                  size="sm"
                   :disabled="Object.keys(themeOverrides).length === 0"
                   @click="resetThemeTokens()"
                 >
                   {{ t("settings.theme.reset") }}
-                </el-button>
+                </UiButton>
               </div>
               <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
 
@@ -637,10 +641,9 @@ function catLabel(key: string): string {
                     }}</span>
                   </div>
                   <div class="theme-token-ctrl">
-                    <el-color-picker
-                      size="small"
+                    <UiColorPicker
                       :model-value="themeSpec[token]"
-                      @change="(v: string | null) => onThemeToken(token, v)"
+                      @update:model-value="(v: string) => onThemeToken(token, v)"
                     />
                     <button
                       class="theme-token-reset"
@@ -677,16 +680,16 @@ function catLabel(key: string): string {
             <section v-if="cat === 'plugins'">
               <h3>{{ t("settings.plugins.title") }}</h3>
               <div class="plugin-tools">
-                <el-button
-                  size="small"
+                <UiButton
+                  size="sm"
                   :loading="pluginsLoading"
                   @click="onReloadPlugins()"
                 >
                   {{ t("settings.plugins.reload") }}
-                </el-button>
-                <el-button size="small" @click="onOpenPluginsFolder()">
+                </UiButton>
+                <UiButton size="sm" @click="onOpenPluginsFolder()">
                   {{ t("settings.plugins.openFolder") }}
-                </el-button>
+                </UiButton>
               </div>
 
               <div v-if="pluginEntries.length === 0" class="plugin-empty">
@@ -711,15 +714,10 @@ function catLabel(key: string): string {
                   <div class="plugin-meta">
                     <span v-if="entry.main" class="badge">main</span>
                     <span v-if="entry.renderer" class="badge">renderer</span>
-                    <el-switch
-                      size="small"
+                    <UiSwitch
                       :model-value="entry.enabled"
-                      :loading="pluginBusy === entry.id"
-                      @change="(v: boolean | string | number) => {
-                        if (typeof v === 'boolean') {
-                          void onTogglePlugin(entry);
-                        }
-                      }"
+                      :disabled="pluginBusy === entry.id"
+                      @update:model-value="() => void onTogglePlugin(entry)"
                     />
                   </div>
                 </div>
@@ -742,7 +740,7 @@ function catLabel(key: string): string {
                     t("settings.advanced.rememberWindowDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="rememberWindow" size="small" />
+                <UiSwitch v-model="rememberWindow" />
               </div>
 
               <div class="field-row">
@@ -754,7 +752,7 @@ function catLabel(key: string): string {
                     t("settings.advanced.checkUpdatesDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="checkUpdates" size="small" />
+                <UiSwitch v-model="checkUpdates" />
               </div>
 
               <div class="sub-head">{{ t("settings.advanced.developer") }}</div>
@@ -768,7 +766,7 @@ function catLabel(key: string): string {
                     t("settings.advanced.masterDesc")
                   }}</span>
                 </div>
-                <el-switch v-model="devEnabled" size="small" />
+                <UiSwitch v-model="devEnabled" />
               </div>
 
               <div class="field-row">
@@ -780,22 +778,18 @@ function catLabel(key: string): string {
                     t("settings.advanced.freeInputDesc")
                   }}</span>
                 </div>
-                <el-switch
-                  v-model="devFreeInput"
-                  size="small"
-                  :disabled="!devEnabled"
-                />
+                <UiSwitch v-model="devFreeInput" :disabled="!devEnabled" />
               </div>
 
               <div class="dev-block" :class="{ off: !devEnabled }">
-                <el-button
-                  type="primary"
+                <UiButton
+                  variant="solid"
                   :disabled="!devEnabled"
                   :loading="devOpenBusy"
                   @click="onOpenDevTools()"
                 >
                   {{ t("settings.advanced.openTools") }}
-                </el-button>
+                </UiButton>
                 <p class="muted">{{ t("settings.advanced.openToolsDesc") }}</p>
               </div>
 
@@ -829,13 +823,9 @@ function catLabel(key: string): string {
 
         <footer class="foot">
           <span class="autosave">{{ t("settings.autoSave") }}</span>
-          <el-button
-            type="primary"
-            size="small"
-            @click="setSettingsOpen(false)"
-          >
+          <UiButton variant="solid" size="sm" @click="setSettingsOpen(false)">
             {{ t("settings.done") }}
-          </el-button>
+          </UiButton>
         </footer>
       </div>
     </div>
@@ -979,9 +969,7 @@ function catLabel(key: string): string {
   gap: 8px;
   align-items: flex-start;
 }
-.mode-group .el-radio-button {
-  margin-right: 6px;
-}
+
 .keys-table {
   width: 100%;
   border-collapse: collapse;
@@ -1139,8 +1127,6 @@ function catLabel(key: string): string {
 .pct-slider {
   flex: 1 1 0%;
   min-width: 0;
-  --el-slider-main-bg-color: var(--bdg-accent);
-  --el-slider-runway-bg-color: rgb(var(--bdg-neutral) / 0.2);
 }
 .pct-value {
   font-size: 12px;

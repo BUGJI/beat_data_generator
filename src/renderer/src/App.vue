@@ -8,9 +8,11 @@ import TransportBar from "./components/TransportBar.vue";
 import SettingsModal from "./components/SettingsModal.vue";
 import PluginPanels from "./components/PluginPanels.vue";
 import AnalysisPanel from "./components/AnalysisPanel.vue";
-import { setScroll } from "./editorView";
+import UiToaster from "./components/ui/UiToaster.vue";
+import { setScroll, useViewStore } from "./stores/view";
+import { useSettingsStore } from "./stores/settings";
+import { useSelectionStore } from "./stores/selection";
 import {
-  store,
   loadSettings,
   togglePlay,
   removeBpmPoint,
@@ -29,6 +31,10 @@ import {
   bindWelcomeActions,
 } from "./store";
 import { initPlugins } from "./plugins/host";
+
+const settings = useSettingsStore();
+const selection = useSelectionStore();
+const view = useViewStore();
 
 function isTyping(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -77,7 +83,7 @@ function onKeydown(e: KeyboardEvent): void {
   }
   if (code === "Space") {
     e.preventDefault();
-    const ctrlPlay = store.ui.settings.ctrlSpeedPlay;
+    const ctrlPlay = settings.settings.ctrlSpeedPlay;
     if (ctrlPlay) {
       if (e.ctrlKey || e.metaKey) togglePlay();
       else togglePlay(1);
@@ -96,9 +102,9 @@ function onKeydown(e: KeyboardEvent): void {
     closeCard();
     return;
   }
-  const sel = store.ui.selected;
+  const sel = selection.selected;
   if (!sel.kind || !sel.id) return;
-  const step = 1 / store.ui.snapDiv;
+  const step = 1 / view.snapDiv;
   const delta = code === "ArrowLeft" ? -step : code === "ArrowRight" ? step : 0;
 
   if (sel.kind === "marker") {
@@ -153,5 +159,6 @@ onBeforeUnmount(() => {
     <SettingsModal />
     <PluginPanels />
     <AnalysisPanel />
+    <UiToaster />
   </div>
 </template>

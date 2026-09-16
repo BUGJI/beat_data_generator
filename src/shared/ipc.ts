@@ -1,4 +1,7 @@
 import type { PluginEntry } from "./plugin";
+import type { SettingsData } from "./settings";
+
+export type { SettingsData } from "./settings";
 
 export interface AudioFileResult {
   filePath: string;
@@ -35,45 +38,6 @@ export type CloseMode = "ask" | "minimize" | "close";
 export interface RecentProject {
   path: string;
   title: string;
-}
-
-export interface SettingsData {
-  closeMode: CloseMode;
-  devEnabled: boolean;
-  devFreeInput: boolean;
-  animEnabled: boolean;
-  /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
-  gridAutoHide: boolean;
-  /** silently check for updates on startup and notify when one is available. */
-  checkUpdates: boolean;
-  followScroll: boolean;
-  followPercent: number;
-  followPreset: boolean;
-  rememberWindow: boolean;
-  autoSave: boolean;
-  autoSaveMinutes: number;
-  /** hold Ctrl when pressing Space to play at the current rate; plain Space plays at 1x. */
-  ctrlSpeedPlay: boolean;
-  /** optional audio file played once each time a beat marker is passed (empty = disabled). */
-  metronomePath: string;
-  /** Incremented when settings defaults change, to migrate silently. */
-  settingsVersion: number;
-  /** On audio load, auto-detect BPM and apply to baseBpm (only when not locked). */
-  audioAutoBpm: boolean;
-  /** On audio load, place markers at detected beats on a dedicated "auto beat" track. */
-  audioAutoBeats: boolean;
-  /** On audio load, run loop detection and keep the best loop segment as a hint. */
-  audioLoopDetect: boolean;
-  /** While playing, periodically refresh a live BPM readout (never modifies the project). */
-  audioLiveBpm: boolean;
-  /** Compute and show a spectrum / mel spectrogram in the audio analysis panel. */
-  audioSpectrum: boolean;
-  /** Show the audio analysis panel button in the top bar. */
-  audioPanel: boolean;
-  /** Active theme preset id (see renderer src/theme.ts). */
-  themePreset: string;
-  /** Per-token color overrides on top of the preset (token name -> hex). */
-  themeOverrides: Record<string, string>;
 }
 
 export interface IpcApi {

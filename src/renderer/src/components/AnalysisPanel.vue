@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { store } from "../store";
 import {
   analysis,
   applyDetectedBpm,
@@ -10,8 +9,15 @@ import {
   startLiveBpm,
   stopLiveBpm,
 } from "../analysis";
+import { useTransportStore } from "../stores/transport";
+import { useSettingsStore } from "../stores/settings";
+import { useUiStore } from "../stores/ui";
+import UiButton from "./ui/UiButton.vue";
 
 const { t } = useI18n();
+const transport = useTransportStore();
+const settings = useSettingsStore();
+const ui = useUiStore();
 
 const canvas = ref<HTMLCanvasElement | null>(null);
 let cw = 0;
@@ -30,9 +36,9 @@ const detected = computed(() =>
 const live = computed(() =>
   analysis.liveBpm ? analysis.liveBpm.toFixed(1) : "--",
 );
-const hasAudio = computed(() => store.ui.hasAudio);
+const hasAudio = computed(() => transport.hasAudio);
 const showSpectrum = computed(
-  () => store.ui.settings.audioSpectrum && !!analysis.spectrum,
+  () => settings.settings.audioSpectrum && !!analysis.spectrum,
 );
 const loopText = computed(() => {
   if (analysis.loopStart === null || analysis.loopEnd === null)
@@ -133,7 +139,7 @@ function onApplyBpm(): void {
 }
 
 function close(): void {
-  store.ui.analysisOpen = false;
+  ui.analysisOpen = false;
 }
 
 watch(
@@ -159,7 +165,7 @@ onBeforeUnmount(() => {
 
 <template>
   <teleport to="body">
-    <div v-if="store.ui.analysisOpen" class="ana-mask" @click.self="close">
+    <div v-if="ui.analysisOpen" class="ana-mask" @click.self="close">
       <div class="ana-win">
         <header class="ana-head">
           <span class="ana-title">{{ t("settings.cats.audio") }}</span>
@@ -174,9 +180,9 @@ onBeforeUnmount(() => {
           <div class="ana-row">
             <span class="ana-label">{{ t("settings.audio.detectedBpm") }}</span>
             <span class="ana-value num">{{ detected }}</span>
-            <el-button size="small" :disabled="!analysis.bpm" @click="onApplyBpm">
+            <UiButton size="sm" :disabled="!analysis.bpm" @click="onApplyBpm">
               {{ t("settings.audio.applyBpm") }}
-            </el-button>
+            </UiButton>
           </div>
 
           <div class="ana-row">
@@ -190,12 +196,12 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="ana-actions">
-            <el-button size="small" :loading="analysis.analyzing" @click="onReanalyze">
+            <UiButton size="sm" :loading="analysis.analyzing" @click="onReanalyze">
               {{ t("settings.audio.reanalyze") }}
-            </el-button>
-            <el-button size="small" :disabled="!analysis.beats.length" @click="onGenerateBeats">
+            </UiButton>
+            <UiButton size="sm" :disabled="!analysis.beats.length" @click="onGenerateBeats">
               {{ t("settings.audio.genBeats") }}
-            </el-button>
+            </UiButton>
           </div>
 
           <div class="ana-spectrum">

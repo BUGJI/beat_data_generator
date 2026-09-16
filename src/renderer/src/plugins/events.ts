@@ -1,5 +1,7 @@
 import { watch } from "vue";
-import { store } from "../store";
+import { useProjectStore } from "../stores/project";
+import { useSelectionStore } from "../stores/selection";
+import { useTransportStore } from "../stores/transport";
 
 /**
  * Thin event bus the plugin API subscribes to. Events are emitted from a few
@@ -7,6 +9,9 @@ import { store } from "../store";
  * watchers to the whole project state.
  *
  * Events: "project" | "selection" | "playhead" | "playing"
+ *
+ * The watchers read Pinia stores, so they are installed by
+ * `initPluginEvents()` once Pinia is active (see services/bootstrap.ts).
  */
 
 type Handler = (payload?: unknown) => void;
@@ -37,43 +42,53 @@ export function onEvent(name: string, cb: Handler): () => void {
   };
 }
 
-let projectQueued = false;
-watch(
-  () => store.project,
-  () => {
-    if (projectQueued) return;
-    projectQueued = true;
-    queueMicrotask(() => {
-      projectQueued = false;
-      emit("project");
-    });
-  },
-  { deep: true },
-);
+let installed = false;
 
-let selectionQueued = false;
-watch(
-  () => ({
-    kind: store.ui.selected.kind,
-    id: store.ui.selected.id,
-    multi: [...store.ui.multi],
-  }),
-  () => {
-    if (selectionQueued) return;
-    selectionQueued = true;
-    queueMicrotask(() => {
-      selectionQueued = false;
-      emit("selection");
-    });
-  },
-);
+export function initPluginEvents(): void {
+  if (installed) return;
+  installed = true;
+  const project = useProjectStore();
+  const selection = useSelectionStore();
+  const transport = useTransportStore();
 
-watch(
-  () => store.ui.positionMs,
-  (ms) => emit("playhead", ms),
-);
+  let projectQueued = false;
+  watch(
+    () => project,
+    () => {
+      if (projectQueued) return;
+      projectQueued = true;
+      queueMicrotask(() => {
+        projectQueued = false;
+        emit("project");
+      });
+    },
+    { deep: true },
+  );
 
-watch(
-  () => store.ui.playing,
-  (playing) => emit("playing", playing),
-);
+  let selectionQueued = false;
+  watch(
+    () => ({
+      kind: selection.selected.kind,
+      id: selection.selected.id,
+      multi: [...selection.multi],
+    }),
+    () => {
+      if (selectionQueued) return;
+      selectionQueued = true;
+      queueMicrotask(() => {
+        selectionQueued = false;
+        emit("selection");
+      });
+    },
+  );
+
+  watch(
+    () => transport.positionMs,
+    (ms) => emit("playhead", ms),
+  );
+
+  watch(
+    () => transport.playing,
+    (playing) => emit("playing", playing),
+  );
+}

@@ -2,26 +2,26 @@
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  DocumentAdd,
-  FolderOpened,
-  Files,
+  Activity,
+  ChevronDown,
+  Copy,
   Download,
-  Collection,
-  Document,
-  CopyDocument,
-  RefreshLeft,
-  RefreshRight,
-  Remove,
-  DataAnalysis,
-  Select,
+  FilePlus,
+  FileText,
+  Files,
+  FolderOpen,
+  LayoutGrid,
+  LibraryBig,
+  Maximize,
+  Redo2,
+  Scissors,
+  Settings,
+  SquareDashedMousePointer,
+  Undo2,
+  Upload,
   ZoomIn,
   ZoomOut,
-  FullScreen,
-  Setting,
-  CaretBottom,
-  Grid,
-  Upload,
-} from "@element-plus/icons-vue";
+} from "@lucide/vue";
 import {
   actions as pluginActions,
   panels as pluginPanels,
@@ -39,7 +39,6 @@ import { newProject,
   saveProjectQuick,
   exportTimestamps,
   exportEDL,
-  store,
   zoomBy,
   fitZoom,
   setSettingsOpen,
@@ -50,8 +49,22 @@ import { newProject,
   undo,
   redo,
 } from "../store";
+import { useProjectStore } from "../stores/project";
+import { useViewStore } from "../stores/view";
+import { useSettingsStore } from "../stores/settings";
+import { useUiStore } from "../stores/ui";
+import UiButton from "./ui/UiButton.vue";
+import UiDropdownItem from "./ui/UiDropdownItem.vue";
+import UiDropdownLabel from "./ui/UiDropdownLabel.vue";
+import UiDropdownMenu from "./ui/UiDropdownMenu.vue";
+import UiDropdownSeparator from "./ui/UiDropdownSeparator.vue";
+import UiTooltip from "./ui/UiTooltip.vue";
 
 const { t } = useI18n();
+const project = useProjectStore();
+const view = useViewStore();
+const settings = useSettingsStore();
+const ui = useUiStore();
 
 interface PluginMenuChild {
   kind: "action" | "panel";
@@ -150,7 +163,7 @@ function onPluginCmd(cmd: string): void {
 }
 
 const dirtyTitle = computed(() =>
-  store.project.dirty ? ` • ${t("toolbar.unsavedDot")}` : "",
+  project.dirty ? ` • ${t("toolbar.unsavedDot")}` : "",
 );
 
 const recents = ref<Array<{ path: string; title: string }>>([]);
@@ -222,8 +235,8 @@ function onFit(): void {
   fitZoom(window.innerWidth * 0.62);
 }
 
-const zoomInDisabled = computed(() => store.ui.pxPerSec >= 4000);
-const zoomOutDisabled = computed(() => store.ui.pxPerSec <= 6);
+const zoomInDisabled = computed(() => view.pxPerSec >= 4000);
+const zoomOutDisabled = computed(() => view.pxPerSec <= 6);
 onMounted(() => {
   void loadRecents();
 });
@@ -231,156 +244,138 @@ onMounted(() => {
 
 <template>
   <header class="topbar">
-    <el-dropdown
-      trigger="click"
-      @command="onCmd"
-      @visible-change="(v: boolean) => v && loadRecents()"
+    <UiDropdownMenu
+      @select="onCmd"
+      @update:open="(v: boolean) => v && loadRecents()"
     >
-      <button class="menu-btn">
-        <el-icon><DocumentAdd /></el-icon>{{ t("menu.file") }}
-        <el-icon class="caret"><CaretBottom /></el-icon>
-      </button>
-      <template #dropdown>
-        <el-dropdown-menu>
-          <el-dropdown-item command="new">
-            <el-icon><DocumentAdd /></el-icon>{{ t("menu.new") }}
-          </el-dropdown-item>
-          <el-dropdown-item command="open-project">
-            <el-icon><FolderOpened /></el-icon>{{ t("menu.openProject") }}
-          </el-dropdown-item>
-          <el-dropdown-item
-            v-for="(r, i) in recents"
-            :key="r.path"
-            :command="`recent-${i}`"
-            class="recent-item"
+      <template #trigger>
+        <button class="menu-btn">
+          <FilePlus class="size-3.5" />{{ t("menu.file") }}
+          <ChevronDown class="caret" />
+        </button>
+      </template>
+      <UiDropdownItem value="new">
+        <FilePlus class="size-3.5" />{{ t("menu.new") }}
+      </UiDropdownItem>
+      <UiDropdownItem value="open-project">
+        <FolderOpen class="size-3.5" />{{ t("menu.openProject") }}
+      </UiDropdownItem>
+      <UiDropdownItem
+        v-for="(r, i) in recents"
+        :key="r.path"
+        :value="`recent-${i}`"
+      >
+        <Files class="size-3.5" />
+        <span class="recent-title" :title="r.path">{{ r.title }}</span>
+      </UiDropdownItem>
+      <UiDropdownSeparator />
+      <UiDropdownItem value="save">
+        <FileText class="size-3.5" />{{ t("menu.saveProject") }}
+      </UiDropdownItem>
+      <UiDropdownItem value="save-as">
+        <Copy class="size-3.5" />{{ t("menu.saveProjectAs") }}
+      </UiDropdownItem>
+      <template v-if="pluginImporters.length">
+        <UiDropdownSeparator />
+        <UiDropdownLabel>{{ t("menu.import") }}</UiDropdownLabel>
+        <UiDropdownItem
+          v-for="im in pluginImporters"
+          :key="`imp-${im.uid}`"
+          :value="`imp-${im.uid}`"
+        >
+          <Upload class="size-3.5" />
+          <span class="plug-label">{{ localeText(im.def.label) }}</span>
+        </UiDropdownItem>
+      </template>
+    </UiDropdownMenu>
+
+    <UiDropdownMenu @select="onCmd">
+      <template #trigger>
+        <button class="menu-btn">
+          <Copy class="size-3.5" />{{ t("menu.edit") }}
+          <ChevronDown class="caret" />
+        </button>
+      </template>
+      <UiDropdownItem value="undo">
+        <Undo2 class="size-3.5" />{{ t("menu.undo") }}
+      </UiDropdownItem>
+      <UiDropdownItem value="redo">
+        <Redo2 class="size-3.5" />{{ t("menu.redo") }}
+      </UiDropdownItem>
+      <UiDropdownSeparator />
+      <UiDropdownItem value="cut">
+        <Scissors class="size-3.5" />{{ t("menu.cut") }}
+      </UiDropdownItem>
+      <UiDropdownItem value="copy">
+        <Copy class="size-3.5" />{{ t("menu.copy") }}
+      </UiDropdownItem>
+      <UiDropdownItem value="paste">
+        <Files class="size-3.5" />{{ t("menu.paste") }}
+      </UiDropdownItem>
+    </UiDropdownMenu>
+
+    <UiDropdownMenu @select="onCmd">
+      <template #trigger>
+        <button class="menu-btn">
+          <SquareDashedMousePointer class="size-3.5" />{{ t("menu.select") }}
+          <ChevronDown class="caret" />
+        </button>
+      </template>
+      <UiDropdownItem value="select-all">
+        <SquareDashedMousePointer class="size-3.5" />{{ t("menu.selectAll") }}
+      </UiDropdownItem>
+    </UiDropdownMenu>
+
+    <UiDropdownMenu v-if="pluginMenu.length" @select="onPluginCmd">
+      <template #trigger>
+        <button class="menu-btn">
+          <LayoutGrid class="size-3.5" />{{ t("menu.plugins") }}
+          <ChevronDown class="caret" />
+        </button>
+      </template>
+      <template v-for="g in pluginMenu" :key="g.pluginId">
+        <UiDropdownLabel>{{ g.name }}</UiDropdownLabel>
+        <UiDropdownItem
+          v-for="ch in g.children"
+          :key="`${g.pluginId}-${ch.uid}`"
+          :value="(ch.kind === 'action' ? 'a' : 'p') + ch.uid"
+          :class="{ 'plug-open': ch.kind === 'panel' && ch.open }"
+        >
+          <span v-if="ch.kind === 'panel'" class="plug-check"
+            >{{ ch.open ? "●" : "○" }}</span
           >
-            <el-icon><Files /></el-icon>
-            <span class="recent-title" :title="r.path">{{ r.title }}</span>
-          </el-dropdown-item>
-          <el-dropdown-item command="save" divided>
-            <el-icon><Document /></el-icon>{{ t("menu.saveProject") }}
-          </el-dropdown-item>
-          <el-dropdown-item command="save-as">
-            <el-icon><CopyDocument /></el-icon>{{ t("menu.saveProjectAs") }}
-          </el-dropdown-item>
-          <template v-if="pluginImporters.length">
-            <el-dropdown-item disabled class="plug-head" divided>
-              {{ t("menu.import") }}
-            </el-dropdown-item>
-            <el-dropdown-item
-              v-for="im in pluginImporters"
-              :key="`imp-${im.uid}`"
-              :command="`imp-${im.uid}`"
-            >
-              <el-icon><Upload /></el-icon>
-              <span class="plug-label">{{ localeText(im.def.label) }}</span>
-            </el-dropdown-item>
-          </template>
-        </el-dropdown-menu>
+          <span v-else class="plug-check">▸</span>
+          <span class="plug-label">{{ ch.label }}</span>
+        </UiDropdownItem>
       </template>
-    </el-dropdown>
+    </UiDropdownMenu>
 
-    <el-dropdown trigger="click" @command="onCmd">
-      <button class="menu-btn">
-        <el-icon><CopyDocument /></el-icon>{{ t("menu.edit") }}
-        <el-icon class="caret"><CaretBottom /></el-icon>
-      </button>
-      <template #dropdown>
-        <el-dropdown-menu>
-          <el-dropdown-item command="undo">
-            <el-icon><RefreshLeft /></el-icon>{{ t("menu.undo") }}
-          </el-dropdown-item>
-          <el-dropdown-item command="redo">
-            <el-icon><RefreshRight /></el-icon>{{ t("menu.redo") }}
-          </el-dropdown-item>
-          <el-dropdown-item command="cut" divided>
-            <el-icon><Remove /></el-icon>{{ t("menu.cut") }}
-          </el-dropdown-item>
-          <el-dropdown-item command="copy">
-            <el-icon><CopyDocument /></el-icon>{{ t("menu.copy") }}
-          </el-dropdown-item>
-          <el-dropdown-item command="paste">
-            <el-icon><Files /></el-icon>{{ t("menu.paste") }}
-          </el-dropdown-item>
-        </el-dropdown-menu>
+    <UiDropdownMenu @select="onCmd">
+      <template #trigger>
+        <button class="menu-btn">
+          <Download class="size-3.5" />{{ t("menu.exportMenu") }}
+          <ChevronDown class="caret" />
+        </button>
       </template>
-    </el-dropdown>
-
-    <el-dropdown trigger="click" @command="onCmd">
-      <button class="menu-btn">
-        <el-icon><Select /></el-icon>{{ t("menu.select") }}
-        <el-icon class="caret"><CaretBottom /></el-icon>
-      </button>
-      <template #dropdown>
-        <el-dropdown-menu>
-          <el-dropdown-item command="select-all">
-            <el-icon><Select /></el-icon>{{ t("menu.selectAll") }}
-          </el-dropdown-item>
-        </el-dropdown-menu>
+      <UiDropdownItem value="export">
+        <Download class="size-3.5" />{{ t("menu.export") }}
+      </UiDropdownItem>
+      <UiDropdownItem value="export-edl">
+        <LibraryBig class="size-3.5" />{{ t("menu.exportEdl") }}
+      </UiDropdownItem>
+      <template v-if="pluginExporters.length">
+        <UiDropdownSeparator />
+        <UiDropdownLabel>{{ t("menu.pluginExports") }}</UiDropdownLabel>
+        <UiDropdownItem
+          v-for="ex in pluginExporters"
+          :key="`exp-${ex.uid}`"
+          :value="`exp-${ex.uid}`"
+        >
+          <Download class="size-3.5" />
+          <span class="plug-label">{{ localeText(ex.def.label) }}</span>
+        </UiDropdownItem>
       </template>
-    </el-dropdown>
-
-    <el-dropdown
-      v-if="pluginMenu.length"
-      trigger="click"
-      @command="onPluginCmd"
-    >
-      <button class="menu-btn">
-        <el-icon><Grid /></el-icon>{{ t("menu.plugins") }}
-        <el-icon class="caret"><CaretBottom /></el-icon>
-      </button>
-      <template #dropdown>
-        <el-dropdown-menu>
-          <template v-for="g in pluginMenu" :key="g.pluginId">
-            <el-dropdown-item disabled class="plug-head">
-              {{ g.name }}
-            </el-dropdown-item>
-            <el-dropdown-item
-              v-for="ch in g.children"
-              :key="`${g.pluginId}-${ch.uid}`"
-              :command="(ch.kind === 'action' ? 'a' : 'p') + ch.uid"
-              :class="{ 'plug-open': ch.kind === 'panel' && ch.open }"
-            >
-              <span v-if="ch.kind === 'panel'" class="plug-check"
-                >{{ ch.open ? "●" : "○" }}</span
-              >
-              <span v-else class="plug-check">▸</span>
-              <span class="plug-label">{{ ch.label }}</span>
-            </el-dropdown-item>
-          </template>
-        </el-dropdown-menu>
-      </template>
-    </el-dropdown>
-
-    <el-dropdown trigger="click" @command="onCmd">
-      <button class="menu-btn">
-        <el-icon><Download /></el-icon>{{ t("menu.exportMenu") }}
-        <el-icon class="caret"><CaretBottom /></el-icon>
-      </button>
-      <template #dropdown>
-        <el-dropdown-menu>
-          <el-dropdown-item command="export">
-            <el-icon><Download /></el-icon>{{ t("menu.export") }}
-          </el-dropdown-item>
-          <el-dropdown-item command="export-edl">
-            <el-icon><Collection /></el-icon>{{ t("menu.exportEdl") }}
-          </el-dropdown-item>
-          <template v-if="pluginExporters.length">
-            <el-dropdown-item disabled class="plug-head" divided>
-              {{ t("menu.pluginExports") }}
-            </el-dropdown-item>
-            <el-dropdown-item
-              v-for="ex in pluginExporters"
-              :key="`exp-${ex.uid}`"
-              :command="`exp-${ex.uid}`"
-            >
-              <el-icon><Download /></el-icon>
-              <span class="plug-label">{{ localeText(ex.def.label) }}</span>
-            </el-dropdown-item>
-          </template>
-        </el-dropdown-menu>
-      </template>
-    </el-dropdown>
+    </UiDropdownMenu>
 
     <span
       v-if="dirtyTitle"
@@ -392,54 +387,46 @@ onMounted(() => {
     <div class="grow" />
 
     <div class="zoom-group">
-      <el-tooltip :content="t('menu.zoomOut')" placement="bottom">
-        <el-button
-          size="small"
-          text
+      <UiTooltip :content="t('menu.zoomOut')">
+        <UiButton
+          size="sm"
           :disabled="zoomOutDisabled"
           @click="zoomBy(1 / 1.3)"
         >
-          <el-icon><ZoomOut /></el-icon>
-        </el-button>
-      </el-tooltip>
-      <el-tooltip :content="t('menu.zoomIn')" placement="bottom">
-        <el-button
-          size="small"
-          text
-          :disabled="zoomInDisabled"
-          @click="zoomBy(1.3)"
-        >
-          <el-icon><ZoomIn /></el-icon>
-        </el-button>
-      </el-tooltip>
-      <el-tooltip :content="t('menu.zoomFit')" placement="bottom">
-        <el-button size="small" text @click="onFit">
-          <el-icon><FullScreen /></el-icon>
-        </el-button>
-      </el-tooltip>
+          <ZoomOut class="size-4" />
+        </UiButton>
+      </UiTooltip>
+      <UiTooltip :content="t('menu.zoomIn')">
+        <UiButton size="sm" :disabled="zoomInDisabled" @click="zoomBy(1.3)">
+          <ZoomIn class="size-4" />
+        </UiButton>
+      </UiTooltip>
+      <UiTooltip :content="t('menu.zoomFit')">
+        <UiButton size="sm" @click="onFit">
+          <Maximize class="size-4" />
+        </UiButton>
+      </UiTooltip>
     </div>
 
-    <el-tooltip
-      v-if="store.ui.settings.audioPanel"
+    <UiTooltip
+      v-if="settings.settings.audioPanel"
       :content="t('settings.cats.audio')"
-      placement="bottom"
     >
-      <el-button
+      <UiButton
         class="ana-btn"
-        size="small"
-        text
-        :type="store.ui.analysisOpen ? 'primary' : ''"
-        @click="store.ui.analysisOpen = !store.ui.analysisOpen"
+        size="sm"
+        :variant="ui.analysisOpen ? 'soft' : 'ghost'"
+        @click="ui.analysisOpen = !ui.analysisOpen"
       >
-        <el-icon><DataAnalysis /></el-icon>
-      </el-button>
-    </el-tooltip>
+        <Activity class="size-4" />
+      </UiButton>
+    </UiTooltip>
 
-    <el-tooltip :content="t('settings.title')" placement="bottom">
-      <el-button class="help-btn" size="small" text @click="setSettingsOpen(true)">
-        <el-icon><Setting /></el-icon>
-      </el-button>
-    </el-tooltip>
+    <UiTooltip :content="t('settings.title')">
+      <UiButton class="help-btn" size="sm" @click="setSettingsOpen(true)">
+        <Settings class="size-4" />
+      </UiButton>
+    </UiTooltip>
   </header>
 </template>
 
@@ -478,7 +465,9 @@ onMounted(() => {
   background: rgb(var(--bdg-neutral) / 0.12);
 }
 .caret {
-  font-size: 9px;
+  width: 10px;
+  height: 10px;
+  opacity: 0.7;
 }
 .grow {
   flex: 1;

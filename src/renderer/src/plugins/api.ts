@@ -1,5 +1,4 @@
 import {
-  store,
   tempoMap,
   addTrack,
   addTypedTrack,
@@ -31,6 +30,9 @@ import {
 } from "../store";
 import { engine } from "../engine";
 import type { LoopConfig } from "../types";
+import { useProjectStore } from "../stores/project";
+import { useSelectionStore } from "../stores/selection";
+import { useTransportStore } from "../stores/transport";
 import { onEvent } from "./events";
 import {
   uiHandleFor,
@@ -239,6 +241,9 @@ export function createPluginApi(binding: PluginBinding): {
   api: PluginApi;
   finalize: () => void;
 } {
+  const project = useProjectStore();
+  const selection = useSelectionStore();
+  const transport = useTransportStore();
   const ui = uiHandleFor(binding.id);
   const unsubs: Array<() => void> = [];
   const log = (...args: unknown[]) =>
@@ -246,7 +251,7 @@ export function createPluginApi(binding: PluginBinding): {
 
   const snapshot = (): ProjectView => {
     const map = tempoMap();
-    const p = store.project;
+    const p = project;
     // hidden tracks (and their markers) are withheld from plugins.
     const hiddenSet = new Set(
       p.tracks.filter((t) => t.hidden === true).map((t) => t.id),
@@ -336,8 +341,8 @@ export function createPluginApi(binding: PluginBinding): {
 
     selection: {
       current: () => ({
-        kind: store.ui.selected.kind,
-        id: store.ui.selected.id,
+        kind: selection.selected.kind,
+        id: selection.selected.id,
         markerIds: markerSelectionIds(),
       }),
       selectMarker: (id) => {
@@ -355,10 +360,10 @@ export function createPluginApi(binding: PluginBinding): {
       togglePlay,
       stop,
       seekTo,
-      positionMs: () => store.ui.positionMs,
+      positionMs: () => transport.positionMs,
       durationMs: () => engine.durationMs(),
-      playing: () => store.ui.playing,
-      rate: () => store.ui.rate,
+      playing: () => transport.playing,
+      rate: () => transport.rate,
     },
 
     events: {
@@ -385,7 +390,7 @@ export function createPluginApi(binding: PluginBinding): {
       openWindow: (opts) => window.api.openWindow(opts),
       openPluginsFolder: () => window.api.openPluginsFolder(),
       /** absolute filesystem path of the currently loaded audio, or null. */
-      audioPath: () => store.project.audioPath,
+      audioPath: () => project.audioPath,
     },
 
     callMain: (method, ...args) =>

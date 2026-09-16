@@ -304,9 +304,8 @@ export function buildCanvasColors(spec: ThemeSpec): CanvasColors {
   };
 }
 
-/** CSS custom properties for a resolved spec (DOM + Element Plus). */
+/** CSS custom properties for a resolved spec (DOM + canvas). */
 export function buildCssVars(spec: ThemeSpec): Record<string, string> {
-  const elTextRegular = spec.textDim;
   return {
     "--bdg-bg": spec.bg,
     "--bdg-bg-panel": spec.panel,
@@ -336,24 +335,6 @@ export function buildCssVars(spec: ThemeSpec): Record<string, string> {
     "--bdg-bpm-rgb": rgbTriple(spec.bpm),
     "--bdg-mask": rgba(spec.bg, 0.7),
     "--bdg-shadow": "rgba(0, 0, 0, 0.5)",
-    // Element Plus
-    "--el-color-primary": spec.accent,
-    "--el-color-danger": spec.danger,
-    "--el-color-warning": spec.amber,
-    "--el-color-success": spec.accent2,
-    "--el-bg-color": spec.panel,
-    "--el-bg-color-overlay": spec.menu,
-    "--el-fill-color-blank": spec.panel,
-    "--el-fill-color": spec.raised,
-    "--el-fill-color-light": spec.raised,
-    "--el-fill-color-lighter": spec.panel,
-    "--el-border-color": rgba(spec.neutral, 0.2),
-    "--el-border-color-light": rgba(spec.neutral, 0.14),
-    "--el-border-color-lighter": rgba(spec.neutral, 0.1),
-    "--el-text-color-primary": spec.text,
-    "--el-text-color-regular": elTextRegular,
-    "--el-text-color-secondary": spec.textDim,
-    "--el-mask-color": rgba(spec.bg, 0.7),
   };
 }
 

@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  store,
   openAudioDialog,
   relinkAudio,
   setBaseBpm,
@@ -19,11 +18,25 @@ import {
 import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
 import { resolveTheme, type ThemeOverrides } from "../theme";
+import { useProjectStore } from "../stores/project";
+import { useTransportStore } from "../stores/transport";
+import { useSettingsStore } from "../stores/settings";
+import { useViewStore } from "../stores/view";
+import { useUiStore } from "../stores/ui";
+import UiButton from "./ui/UiButton.vue";
+import UiCombobox from "./ui/UiCombobox.vue";
+import UiNumberInput from "./ui/UiNumberInput.vue";
+
+const project = useProjectStore();
+const transport = useTransportStore();
+const settings = useSettingsStore();
+const view = useViewStore();
+const ui = useUiStore();
 
 const themeSpec = computed(() =>
   resolveTheme(
-    store.ui.settings.themePreset,
-    store.ui.settings.themeOverrides as ThemeOverrides,
+    settings.settings.themePreset,
+    settings.settings.themeOverrides as ThemeOverrides,
   ),
 );
 
@@ -73,8 +86,8 @@ function makeFlash(source: () => number) {
   return { intensity, stop };
 }
 
-const beat = makeFlash(() => store.ui.beatPulse);
-const overlap = makeFlash(() => store.ui.overlapPulse);
+const beat = makeFlash(() => ui.beatPulse);
+const overlap = makeFlash(() => ui.overlapPulse);
 
 onBeforeUnmount(() => {
   beat.stop();
@@ -82,7 +95,7 @@ onBeforeUnmount(() => {
 });
 
 const overlapColor = computed(() => {
-  const n = store.ui.overlapCount;
+  const n = ui.overlapCount;
   const s = themeSpec.value;
   if (n >= 4) return s.danger;
   if (n === 3) return s.bpm;
@@ -96,28 +109,28 @@ const overlapStyle = computed(() =>
   flashStyle(overlap.intensity.value, overlapColor.value),
 );
 
-const hasAudio = computed(() => store.ui.hasAudio);
+const hasAudio = computed(() => transport.hasAudio);
 const followOn = computed(() =>
-  store.ui.playing ? store.ui.followActive : store.ui.followManual,
+  transport.playing ? transport.followActive : transport.followManual,
 );
 const followTip = computed(() => {
-  if (store.ui.playing)
-    return store.ui.followActive ? t("follow.onTip") : t("follow.offPlayTip");
+  if (transport.playing)
+    return transport.followActive ? t("follow.onTip") : t("follow.offPlayTip");
   return t("follow.stopTip");
 });
 const audioName = computed(() => {
-  const n = store.project.audioName;
+  const n = project.audioName;
   if (!n) return "";
   return n.split(/[\\/]/).pop() ?? n;
 });
 const baseBpm = computed({
-  get: () => store.project.baseBpm,
+  get: () => project.baseBpm,
   set: (v: number | undefined) => {
     setBaseBpm(v ?? 120);
   },
 });
 const offset = computed({
-  get: () => store.project.offsetMs,
+  get: () => project.offsetMs,
   set: (v: number | undefined) => {
     setOffset(v ?? 0);
   },
@@ -127,7 +140,7 @@ const durationLabel = computed(() =>
   hasAudio.value ? formatTime(contentEndMs()) : "--:--.---",
 );
 const sampleRateLabel = computed(() =>
-  store.ui.wave ? `${(store.ui.wave.sampleRate / 1000).toFixed(1)} kHz` : "-",
+  transport.wave ? `${(transport.wave.sampleRate / 1000).toFixed(1)} kHz` : "-",
 );
 const barMsLabel = computed(() => {
   const m = tempoMap();
@@ -141,30 +154,30 @@ const lastBeatLabel = computed(() => {
 });
 const markersLabel = computed(() => String(markerCount()));
 const zoomLabel = computed(
-  () => `${store.ui.pxPerSec.toFixed(1)} px/s`,
+  () => `${view.pxPerSec.toFixed(1)} px/s`,
 );
 const followPctLabel = computed(
-  () => `${store.ui.settings.followPercent}%`,
+  () => `${settings.settings.followPercent}%`,
 );
 
 function wheelOffset(e: WheelEvent): void {
   const step = Math.sign(e.deltaY) * 5;
-  const cur = store.project.offsetMs;
+  const cur = project.offsetMs;
   const v = freeInput.value ? cur - step : Math.max(-100000, Math.min(100000, cur - step));
   if (v !== cur) offset.value = v;
 }
 
 function toggleSnap(): void {
-  store.ui.snapEnabled = !store.ui.snapEnabled;
+  view.snapEnabled = !view.snapEnabled;
 }
 
 // dev "free input" toggle relaxes numeric bounds/precision while typing
-const freeInput = computed(() => store.ui.settings.devFreeInput);
+const freeInput = computed(() => settings.settings.devFreeInput);
 
 // ---- beat grid / snap division: pick a preset or type a custom denominator ----
 
 const snapOptions = computed<Array<{ value: number; label: string }>>(() => {
-  const custom = store.ui.snapDiv;
+  const custom = view.snapDiv;
   const list = SNAP_DIVISIONS.map((d) => ({
     value: d as number,
     label: `1/${d}`,
@@ -184,13 +197,17 @@ function parseSnapDenominator(raw: string | number): number | null {
   return d > 0 ? d : null;
 }
 
-const snapDiv = computed({
-  get: () => store.ui.snapDiv,
-  set: (v: string | number) => {
+const snapDivModel = computed({
+  get: () => String(view.snapDiv),
+  set: (v: string) => {
     const d = parseSnapDenominator(v);
-    if (d !== null) store.ui.snapDiv = d;
+    if (d !== null) view.snapDiv = d;
   },
 });
+
+const snapSelectOptions = computed(() =>
+  snapOptions.value.map((o) => ({ value: String(o.value), label: o.label })),
+);
 
 const detecting = ref(false);
 
@@ -224,18 +241,17 @@ async function onDetectBpm(): Promise<void> {
             {{ audioName || t("sidebar.noSong") }}
           </div>
         </div>
-        <el-button
+        <UiButton
           v-if="!hasAudio"
-          type="primary"
-          size="small"
-          round
+          variant="solid"
+          size="sm"
           @click="openAudioDialog()"
         >
           {{ t("sidebar.chooseSong") }}
-        </el-button>
-        <el-button v-else size="small" text round @click="relinkAudio()">
+        </UiButton>
+        <UiButton v-else size="sm" @click="relinkAudio()">
           {{ t("sidebar.relink") }}
-        </el-button>
+        </UiButton>
       </div>
 
       <div class="param-grid">
@@ -244,18 +260,16 @@ async function onDetectBpm(): Promise<void> {
             {{ t("sidebar.baseBpm") }}
           </span>
           <div class="bpm-row">
-            <el-input-number
+            <UiNumberInput
               v-model="baseBpm"
               :min="freeInput ? undefined : 20"
               :max="freeInput ? undefined : 999"
               :step="1"
               :precision="freeInput ? undefined : 1"
-              size="small"
-              controls-position="right"
-              class="num bpm-input"
+              class="bpm-input"
             />
-            <el-button
-              size="small"
+            <UiButton
+              size="sm"
               class="detect-btn"
               :title="t('sidebar.detectBpmTip')"
               :loading="detecting"
@@ -263,21 +277,18 @@ async function onDetectBpm(): Promise<void> {
               @click="onDetectBpm"
             >
               {{ t("sidebar.detectBpm") }}
-            </el-button>
+            </UiButton>
           </div>
         </label>
         <label class="field">
           <span class="field-label" :title="t('sidebar.offsetTooltip')">
             {{ t("sidebar.offset") }}
           </span>
-          <el-input-number
+          <UiNumberInput
             v-model="offset"
             :min="freeInput ? undefined : -100000"
             :max="freeInput ? undefined : 100000"
             :step="5"
-            size="small"
-            controls-position="right"
-            class="num"
             @wheel.prevent="wheelOffset"
           />
         </label>
@@ -285,33 +296,25 @@ async function onDetectBpm(): Promise<void> {
 
       <div class="snap-row">
         <span class="snap-label">{{ t("sidebar.snapToGrid") }}</span>
-        <el-select
-          v-model="snapDiv"
-          size="small"
+        <UiCombobox
+          v-model="snapDivModel"
+          size="sm"
           class="snap-select"
-          filterable
-          allow-create
-          default-first-option
-        >
-          <el-option
-            v-for="d in snapOptions"
-            :key="d.value"
-            :value="d.value"
-            :label="d.label"
-          />
-        </el-select>
+          creatable
+          :options="snapSelectOptions"
+        />
         <span class="snap-unit">{{ t("sidebar.snapUnit") }}</span>
       </div>
 
-      <div v-if="store.ui.audioMissing || store.ui.audioConflict" class="warn">
+      <div v-if="transport.audioMissing || transport.audioConflict" class="warn">
         {{
-          store.ui.audioConflict
+          transport.audioConflict
             ? t("dialogs.audioMismatch")
             : t("dialogs.audioMissing")
         }}
-        <el-button size="small" text type="primary" @click="relinkAudio()">
+        <UiButton size="sm" variant="soft" @click="relinkAudio()">
           {{ t("sidebar.relink") }}
-        </el-button>
+        </UiButton>
       </div>
     </div>
 
@@ -364,9 +367,9 @@ async function onDetectBpm(): Promise<void> {
         />
         <button
           class="quick-icon"
-          :class="{ on: store.ui.glowEnabled }"
+          :class="{ on: ui.glowEnabled }"
           :title="t('follow.glowTip')"
-          @click="store.ui.glowEnabled = !store.ui.glowEnabled"
+          @click="ui.glowEnabled = !ui.glowEnabled"
         >
           <svg
             viewBox="0 0 24 24"
@@ -409,7 +412,7 @@ async function onDetectBpm(): Promise<void> {
         <span class="quick-divider" />
         <button
           class="quick-icon"
-          :class="{ on: store.ui.snapEnabled }"
+          :class="{ on: view.snapEnabled }"
           :title="t('sidebar.snapToGrid')"
           @click="toggleSnap()"
         >
@@ -423,9 +426,9 @@ async function onDetectBpm(): Promise<void> {
         <span class="quick-divider" />
         <button
           class="quick-icon"
-          :class="{ on: store.ui.quickPlace }"
+          :class="{ on: ui.quickPlace }"
           :title="t('follow.quickTip')"
-          @click="store.ui.quickPlace = !store.ui.quickPlace"
+          @click="ui.quickPlace = !ui.quickPlace"
         >
           <svg
             viewBox="0 0 24 24"
@@ -445,7 +448,7 @@ async function onDetectBpm(): Promise<void> {
         </button>
         <button
           class="quick-icon"
-          :class="{ on: store.ui.timeAlign }"
+          :class="{ on: ui.timeAlign }"
           :title="t('follow.timeAlignTip')"
           @click="toggleTimeAlign()"
         >

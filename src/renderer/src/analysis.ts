@@ -1,7 +1,6 @@
 import { reactive } from "vue";
 import { engine } from "./engine";
 import {
-  store,
   setBaseBpm,
   addTrack,
   addMarker,
@@ -10,6 +9,9 @@ import {
   historyGestureBegin,
   historyGestureEnd,
 } from "./store";
+import { useProjectStore } from "./stores/project";
+import { useTransportStore } from "./stores/transport";
+import { useSettingsStore } from "./stores/settings";
 import type { AnalyseResponse, LiveResponse } from "./analysis.worker";
 
 /**
@@ -159,8 +161,8 @@ export async function analyzeCurrent(): Promise<void> {
   analysis.analyzing = true;
   try {
     const res = await requestAnalysis(
-      store.ui.settings.audioLoopDetect,
-      store.ui.settings.audioSpectrum,
+      useSettingsStore().settings.audioLoopDetect,
+      useSettingsStore().settings.audioSpectrum,
     );
     if (res.error) console.error("[analysis]", res.error);
     applyWorkerResult(res);
@@ -172,18 +174,18 @@ export async function analyzeCurrent(): Promise<void> {
 /** Run on every audio load, honouring each independent toggle. */
 export async function onAudioLoaded(): Promise<void> {
   analysis.liveBpm = null;
-  const wantLoop = store.ui.settings.audioLoopDetect;
-  const wantSpectrum = store.ui.settings.audioSpectrum;
+  const wantLoop = useSettingsStore().settings.audioLoopDetect;
+  const wantSpectrum = useSettingsStore().settings.audioSpectrum;
   const res = await requestAnalysis(wantLoop, wantSpectrum);
   if (res.error) console.error("[analysis]", res.error);
   applyWorkerResult(res);
   // Never auto-touch the project mid-playback: a reload while playing should
   // only fill the readout, not rewrite BPM / tracks under the user.
-  if (store.ui.playing) return;
-  if (store.ui.settings.audioAutoBpm && res.bpm && !isBpmLocked()) {
+  if (useTransportStore().playing) return;
+  if (useSettingsStore().settings.audioAutoBpm && res.bpm && !isBpmLocked()) {
     setBaseBpm(Math.round(res.bpm));
   }
-  if (store.ui.settings.audioAutoBeats && res.beats.length) {
+  if (useSettingsStore().settings.audioAutoBeats && res.beats.length) {
     generateBeatMarkers();
   }
 }
@@ -200,7 +202,7 @@ export function generateBeatMarkers(): void {
   if (beats.length === 0) return;
   const zh = document.documentElement.lang !== "en";
   const trackName = zh ? "自动节拍" : "Auto Beat";
-  let track = store.project.tracks.find(
+  let track = useProjectStore().tracks.find(
     (t) => t.name === trackName && (!t.type || t.type === "beat"),
   );
   const map = tempoMap();
@@ -235,13 +237,13 @@ function requestLive(seg: Float32Array, sr: number): Promise<number | null> {
 function pollLiveBpm(): void {
   // Only compute while playing AND the live-BPM feature is enabled; the
   // heaviest part (quickTempo) runs inside the worker so playback never jerks.
-  if (!store.ui.settings.audioLiveBpm) return;
+  if (!useSettingsStore().settings.audioLiveBpm) return;
   const y = mono();
   const src = sampleRate();
   const yLen = y ? y.length : 0;
-  if (!y || !src || yLen === 0 || !store.ui.playing) return;
+  if (!y || !src || yLen === 0 || !useTransportStore().playing) return;
   const winSec = 6;
-  const startSec = Math.max(0, store.ui.positionMs / 1000 - winSec / 2);
+  const startSec = Math.max(0, useTransportStore().positionMs / 1000 - winSec / 2);
   const start = Math.min(yLen - 1, Math.floor(startSec * src));
   const end = Math.min(yLen, start + winSec * src);
   if (end - start < src * 0.5) return;

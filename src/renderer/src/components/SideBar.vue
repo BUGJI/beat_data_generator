@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  store,
   markersInTrack,
   addTrack,
   addTypedTrack,
@@ -18,26 +17,34 @@ import {
   timeOfBeat,
   formatTime,
 } from "../store";
-import { view, lanesTotalH } from "../editorView";
+import { lanesTotalH, useViewStore } from "../stores/view";
+import { useProjectStore } from "../stores/project";
+import { useTransportStore } from "../stores/transport";
+import { useUiStore } from "../stores/ui";
 import { RULER_H, BPM_LANE_H, MARKER_LANE_H } from "../metrics";
 import type { MarkerTrack } from "../types";
 import {
+  ChevronDown,
+  ChevronUp,
+  Eye,
+  EyeOff,
   Lock,
-  View,
-  Hide,
-  Timer,
   Plus,
-  Top,
-  Bottom,
-  Close,
-} from "@element-plus/icons-vue";
+  Timer,
+  X,
+} from "@lucide/vue";
 import {
   trackTypes as typedTrackTypes,
   typeKeyOf,
   localeText,
 } from "../plugins/registry";
+import UiColorPicker from "./ui/UiColorPicker.vue";
 
 const { t } = useI18n();
+const project = useProjectStore();
+const transport = useTransportStore();
+const ui = useUiStore();
+const view = useViewStore();
 
 const markerRows = computed<Array<{ i: number; track: MarkerTrack }>>(() => {
   const y = view.y;
@@ -46,12 +53,12 @@ const markerRows = computed<Array<{ i: number; track: MarkerTrack }>>(() => {
   const bottom = y + vh - BPM_LANE_H;
   const first = Math.max(0, Math.floor(top / MARKER_LANE_H));
   const last = Math.min(
-    store.project.tracks.length - 1,
+    project.tracks.length - 1,
     Math.ceil(bottom / MARKER_LANE_H),
   );
   const out: Array<{ i: number; track: MarkerTrack }> = [];
   for (let i = first; i <= last; i++) {
-    const track = store.project.tracks[i];
+    const track = project.tracks[i];
     if (track) out.push({ i, track });
   }
   return out;
@@ -78,7 +85,7 @@ function onPickAdd(key: string): void {
 
 function onAddNote(): void {
   addNote({
-    timeMs: store.ui.positionMs,
+    timeMs: transport.positionMs,
     y: BPM_LANE_H + MARKER_LANE_H / 2,
   });
 }
@@ -116,7 +123,7 @@ function pulseHeaderGlow(id: string): void {
 }
 
 watch(
-  () => store.ui.glowSeqs,
+  () => ui.glowSeqs,
   (seqs) => {
     for (const id of Object.keys(seqs)) {
       const seq = seqs[id];
@@ -162,7 +169,7 @@ onBeforeUnmount(() => {
           :title="addBtnText"
           @click="toggleAddMenu"
         >
-          <el-icon><Plus /></el-icon>
+          <Plus class="size-3.5" />
         </button>
       </div>
       <div v-if="addMenuOpen" class="add-menu">
@@ -195,22 +202,22 @@ onBeforeUnmount(() => {
         <!-- BPM 专用轨头 -->
         <div v-if="isBpmRowVisible" class="head bpm-row">
           <span class="accent accent-bpm" />
-          <el-icon class="h-icon bpm-ic"><Timer /></el-icon>
+          <Timer class="h-icon bpm-ic" />
           <span class="t-body">
             <span class="t-name">{{ t("sidebar.bpmTrack") }}</span>
             <span class="t-sub num">
-              {{ store.project.baseBpm.toFixed(1) }} BPM ·
+              {{ project.baseBpm.toFixed(1) }} BPM ·
               {{ t("sidebar.bpmTrackHint") }}
             </span>
           </span>
-          <span class="h-count num">{{ store.project.bpmPoints.length }}</span>
+          <span class="h-count num">{{ project.bpmPoints.length }}</span>
           <button
             class="mini icon"
-            :class="{ on: store.project.bpmLocked }"
+            :class="{ on: project.bpmLocked }"
             :title="t('sidebar.lockTip')"
-            @click="setBpmLocked(!store.project.bpmLocked)"
+            @click="setBpmLocked(!project.bpmLocked)"
           >
-            <el-icon><Lock /></el-icon>
+            <Lock class="size-3" />
           </button>
         </div>
 
@@ -223,13 +230,13 @@ onBeforeUnmount(() => {
           @pointerdown="clickTrack(row.track.id)"
         >
           <span class="accent" :style="{ background: row.track.color }" />
-          <el-color-picker
+          <UiColorPicker
             class="color-pick"
             :model-value="row.track.color"
             :disabled="!!row.track.locked"
             :title="t('sidebar.changeColor')"
             @pointerdown.stop
-            @change="(c: string | null) => { if (c) colorTrack(row.track.id, c); }"
+            @update:model-value="(c: string) => colorTrack(row.track.id, c)"
           />
           <span class="t-body">
             <input
@@ -265,7 +272,7 @@ onBeforeUnmount(() => {
               @pointerdown.stop
               @click.stop="setTrackLocked(row.track.id, !row.track.locked)"
             >
-              <el-icon><Lock /></el-icon>
+              <Lock class="size-3" />
             </button>
             <button
               class="mini icon"
@@ -274,7 +281,8 @@ onBeforeUnmount(() => {
               @pointerdown.stop
               @click.stop="setTrackHidden(row.track.id, !row.track.hidden)"
             >
-              <el-icon><Hide v-if="row.track.hidden" /><View v-else /></el-icon>
+              <EyeOff v-if="row.track.hidden" class="size-3" />
+              <Eye v-else class="size-3" />
             </button>
             <button
               class="mini"
@@ -282,34 +290,34 @@ onBeforeUnmount(() => {
               @pointerdown.stop
               @click.stop="moveTrack(row.track.id, -1)"
             >
-              <el-icon><Top /></el-icon>
+              <ChevronUp class="size-3" />
             </button>
             <button
               class="mini"
-              :disabled="row.i >= store.project.tracks.length - 1"
+              :disabled="row.i >= project.tracks.length - 1"
               @pointerdown.stop
               @click.stop="moveTrack(row.track.id, 1)"
             >
-              <el-icon><Bottom /></el-icon>
+              <ChevronDown class="size-3" />
             </button>
             <button
               class="mini danger"
-              :disabled="store.project.tracks.length <= 1"
+              :disabled="project.tracks.length <= 1"
               @pointerdown.stop
               @click.stop="removeTrack(row.track.id)"
             >
-              <el-icon><Close /></el-icon>
+              <X class="size-3" />
             </button>
           </span>
           <span
-            v-if="store.ui.glowEnabled && glowOn[row.track.id]"
-            :key="'g' + (store.ui.glowSeqs[row.track.id] ?? 0)"
+            v-if="ui.glowEnabled && glowOn[row.track.id]"
+            :key="'g' + (ui.glowSeqs[row.track.id] ?? 0)"
             class="row-glow"
             :style="{ background: row.track.color }"
           />
         </div>
       </div>
-      <div v-if="store.project.tracks.length === 0" class="empty-tracks">
+      <div v-if="project.tracks.length === 0" class="empty-tracks">
         {{ t("sidebar.noTracks") }}
       </div>
     </div>
@@ -415,26 +423,6 @@ onBeforeUnmount(() => {
   width: 20px;
   height: 20px;
   flex: none;
-}
-.color-pick :deep(.el-color-picker__trigger) {
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: none;
-  border-radius: 50%;
-  overflow: hidden;
-  background: transparent;
-}
-.color-pick :deep(.el-color-picker__color),
-.color-pick :deep(.el-color-picker__color-inner) {
-  border-radius: 50%;
-}
-.color-pick :deep(.el-color-picker__color) {
-  border: none;
-}
-.color-pick :deep(.el-color-picker__icon),
-.color-pick :deep(.el-color-picker__empty) {
-  display: none !important;
 }
 .rows {
   position: relative;
@@ -617,38 +605,5 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: var(--bdg-text-dim);
   font-size: 12px;
-}
-</style>
-
-<style>
-.head.marker-row .color-pick {
-  width: 20px;
-  height: 20px;
-  flex: none;
-  outline: none;
-}
-.head.marker-row .color-pick .el-color-picker__trigger {
-  width: 20px !important;
-  height: 20px !important;
-  padding: 0 !important;
-  border: none !important;
-  border-radius: 50% !important;
-  overflow: hidden !important;
-  background: transparent !important;
-  justify-content: center !important;
-}
-.head.marker-row .color-pick .el-color-picker__color,
-.head.marker-row .color-pick .el-color-picker__color-inner {
-  border-radius: 50% !important;
-}
-.head.marker-row .color-pick .el-color-picker__color {
-  border: none !important;
-}
-.head.marker-row .color-pick .el-color-picker__icon,
-.head.marker-row .color-pick .el-color-picker__empty {
-  display: none !important;
-}
-.head.marker-row .color-pick .el-color-picker__trigger:focus-visible {
-  outline: none;
 }
 </style>

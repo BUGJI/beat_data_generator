@@ -2,7 +2,6 @@
 import { computed, onBeforeUnmount } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  store,
   stop,
   togglePlay,
   seekTo,
@@ -12,36 +11,43 @@ import {
   applySpeed,
   bpmAtTime,
 } from "../store";
+import { useTransportStore } from "../stores/transport";
+import { useSettingsStore } from "../stores/settings";
 import { analysis } from "../analysis";
+import UiNumberInput from "./ui/UiNumberInput.vue";
+import UiSlider from "./ui/UiSlider.vue";
+import UiSwitch from "./ui/UiSwitch.vue";
 
 const { t } = useI18n();
+const transport = useTransportStore();
+const settings = useSettingsStore();
 
-const playing = computed(() => store.ui.playing);
-const hasAudio = computed(() => store.ui.hasAudio);
+const playing = computed(() => transport.playing);
+const hasAudio = computed(() => transport.hasAudio);
 const vol = computed({
-  get: () => store.ui.volume,
+  get: () => transport.volume,
   set: (v: number) => setVolume(v),
 });
 const totalLabel = computed(() =>
   hasAudio.value ? formatTime(contentEndMs()) : "--:--.---",
 );
-const bpmLabel = computed(() => bpmAtTime(store.ui.positionMs).toFixed(1));
-const liveBpmOn = computed(() => store.ui.settings.audioLiveBpm && !!analysis.liveBpm);
+const bpmLabel = computed(() => bpmAtTime(transport.positionMs).toFixed(1));
+const liveBpmOn = computed(() => settings.settings.audioLiveBpm && !!analysis.liveBpm);
 const liveBpmLabel = computed(() =>
   analysis.liveBpm ? analysis.liveBpm.toFixed(1) : "--",
 );
 
 const speed = computed({
-  get: () => store.ui.rate,
+  get: () => transport.rate,
   set: (v: number | undefined) => {
-    applySpeed(v ?? 1, store.ui.pitchFollow);
+    applySpeed(v ?? 1, transport.pitchFollow);
   },
 });
-const freeInput = computed(() => store.ui.settings.devFreeInput);
+const freeInput = computed(() => settings.settings.devFreeInput);
 const pitchFollow = computed({
-  get: () => store.ui.pitchFollow,
+  get: () => transport.pitchFollow,
   set: (v: boolean) => {
-    applySpeed(store.ui.rate, v);
+    applySpeed(transport.rate, v);
   },
 });
 
@@ -61,12 +67,12 @@ function onRateWheel(e: WheelEvent): void {
     if (!d) return;
     const steps = Math.round(d / 100); // each wheel notch ≈ 0.05
     // snap onto the 0.05 grid first so values like 1.00 stay reachable
-    const cur = store.ui.rate;
+    const cur = transport.rate;
     const grid = Math.round(cur / 0.05) * 0.05;
     let v = grid - steps * 0.05;
     v = Math.min(4, Math.max(0.1, v));
     const next = Math.round(v * 100) / 100;
-    if (next !== cur) applySpeed(next, store.ui.pitchFollow);
+    if (next !== cur) applySpeed(next, transport.pitchFollow);
   });
 }
 
@@ -94,19 +100,17 @@ onBeforeUnmount(() => {
         @wheel="onRateWheel"
       >
         <span class="rate-label">{{ t("transport.speedRate") }}</span>
-        <el-input-number
+        <UiNumberInput
           v-model="speed"
           :min="freeInput ? undefined : 0.1"
           :max="freeInput ? undefined : 4"
           :step="0.05"
           :precision="freeInput ? undefined : 2"
-          size="small"
-          controls-position="right"
-          class="num rate-input"
+          class="rate-input"
         />
       </div>
       <div class="rate-ctl" :title="t('transport.pitchTooltip')">
-        <el-switch v-model="pitchFollow" size="small" />
+        <UiSwitch v-model="pitchFollow" />
         <span class="rate-label">{{ t("transport.pitchFollow") }}</span>
       </div>
     </div>
@@ -154,11 +158,11 @@ onBeforeUnmount(() => {
 
       <div class="tr-divider" />
 
-      <span v-if="store.ui.buffering" class="buffering">{{
+      <span v-if="transport.buffering" class="buffering">{{
         t("transport.buffering")
       }}</span>
       <div class="tr-time num">
-        <span class="cur">{{ formatTime(store.ui.positionMs) }}</span>
+        <span class="cur">{{ formatTime(transport.positionMs) }}</span>
         <span class="sep">/</span>
         <span class="total">{{ totalLabel }}</span>
       </div>
@@ -166,13 +170,7 @@ onBeforeUnmount(() => {
 
     <div class="tr-right">
       <span class="vol-label">{{ t("transport.volume") }}</span>
-      <el-slider
-        v-model="vol"
-        :min="0"
-        :max="1"
-        :step="0.01"
-        class="vol-slider"
-      />
+      <UiSlider v-model="vol" :min="0" :max="1" :step="0.01" class="vol-slider" />
     </div>
   </footer>
 </template>
@@ -329,7 +327,5 @@ button:disabled {
 }
 .vol-slider {
   flex: 1;
-  --el-slider-main-bg-color: var(--bdg-accent);
-  --el-slider-runway-bg-color: rgb(var(--bdg-neutral) / 0.2);
 }
 </style>

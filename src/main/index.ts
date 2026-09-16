@@ -5,6 +5,11 @@ import { readFile, writeFile } from "fs/promises";
 import { readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import { installPluginManager } from "./plugins";
+import {
+  defaultSettings,
+  sanitizeSettings,
+  SETTINGS_VERSION,
+} from "../shared/settings";
 import type {
   AudioFileResult,
   IpcFileFilter,
@@ -35,34 +40,11 @@ let welcomeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 let allowQuit = false;
 const recents: RecentProject[] = [];
 const MAX_RECENTS = 9;
-/** Bump to force migration of persisted settings defaults. */
-const SETTINGS_VERSION = 2;
 
 let settings: SettingsData = {
-  closeMode: "ask",
-  devEnabled: false,
-  devFreeInput: false,
-  animEnabled: true,
-  gridAutoHide: true,
-  checkUpdates: true,
-  followScroll: true,
-  followPercent: 90,
-  followPreset: false,
-  rememberWindow: true,
-  autoSave: true,
-  autoSaveMinutes: 5,
-    ctrlSpeedPlay: false,
-    metronomePath: "",
-    settingsVersion: SETTINGS_VERSION,
-    audioAutoBpm: true,
-    audioAutoBeats: false,
-    audioLoopDetect: false,
-    audioLiveBpm: false,
-    audioSpectrum: false,
-    audioPanel: true,
-    themePreset: "default",
-    themeOverrides: {},
-  };
+  ...defaultSettings(),
+  settingsVersion: SETTINGS_VERSION,
+};
 const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
 const lastDirsPath = (): string =>
@@ -202,64 +184,16 @@ function saveWindowState(): void {
   }
 }
 
-function sanitize(raw: Partial<SettingsData>): SettingsData {
-  return {
-    closeMode:
-      raw.closeMode === "minimize" || raw.closeMode === "close"
-        ? raw.closeMode
-        : "ask",
-    devEnabled: raw.devEnabled === true,
-    devFreeInput: raw.devFreeInput === true,
-    animEnabled: raw.animEnabled !== false,
-    gridAutoHide: raw.gridAutoHide !== false,
-    checkUpdates: raw.checkUpdates !== false,
-    followScroll: raw.followScroll !== false,
-    followPercent: Math.min(
-      100,
-      Math.max(0, Math.round(raw.followPercent ?? 90)),
-    ),
-    followPreset: raw.followPreset === true,
-    rememberWindow: raw.rememberWindow !== false,
-    autoSave: raw.autoSave !== false,
-    autoSaveMinutes: Math.min(
-      60,
-      Math.max(1, Math.round(raw.autoSaveMinutes ?? 5)),
-    ),
-    ctrlSpeedPlay: raw.ctrlSpeedPlay === true,
-    metronomePath:
-      typeof raw.metronomePath === "string" ? raw.metronomePath : "",
-    settingsVersion: Number(raw.settingsVersion ?? 0),
-    audioAutoBpm: raw.audioAutoBpm !== false,
-    audioAutoBeats: raw.audioAutoBeats !== false,
-    audioLoopDetect: raw.audioLoopDetect !== false,
-    audioLiveBpm: raw.audioLiveBpm !== false,
-    audioSpectrum: raw.audioSpectrum !== false,
-    audioPanel: raw.audioPanel !== false,
-    themePreset:
-      typeof raw.themePreset === "string" && raw.themePreset
-        ? raw.themePreset
-        : "default",
-    themeOverrides:
-      raw.themeOverrides && typeof raw.themeOverrides === "object"
-        ? Object.fromEntries(
-            Object.entries(raw.themeOverrides).filter(
-              ([, v]) => typeof v === "string",
-            ),
-          )
-        : {},
-  };
-}
-
 function loadSettings(): void {
   try {
     const raw = JSON.parse(
       readFileSync(settingsPath(), "utf-8"),
-    ) as Partial<SettingsData>;
+    ) as Record<string, unknown>;
     let changed = false;
     // Migration: v1 shipped with auto audio-analysis toggles defaulting on.
     // Reset the analysis toggles to their current defaults so residual
     // enabled values from those early builds stop auto-running on load.
-    if ((raw.settingsVersion ?? 0) < SETTINGS_VERSION) {
+    if (Number(raw.settingsVersion ?? 0) < SETTINGS_VERSION) {
       raw.audioAutoBpm = true;
       raw.audioAutoBeats = false;
       raw.audioLoopDetect = false;
@@ -269,7 +203,7 @@ function loadSettings(): void {
       raw.settingsVersion = SETTINGS_VERSION;
       changed = true;
     }
-    settings = sanitize(raw);
+    settings = sanitizeSettings(raw);
     if (changed) persistSettings();
   } catch {
     persistSettings();
@@ -619,7 +553,7 @@ function registerIpc(): void {
   ipcMain.handle(
     "settings:update",
     (_e, patch: Partial<SettingsData>): SettingsData => {
-      settings = sanitize({ ...settings, ...patch });
+      settings = sanitizeSettings({ ...settings, ...patch });
       persistSettings();
       if (!settings.devEnabled) closeDevToolsAll();
       if (settings.checkUpdates) checkUpdatesSilent();

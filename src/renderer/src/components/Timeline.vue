@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  store,
   markersInTrack,
   addMarker,
   addBpmPoint,
@@ -37,8 +36,19 @@ import {
   MAX_LOOP_CHILDREN,
 } from "../store";
 import { snapBeat, beatParts } from "../tempo";
+import { useProjectStore } from "../stores/project";
+import { useTransportStore } from "../stores/transport";
+import { useSelectionStore } from "../stores/selection";
+import { useSettingsStore } from "../stores/settings";
+import { useViewStore } from "../stores/view";
+import { useUiStore } from "../stores/ui";
+import UiButton from "./ui/UiButton.vue";
+import UiInput from "./ui/UiInput.vue";
+import UiNumberInput from "./ui/UiNumberInput.vue";
+import UiRadioGroup from "./ui/UiRadioGroup.vue";
+import UiSelect from "./ui/UiSelect.vue";
+import UiSwitch from "./ui/UiSwitch.vue";
 import {
-  view,
   setScroll,
   setViewport,
   contentWidthPx,
@@ -47,7 +57,7 @@ import {
   maxY,
   timeToScreenX,
   screenToTime,
-} from "../editorView";
+} from "../stores/view";
 import {
   COLORS,
   TIME_RULER_H,
@@ -71,6 +81,12 @@ import {
 } from "../plugins/registry";
 
 const { t } = useI18n();
+const project = useProjectStore();
+const transport = useTransportStore();
+const selection = useSelectionStore();
+const settings = useSettingsStore();
+const view = useViewStore();
+const ui = useUiStore();
 
 const rootEl = ref<HTMLElement | null>(null);
 const canvasEl = ref<HTMLCanvasElement | null>(null);
@@ -112,7 +128,7 @@ let panStartViewY = 0;
 
 const hover = { x: -1, y: -1 };
 
-const trackAt = (i: number): MarkerTrack | undefined => store.project.tracks[i];
+const trackAt = (i: number): MarkerTrack | undefined => project.tracks[i];
 
 // ---- sticky notes overlay ----
 
@@ -129,12 +145,12 @@ function isOverNote(e: Event): boolean {
 }
 
 const noteOf = (id: string): ProjectNote | undefined =>
-  store.project.notes.find((n) => n.id === id);
+  project.notes.find((n) => n.id === id);
 
 const noteTextOf = (id: string): string => noteOf(id)?.text ?? "";
 
 const noteLayouts = computed(() =>
-  store.project.notes.map((n) => ({
+  project.notes.map((n) => ({
     id: n.id,
     left: timeToScreenX(n.timeMs),
     top: RULER_H + n.y - view.y,
@@ -166,7 +182,7 @@ function onNoteDragMove(e: PointerEvent): void {
   const rect = rootEl.value.getBoundingClientRect();
   const cx = e.clientX - rect.left - dragGrab.dx;
   const cy = e.clientY - rect.top - dragGrab.dy;
-  const timeMs = ((cx + view.x) / store.ui.pxPerSec) * 1000;
+  const timeMs = ((cx + view.x) / view.pxPerSec) * 1000;
   const y = cy - RULER_H + view.y;
   dragTarget = { timeMs, y };
   if (!dragRaf) {
@@ -217,7 +233,7 @@ function cancelNoteEdit(): void {
 
 function loopGroupIds(mainId: string): Set<string> {
   const s = new Set<string>([mainId]);
-  for (const c of store.project.markers) if (c.parentId === mainId) s.add(c.id);
+  for (const c of project.markers) if (c.parentId === mainId) s.add(c.id);
   return s;
 }
 
@@ -237,8 +253,8 @@ const laneKindAt = (
 // ---- snapping helpers ----
 
 function doSnap(raw: number): number {
-  return store.ui.snapEnabled
-    ? snapBeat(Math.max(0, raw), store.ui.snapDiv)
+  return view.snapEnabled
+    ? snapBeat(Math.max(0, raw), view.snapDiv)
     : raw;
 }
 
@@ -254,7 +270,7 @@ function markerOccupy(
 }
 
 function bpmOccupy(beat: number): boolean {
-  return store.project.bpmPoints.some((p) => Math.abs(p.beat - beat) < 1e-6);
+  return project.bpmPoints.some((p) => Math.abs(p.beat - beat) < 1e-6);
 }
 
 // ---- canvas setup & resize ----
@@ -354,7 +370,7 @@ function drawRulers(
   const steps = [
     0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600,
   ];
-  const pps = store.ui.pxPerSec;
+  const pps = view.pxPerSec;
   const stepSec = steps.find((s) => s * pps >= 70) ?? 600;
   const stepMs = stepSec * 1000;
   ctx.font = "9px Consolas, monospace";
@@ -414,7 +430,7 @@ function visibleRows(
   if (bpmTop < H && bpmTop + BPM_LANE_H > lanesViewTop) {
     rows.push({ i: -1, y: bpmTop, h: BPM_LANE_H, bpm: true });
   }
-  const n = store.project.tracks.length;
+  const n = project.tracks.length;
   const yTop = bpmTop + BPM_LANE_H;
   for (let i = 0; i < n; i++) {
     const y = yTop + i * MARKER_LANE_H;
@@ -438,7 +454,7 @@ function drawLaneBacks(
         ? COLORS.laneMarkerBg
         : COLORS.laneMarkerAlt;
     ctx.fillRect(0, r.y, W, r.h);
-    if (!r.bpm && store.project.tracks[r.i]?.locked) {
+    if (!r.bpm && project.tracks[r.i]?.locked) {
       ctx.fillStyle = COLORS.laneLockedBg;
       ctx.fillRect(0, r.y, W, r.h);
     }
@@ -459,14 +475,14 @@ function drawLaneGlow(
   W: number,
   H: number,
 ): void {
-  if (!store.ui.glowEnabled) return;
+  if (!ui.glowEnabled) return;
   const now = performance.now();
   const rows = visibleRows(H);
   for (const r of rows) {
     if (r.bpm) continue;
-    const track = store.project.tracks[r.i];
+    const track = project.tracks[r.i];
     if (!track) continue;
-    const seq = store.ui.glowSeqs[track.id];
+    const seq = ui.glowSeqs[track.id];
     if (seq !== glowSeqSeen[track.id]) {
       glowSeqSeen[track.id] = seq;
       glowEndAt[track.id] = now + LANE_GLOW_MS;
@@ -502,7 +518,7 @@ function drawGridLines(
   }
   // subdivisions when zoomed & snap on. With auto-hide the displayed detail is
   // capped by the current zoom so a dense/zoomed-out grid can't stall rendering.
-  if (store.ui.snapEnabled && store.ui.snapDiv > 1) {
+  if (view.snapEnabled && view.snapDiv > 1) {
     const div = gridSubDiv(t0, t1);
     if (div > 0) {
       const b0s = Math.max(0, Math.floor(beatOfTime(t0) * div) - 1);
@@ -536,10 +552,10 @@ const MIN_SUB_PX = 12;
  *    entirely (returning 0) instead of substituting 1/4-style lines.
  *  With auto-hide off, the full grid is always drawn. */
 function gridSubDiv(t0: number, t1: number): number {
-  const actual = store.ui.snapDiv;
-  if (actual <= 1 || !store.ui.settings.gridAutoHide) return actual;
-  if ((actual & (actual - 1)) === 0) return cappedSnapDiv(store.ui.pxPerSec);
-  const pps = store.ui.pxPerSec;
+  const actual = view.snapDiv;
+  if (actual <= 1 || !settings.settings.gridAutoHide) return actual;
+  if ((actual & (actual - 1)) === 0) return cappedSnapDiv(view.pxPerSec);
+  const pps = view.pxPerSec;
   const b0 = Math.max(0, Math.floor(beatOfTime(t0)));
   const b1 = Math.min(Math.max(0, Math.ceil(beatOfTime(t1))), b0 + 4096);
   let minSecPerBeat = Infinity;
@@ -556,7 +572,7 @@ function gridSubDiv(t0: number, t1: number): number {
 /** Coarsest subdivision (as a snapDiv value) to draw for a given zoom when
  *  auto-hide is on: finer subdivisions are hidden below the matching zoom tier. */
 function cappedSnapDiv(pps: number): number {
-  const actual = store.ui.snapDiv;
+  const actual = view.snapDiv;
   if (pps < 100) return Math.min(actual, 4);
   if (pps < 250) return Math.min(actual, 8);
   if (pps < 500) return Math.min(actual, 16);
@@ -580,7 +596,7 @@ function drawBpmLaneContent(
   const amp = row.h * 0.28;
 
   // faint waveform
-  const wave = store.ui.wave;
+  const wave = transport.wave;
   if (wave && wave.minMax.length) {
     const sr = wave.sampleRate;
     const block = wave.blockSamples;
@@ -606,8 +622,8 @@ function drawBpmLaneContent(
 
   // tempo segment labels (effective map)
   const map = beatOfTime;
-  const segs = store.project.bpmPoints.length ? effectiveSegments() : [];
-  if (store.project.bpmPoints.length) {
+  const segs = project.bpmPoints.length ? effectiveSegments() : [];
+  if (project.bpmPoints.length) {
     ctx.font = "11px Consolas, monospace";
     const floorBeat = Math.max(0, Math.floor(map(t0)));
     for (let si = 0; si < segs.length; si++) {
@@ -633,11 +649,11 @@ function drawBpmLaneContent(
   }
 
   // bpm points
-  for (const p of store.project.bpmPoints) {
+  for (const p of project.bpmPoints) {
     const x = X(timeOfBeat(p.beat));
     if (x < -8 || x > W + 8) continue;
     const sel =
-      store.ui.selected.kind === "bpm" && store.ui.selected.id === p.id;
+      selection.selected.kind === "bpm" && selection.selected.id === p.id;
     ctx.fillStyle = sel ? COLORS.bpmPointSelected : COLORS.bpmPoint;
     drawDiamond(ctx, x, y0 + 8, sel ? 5 : 3.6);
     ctx.fillStyle = COLORS.bpmFaint;
@@ -650,13 +666,13 @@ function effectiveSegments(): Array<{
   beatEnd: number | null;
   bpm: number;
 }> {
-  const pts = [...store.project.bpmPoints].sort((a, b) => a.beat - b.beat);
+  const pts = [...project.bpmPoints].sort((a, b) => a.beat - b.beat);
   const segs: Array<{
     beatStart: number;
     beatEnd: number | null;
     bpm: number;
   }> = [];
-  let curBpm = store.project.baseBpm;
+  let curBpm = project.baseBpm;
   let startBeat = 0;
   for (const p of pts) {
     if (p.beat <= startBeat) continue;
@@ -685,7 +701,7 @@ function drawMarkerLanesContent(
   const selGroup = new Set<string>();
   for (const mid of markerSelectionIds()) {
     selGroup.add(mid);
-    for (const c of store.project.markers)
+    for (const c of project.markers)
       if (c.parentId === mid) selGroup.add(c.id);
   }
   for (const r of rows) {
@@ -695,7 +711,7 @@ function drawMarkerLanesContent(
       const x = X(storeMarkerTime(m));
       if (x < -16 || x > W + 16) continue;
       const sel =
-        store.ui.selected.kind === "marker" && store.ui.selected.id === m.id;
+        selection.selected.kind === "marker" && selection.selected.id === m.id;
       const inGroup = selGroup.has(m.id) && !sel;
       const color = sel
         ? COLORS.markerSelected
@@ -806,7 +822,7 @@ const ghostState = ref<{
 } | null>(null);
 
 function beatStr(b: number): string {
-  return b.toFixed(store.ui.snapDiv <= 4 ? 2 : 3);
+  return b.toFixed(view.snapDiv <= 4 ? 2 : 3);
 }
 
 function fmtBar(b: number): string {
@@ -822,7 +838,7 @@ function drawPlayhead(
   H: number,
   X: (t: number) => number,
 ): void {
-  const x = X(store.ui.positionMs);
+  const x = X(transport.positionMs);
   if (x < -2 || x > W + 2) return;
   ctx.fillStyle = COLORS.playhead;
   ctx.beginPath();
@@ -852,18 +868,61 @@ function hitMarkerAt(x: number, y: number): Marker | null {
 function hitBpmAt(x: number, y: number): BpmPoint | null {
   const lane = laneKindAt(y);
   if (lane.kind !== "bpm") return null;
-  for (const p of store.project.bpmPoints) {
+  for (const p of project.bpmPoints) {
     if (Math.abs(timeToScreenX(timeOfBeat(p.beat)) - x) <= HIT_PX) return p;
   }
   return null;
 }
 
 const CARD_Y_OFFSET = 10;
+const CARD_MARGIN = 8;
 const cardPos = ref({ x: 0, y: 0 });
-const openCard = (x: number, y: number): void => {
-  store.ui.cardOpen = true;
+const anchorPos = ref({ x: 0, y: 0 });
+const cardEl = ref<HTMLElement | null>(null);
+
+function positionCard(): void {
+  const el = cardEl.value;
+  const root = rootEl.value;
+  if (!el || !root) return;
+  const vw = root.clientWidth;
+  const vh = root.clientHeight;
+  if (vh <= 0) return;
+  const avail = Math.max(0, vh - CARD_MARGIN * 2);
+  el.style.maxHeight = `${avail}px`;
+  const w = el.offsetWidth;
+  const h = el.offsetHeight;
+  const a = anchorPos.value;
+  const x = Math.max(CARD_MARGIN, Math.min(a.x, vw - w - CARD_MARGIN));
+  let y = a.y + CARD_Y_OFFSET;
+  if (y + h > vh - CARD_MARGIN) {
+    const above = a.y - CARD_Y_OFFSET - h;
+    y =
+      above >= CARD_MARGIN
+        ? above
+        : Math.max(CARD_MARGIN, vh - h - CARD_MARGIN);
+  }
   cardPos.value = { x, y };
+}
+
+const openCard = (x: number, y: number): void => {
+  selection.cardOpen = true;
+  anchorPos.value = { x, y };
+  cardPos.value = {
+    x: Math.max(CARD_MARGIN, x),
+    y: Math.max(CARD_MARGIN, y + CARD_Y_OFFSET),
+  };
+  void nextTick(positionCard);
 };
+
+let cardRo: ResizeObserver | null = null;
+watch(cardEl, (el) => {
+  cardRo?.disconnect();
+  cardRo = null;
+  if (!el) return;
+  cardRo = new ResizeObserver(() => positionCard());
+  cardRo.observe(el);
+  void nextTick(positionCard);
+});
 
 // ---- quick place / erase brush ----
 
@@ -911,7 +970,7 @@ function applyBoxSelection(): void {
   const b = boxRect;
   if (!b) return;
   const picked: string[] = [];
-  store.project.tracks.forEach((tr, idx) => {
+  project.tracks.forEach((tr, idx) => {
     // screen y of this lane's vertical centre
     const my = RULER_H - view.y + BPM_LANE_H + idx * MARKER_LANE_H + MARKER_LANE_H / 2;
     if (my < b.y0 || my > b.y1) return;
@@ -927,7 +986,7 @@ function applyBoxSelection(): void {
 // ---- events ----
 
 function onContext(e: MouseEvent): void {
-  if (store.ui.quickPlace) return; // quick-erase brush handles right button
+  if (ui.quickPlace) return; // quick-erase brush handles right button
   const rect = rootEl.value!.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
@@ -950,7 +1009,7 @@ function onContext(e: MouseEvent): void {
 function onPointerDown(e: PointerEvent): void {
   // middle-button drag pans the timeline (same as Shift+wheel horizontal scroll)
   if (e.button === 1) {
-    store.ui.cardOpen = false;
+    selection.cardOpen = false;
     const rect = rootEl.value!.getBoundingClientRect();
     panStartX = e.clientX - rect.left;
     panStartY = e.clientY - rect.top;
@@ -961,9 +1020,9 @@ function onPointerDown(e: PointerEvent): void {
     rootEl.value!.setPointerCapture(activePointer);
     return;
   }
-  if (e.button !== 0 && !(store.ui.quickPlace && e.button === 2)) return;
+  if (e.button !== 0 && !(ui.quickPlace && e.button === 2)) return;
   // a fresh press dismisses the card; it reopens only on a clean click/release
-  store.ui.cardOpen = false;
+  selection.cardOpen = false;
   const rect = rootEl.value!.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
@@ -977,7 +1036,7 @@ function onPointerDown(e: PointerEvent): void {
   // right-button quick-erase brush (sweep deletes markers under the cursor)
   if (e.button === 2) {
     const rl = laneKindAt(y);
-    if (rl.kind === "marker" && rl.index < store.project.tracks.length) {
+    if (rl.kind === "marker" && rl.index < project.tracks.length) {
       mode = "brushErase";
       brushLastKey = "";
       historyGestureBegin();
@@ -989,14 +1048,14 @@ function onPointerDown(e: PointerEvent): void {
 
   if (y < RULER_H) {
     mode = "scrub";
-    if (store.ui.playing) disableFollowOnScrub();
+    if (transport.playing) disableFollowOnScrub();
     return;
   }
   const lane0 = laneKindAt(y);
-  if (lane0.kind === "marker" && lane0.index >= store.project.tracks.length) {
+  if (lane0.kind === "marker" && lane0.index >= project.tracks.length) {
     // blank area without a track -> drag the red playhead (scrub)
     mode = "scrub";
-    if (store.ui.playing) disableFollowOnScrub();
+    if (transport.playing) disableFollowOnScrub();
     return;
   }
   const bpmHit = hitBpmAt(x, y);
@@ -1026,9 +1085,9 @@ function onPointerDown(e: PointerEvent): void {
     selectSingleMarker(main.id);
     return;
   }
-  if (store.ui.quickPlace) {
+  if (ui.quickPlace) {
     const ql = laneKindAt(y);
-    if (ql.kind === "marker" && ql.index < store.project.tracks.length) {
+    if (ql.kind === "marker" && ql.index < project.tracks.length) {
       // sweep-placement brush over empty lane cells
       mode = "brushAdd";
       brushLastKey = "";
@@ -1099,9 +1158,9 @@ function onPointerMove(e: PointerEvent): void {
 function seekPlayhead(msRaw?: number): void {
   const ms = Math.max(
     0,
-    Math.min(msRaw ?? store.ui.positionMs, contentEndMs()),
+    Math.min(msRaw ?? transport.positionMs, contentEndMs()),
   );
-  store.ui.positionMs = ms;
+  transport.positionMs = ms;
   seekTo(ms);
 }
 
@@ -1121,10 +1180,7 @@ function onPointerUp(e: PointerEvent): void {
       const beat = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
       const pt = addBpmPoint(beat);
       if (pt)
-        openCard(
-          Math.min(x, rootEl.value!.clientWidth - 240),
-          Math.min(y + CARD_Y_OFFSET, rootEl.value!.clientHeight - 180),
-        );
+        openCard(x, y);
     } else if (mode === "placeMarker") {
       const lane = laneKindAt(y);
       const track = lane.kind === "marker" ? trackAt(lane.index) : undefined;
@@ -1134,15 +1190,9 @@ function onPointerUp(e: PointerEvent): void {
         // no popup on placement; click the marker again to open its card
       }
     } else if (mode === "dragBpm") {
-      openCard(
-        Math.min(x, rootEl.value!.clientWidth - 240),
-        Math.min(y + CARD_Y_OFFSET, rootEl.value!.clientHeight - 180),
-      );
+      openCard(x, y);
     } else if (mode === "dragMarker") {
-      openCard(
-        Math.min(x, rootEl.value!.clientWidth - 240),
-        Math.min(y + CARD_Y_OFFSET, rootEl.value!.clientHeight - 180),
-      );
+      openCard(x, y);
     }
   }
   if (gestureOn) {
@@ -1216,24 +1266,24 @@ function animWheel(durMs: number, apply: (k: number) => void): void {
 
 function onWheel(e: WheelEvent): void {
   e.preventDefault();
-  const anim = store.ui.settings.animEnabled;
+  const anim = settings.settings.animEnabled;
   if (e.ctrlKey || e.metaKey) {
     // zoom anchored on the currently visible centre of the timeline
     const cx = view.vw / 2;
-    const from = store.ui.pxPerSec;
+    const from = view.pxPerSec;
     const target = Math.min(
       MAX_PX_PER_SEC,
-      Math.max(MIN_PX_PER_SEC, store.ui.pxPerSec * (e.deltaY < 0 ? 1.25 : 1 / 1.25)),
+      Math.max(MIN_PX_PER_SEC, view.pxPerSec * (e.deltaY < 0 ? 1.25 : 1 / 1.25)),
     );
     const tc = screenToTime(cx); // time currently at the viewport centre
     const applyZoom = (k: number): void => {
       const p = from + (target - from) * k;
-      store.ui.pxPerSec = p;
+      view.pxPerSec = p;
       setScroll(Math.max(0, (tc / 1000) * p - cx), view.y);
     };
     if (anim) animWheel(ANIM_MS, applyZoom);
     else {
-      store.ui.pxPerSec = target;
+      view.pxPerSec = target;
       setScroll(Math.max(0, (tc / 1000) * target - cx), view.y);
     }
     return;
@@ -1292,11 +1342,11 @@ function startHBarDrag(e: PointerEvent): void {
 function loop(): void {
   draw();
   drawScrollbars();
-  if (store.ui.playing) {
-    const tpx = (store.ui.positionMs / 1000) * store.ui.pxPerSec;
+  if (transport.playing) {
+    const tpx = (transport.positionMs / 1000) * view.pxPerSec;
     const W = view.vw;
-    const f = Math.min(1, Math.max(0, store.ui.settings.followPercent / 100));
-    if (store.ui.followActive) {
+    const f = Math.min(1, Math.max(0, settings.settings.followPercent / 100));
+    if (transport.followActive) {
       // follow reference line
       const line = view.x + W * f;
       if (tpx > line) {
@@ -1304,9 +1354,9 @@ function loop(): void {
       } else if (tpx < view.x - W * 0.5) {
         setScroll(Math.max(0, tpx - W * f), view.y);
       }
-    } else if (!store.ui.followLocked && store.ui.settings.followScroll) {
+    } else if (!transport.followLocked && settings.settings.followScroll) {
       // engage once the playhead crosses the reference line
-      if (tpx > view.x + W * f) store.ui.followActive = true;
+      if (tpx > view.x + W * f) transport.followActive = true;
     }
   }
   raf = requestAnimationFrame(loop);
@@ -1315,18 +1365,18 @@ function loop(): void {
 // ---- card object accessors ----
 
 const selMarker = computed<Marker | null>(() =>
-  store.ui.selected.kind === "marker"
-    ? (store.project.markers.find((m) => m.id === store.ui.selected.id) ?? null)
+  selection.selected.kind === "marker"
+    ? (project.markers.find((m) => m.id === selection.selected.id) ?? null)
     : null,
 );
 const selBpm = computed<BpmPoint | null>(() =>
-  store.ui.selected.kind === "bpm"
-    ? (store.project.bpmPoints.find((p) => p.id === store.ui.selected.id) ??
+  selection.selected.kind === "bpm"
+    ? (project.bpmPoints.find((p) => p.id === selection.selected.id) ??
       null)
     : null,
 );
-const cardVisible = computed(() => store.ui.cardOpen);
-const freeInput = computed(() => store.ui.settings.devFreeInput);
+const cardVisible = computed(() => selection.cardOpen);
+const freeInput = computed(() => settings.settings.devFreeInput);
 
 const markerBeat = computed({
   get: () => selMarker.value?.beat ?? 0,
@@ -1490,7 +1540,7 @@ const markerColor = computed(() => {
   const m = selMarker.value;
   if (!m) return "var(--bdg-text-dim)";
   return (
-    store.project.tracks.find((tr) => tr.id === m.trackId)?.color ?? "var(--bdg-text-dim)"
+    project.tracks.find((tr) => tr.id === m.trackId)?.color ?? "var(--bdg-text-dim)"
   );
 });
 const bpmMode = computed<BpmMode>({
@@ -1505,6 +1555,13 @@ const selectedTrackId = computed<string>({
     if (selMarker.value) changeMarkerTrack(selMarker.value.id, id);
   },
 });
+const trackOptions = computed(() =>
+  project.tracks.map((tr) => ({ value: tr.id, label: tr.name })),
+);
+const bpmModeOptions = computed<Array<{ value: string; label: string }>>(() => [
+  { value: "abs", label: t("prop.modeAbs") },
+  { value: "mult", label: t("prop.modeMult") },
+]);
 const markerTime = computed(() =>
   selMarker.value ? storeMarkerTime(selMarker.value) : 0,
 );
@@ -1522,7 +1579,7 @@ const typedMarkerInfo = computed<{
 } | null>(() => {
   const m = selMarker.value;
   if (!m) return null;
-  const tr = store.project.tracks.find((x) => x.id === m.trackId);
+  const tr = project.tracks.find((x) => x.id === m.trackId);
   const typeKey = tr?.type;
   if (!typeKey || typeKey === "beat") return null;
   const def = getTypedef(typeKey);
@@ -1567,6 +1624,22 @@ function enumOptionLabel(o: {
   return localeText(o.label);
 }
 
+/** Plugin enum options adapted to UiSelect's string-valued model. */
+function enumSelectOptions(f: PluginFieldDef): Array<{
+  value: string;
+  label: string;
+}> {
+  return (f.options ?? []).map((o) => ({
+    value: String(o.value),
+    label: enumOptionLabel(o),
+  }));
+}
+
+function onEnumSelect(f: PluginFieldDef, v: string): void {
+  const opt = (f.options ?? []).find((o) => String(o.value) === v);
+  if (opt) onEnumField(f, opt.value);
+}
+
 function onNumberField(f: PluginFieldDef, v: number | undefined): void {
   setMarkerField(f, v ?? 0);
 }
@@ -1589,7 +1662,7 @@ function onCardKey(e: KeyboardEvent): void {
 }
 
 function deleteSelected(): void {
-  const sel = store.ui.selected;
+  const sel = selection.selected;
   if (sel.kind === "marker" && sel.id) removeMarker(sel.id);
   else if (sel.kind === "bpm" && sel.id) removeBpmPoint(sel.id);
   closeCard();
@@ -1601,6 +1674,7 @@ onMounted(() => {
   ro = new ResizeObserver(() => {
     setupCanvas();
     draw();
+    positionCard();
   });
   if (rootEl.value) ro.observe(rootEl.value);
   window.addEventListener("keydown", onCardKey);
@@ -1610,12 +1684,13 @@ onMounted(() => {
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf);
   ro?.disconnect();
+  cardRo?.disconnect();
   window.removeEventListener("keydown", onCardKey);
 });
 
 const summary = computed(() => {
-  const mm = store.project.markers.length;
-  return `${t("sidebar.markerTrack")} × ${store.project.tracks.length} · ${t("sidebar.markers")} ${mm}`;
+  const mm = project.markers.length;
+  return `${t("sidebar.markerTrack")} × ${project.tracks.length} · ${t("sidebar.markers")} ${mm}`;
 });
 
 /** When multiple markers are selected, show start/end ms of the selection range. */
@@ -1625,7 +1700,7 @@ const selectionMs = computed<string | null>(() => {
   let lo = Number.POSITIVE_INFINITY;
   let hi = Number.NEGATIVE_INFINITY;
   for (const id of ids) {
-    const m = store.project.markers.find((x) => x.id === id);
+    const m = project.markers.find((x) => x.id === id);
     if (!m) continue;
     const ms = storeMarkerTime(m);
     if (ms < lo) lo = ms;
@@ -1701,7 +1776,7 @@ const selectionMs = computed<string | null>(() => {
     </div>
 
     <div
-      v-if="!store.ui.hasAudio && store.project.markers.length === 0"
+      v-if="!transport.hasAudio && project.markers.length === 0"
       class="editor-hint"
     >
       <div>{{ t("timeline.none") }}</div>
@@ -1722,9 +1797,9 @@ const selectionMs = computed<string | null>(() => {
       <span>{{ summary }}</span>
       <span class="sep">·</span>
       <span>{{ t("timeline.tempoHint") }}</span>
-      <span v-if="store.ui.snapEnabled" class="sep">·</span>
-      <span v-if="store.ui.snapEnabled" class="num"
-        >snap 1/{{ store.ui.snapDiv }}</span
+      <span v-if="view.snapEnabled" class="sep">·</span>
+      <span v-if="view.snapEnabled" class="num"
+        >snap 1/{{ view.snapDiv }}</span
       >
       <span v-if="selectionMs" class="sep">·</span>
       <span v-if="selectionMs" class="num">{{ selectionMs }}</span>
@@ -1732,6 +1807,7 @@ const selectionMs = computed<string | null>(() => {
 
     <div
       v-if="cardVisible && (selMarker || selBpm)"
+      ref="cardEl"
       class="prop-card"
       :style="{ left: cardPos.x + 'px', top: cardPos.y + 'px' }"
       @pointerdown.stop
@@ -1749,14 +1825,12 @@ const selectionMs = computed<string | null>(() => {
         </div>
         <label class="pc-field">
           <span>{{ t("prop.beatPos") }}</span>
-          <el-input-number
+          <UiNumberInput
             v-model="markerBeat"
             :min="freeInput ? undefined : 0"
-            :step="1 / store.ui.snapDiv"
+            :step="1 / view.snapDiv"
             :precision="4"
-            size="small"
-            controls-position="right"
-            class="num"
+            class="w-full"
           />
         </label>
         <div class="pc-sub num">
@@ -1765,18 +1839,16 @@ const selectionMs = computed<string | null>(() => {
         </div>
         <label class="pc-field">
           <span>{{ t("prop.track") }}</span>
-          <el-select v-model="selectedTrackId" size="small">
-            <el-option
-              v-for="tr in store.project.tracks"
-              :key="tr.id"
-              :value="tr.id"
-              :label="tr.name"
-            />
-          </el-select>
+          <UiSelect
+            v-model="selectedTrackId"
+            size="sm"
+            :options="trackOptions"
+            class="w-full"
+          />
         </label>
         <div class="pc-loop-row">
           <span class="pc-field-label">{{ t("prop.loop") }}</span>
-          <el-switch v-model="loopOn" size="small" />
+          <UiSwitch v-model="loopOn" />
         </div>
         <template v-if="loopOn">
           <div class="pc-loop-fields">
@@ -1791,9 +1863,8 @@ const selectionMs = computed<string | null>(() => {
                 >
                   −
                 </button>
-                <el-input
+                <UiInput
                   v-model="loopDraft"
-                  size="small"
                   class="pc-step-input"
                   @focus="loopDraftBegin"
                   @blur="loopDraftCommit"
@@ -1812,14 +1883,12 @@ const selectionMs = computed<string | null>(() => {
             </div>
             <label class="pc-field">
               <span>{{ t("prop.loopCount") }}</span>
-              <el-input-number
+              <UiNumberInput
                 v-model="loopCount"
                 :min="freeInput ? undefined : 1"
                 :max="freeInput ? undefined : MAX_LOOP_CHILDREN"
                 :step="1"
-                size="small"
-                controls-position="right"
-                class="num"
+                class="w-full"
                 @wheel="onLoopCountWheel"
               />
             </label>
@@ -1846,43 +1915,34 @@ const selectionMs = computed<string | null>(() => {
             <label v-for="f in typedFields" :key="f.key" class="pc-field">
               <span>{{ fieldLabel(f) }}</span>
 
-              <el-input-number
+              <UiNumberInput
                 v-if="f.type === 'number'"
                 :model-value="Number(markerFieldValue(f) ?? 0)"
                 :min="f.min"
                 :max="f.max"
                 :step="f.step ?? 1"
-                size="small"
-                controls-position="right"
-                class="num"
-                @change="(v: number | undefined) => onNumberField(f, v)"
+                class="w-full"
+                @update:model-value="(v: number) => onNumberField(f, v)"
               />
-              <el-input
+              <UiInput
                 v-else-if="f.type === 'string'"
                 :model-value="String(markerFieldValue(f) ?? '')"
-                size="small"
-                @change="(v: string) => onTextField(f, v)"
+                @blur="(e: FocusEvent) => onTextField(f, (e.target as HTMLInputElement).value)"
+                @keyup.enter="onTextField(f, ($event.target as HTMLInputElement).value)"
               />
-              <el-switch
+              <UiSwitch
                 v-else-if="f.type === 'bool'"
                 :model-value="markerFieldValue(f) === true"
-                size="small"
-                @change="(v: string | number | boolean) => onBoolField(f, v === true)"
+                @update:model-value="(v: boolean) => onBoolField(f, v)"
               />
-              <el-select
+              <UiSelect
                 v-else-if="f.type === 'enum'"
-                :model-value="markerFieldValue(f)"
-                size="small"
+                :model-value="String(markerFieldValue(f))"
+                size="sm"
                 class="pc-enum"
-                @change="(v: unknown) => onEnumField(f, v)"
-              >
-                <el-option
-                  v-for="opt in f.options ?? []"
-                  :key="String(opt.value)"
-                  :value="opt.value"
-                  :label="enumOptionLabel(opt)"
-                />
-              </el-select>
+                :options="enumSelectOptions(f)"
+                @update:model-value="(v: string) => onEnumSelect(f, v)"
+              />
             </label>
           </template>
         </div>
@@ -1896,14 +1956,12 @@ const selectionMs = computed<string | null>(() => {
         </div>
         <label class="pc-field">
           <span>{{ t("prop.beatPos") }}</span>
-          <el-input-number
+          <UiNumberInput
             v-model="bpmBeat"
             :min="freeInput ? undefined : 0"
-            :step="1 / store.ui.snapDiv"
+            :step="1 / view.snapDiv"
             :precision="4"
-            size="small"
-            controls-position="right"
-            class="num"
+            class="w-full"
           />
         </label>
         <div class="pc-sub num">
@@ -1911,14 +1969,11 @@ const selectionMs = computed<string | null>(() => {
           {{ formatTime(bpmTime) }}
         </div>
         <div class="pc-mode">
-          <el-radio-group v-model="bpmMode" size="small">
-            <el-radio-button value="abs">{{
-              t("prop.modeAbs")
-            }}</el-radio-button>
-            <el-radio-button value="mult">{{
-              t("prop.modeMult")
-            }}</el-radio-button>
-          </el-radio-group>
+          <UiRadioGroup
+            :model-value="bpmMode"
+            :options="bpmModeOptions"
+            @update:model-value="(v: string) => (bpmMode = v as BpmMode)"
+          />
         </div>
         <div class="pc-field">
           <span>{{
@@ -1933,9 +1988,8 @@ const selectionMs = computed<string | null>(() => {
             >
               −
             </button>
-            <el-input
+            <UiInput
               v-model="bpmDraft"
-              size="small"
               class="pc-step-input"
               @focus="bpmDraftBegin"
               @blur="bpmDraftCommit"
@@ -1958,9 +2012,9 @@ const selectionMs = computed<string | null>(() => {
       </template>
 
       <div class="pc-actions">
-        <el-button size="small" type="danger" plain @click="deleteSelected">{{
+        <UiButton size="sm" variant="danger" @click="deleteSelected">{{
           t("prop.delete")
-        }}</el-button>
+        }}</UiButton>
       </div>
     </div>
   </div>
@@ -2201,11 +2255,18 @@ const selectionMs = computed<string | null>(() => {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
 }
 .pc-head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   gap: 7px;
+  background: var(--bdg-menu);
 }
 .pc-dot {
   width: 9px;

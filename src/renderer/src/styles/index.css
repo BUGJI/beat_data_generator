@@ -61,26 +61,6 @@ body {
   user-select: none;
 }
 
-/* Element Plus fallback mapping (overridden inline by theme.ts on load). */
-html.dark {
-  --el-color-primary: var(--bdg-accent);
-  --el-color-danger: var(--bdg-danger);
-  --el-color-warning: var(--bdg-amber);
-  --el-bg-color: var(--bdg-bg-panel);
-  --el-bg-color-overlay: var(--bdg-menu);
-  --el-fill-color-blank: var(--bdg-bg-panel);
-  --el-fill-color: var(--bdg-bg-raised);
-  --el-fill-color-light: var(--bdg-bg-raised);
-  --el-fill-color-lighter: var(--bdg-bg-panel);
-  --el-border-color: rgb(var(--bdg-neutral) / 0.2);
-  --el-border-color-light: rgb(var(--bdg-neutral) / 0.14);
-  --el-border-color-lighter: rgb(var(--bdg-neutral) / 0.1);
-  --el-text-color-primary: var(--bdg-text);
-  --el-text-color-regular: var(--bdg-text-dim);
-  --el-text-color-secondary: var(--bdg-text-dim);
-  --el-mask-color: var(--bdg-mask);
-}
-
 * {
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--bdg-neutral) / 0.2) transparent;
