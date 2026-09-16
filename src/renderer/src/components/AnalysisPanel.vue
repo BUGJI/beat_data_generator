@@ -230,10 +230,10 @@ onBeforeUnmount(() => {
   pointer-events: auto;
   width: 360px;
   max-width: 92vw;
-  background: #161b23;
+  background: var(--bdg-bg-panel);
   border: 1px solid var(--bdg-border-strong);
   border-radius: 12px;
-  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 14px 44px var(--bdg-shadow);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -305,7 +305,7 @@ onBeforeUnmount(() => {
   font-size: 11px;
   color: var(--bdg-text-dim);
   padding: 6px 8px;
-  background: rgba(148, 163, 184, 0.05);
+  background: rgb(var(--bdg-neutral) / 0.05);
   border-bottom: 1px solid var(--bdg-border);
 }
 .ana-canvas {

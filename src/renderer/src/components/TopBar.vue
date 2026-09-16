@@ -450,12 +450,12 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   padding: 0 10px;
-  background: linear-gradient(180deg, #1a1f27, #161a21);
+  background: linear-gradient(180deg, var(--bdg-bg-raised), var(--bdg-bg-panel));
   border-bottom: 1px solid var(--bdg-border);
   flex: none;
 }
 .top-dirty {
-  color: #fbbf24;
+  color: var(--bdg-amber);
   font-size: 10px;
   line-height: 1;
   cursor: default;
@@ -475,7 +475,7 @@ onMounted(() => {
   white-space: nowrap;
 }
 .menu-btn:hover {
-  background: rgba(148, 163, 184, 0.12);
+  background: rgb(var(--bdg-neutral) / 0.12);
 }
 .caret {
   font-size: 9px;
@@ -486,7 +486,7 @@ onMounted(() => {
 .zoom-group {
   display: flex;
   align-items: center;
-  background: rgba(148, 163, 184, 0.06);
+  background: rgb(var(--bdg-neutral) / 0.06);
   border-radius: 8px;
   padding: 0 2px;
 }

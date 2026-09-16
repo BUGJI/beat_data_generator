@@ -18,6 +18,14 @@ import {
 } from "../store";
 import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
+import { resolveTheme, type ThemeOverrides } from "../theme";
+
+const themeSpec = computed(() =>
+  resolveTheme(
+    store.ui.settings.themePreset,
+    store.ui.settings.themeOverrides as ThemeOverrides,
+  ),
+);
 
 const { t } = useI18n();
 
@@ -75,12 +83,15 @@ onBeforeUnmount(() => {
 
 const overlapColor = computed(() => {
   const n = store.ui.overlapCount;
-  if (n >= 4) return "#f43f5e";
-  if (n === 3) return "#fb923c";
-  return "#fbbf24";
+  const s = themeSpec.value;
+  if (n >= 4) return s.danger;
+  if (n === 3) return s.bpm;
+  return s.amber;
 });
 
-const beatStyle = computed(() => flashStyle(beat.intensity.value, "#38bdf8"));
+const beatStyle = computed(() =>
+  flashStyle(beat.intensity.value, themeSpec.value.accent),
+);
 const overlapStyle = computed(() =>
   flashStyle(overlap.intensity.value, overlapColor.value),
 );
@@ -557,7 +568,7 @@ async function onDetectBpm(): Promise<void> {
 }
 .warn {
   font-size: 12px;
-  color: #fbbf24;
+  color: var(--bdg-amber);
   display: flex;
   align-items: center;
   gap: 2px;
@@ -594,7 +605,7 @@ async function onDetectBpm(): Promise<void> {
   height: 14px;
   border-radius: 3px;
   border: 1.5px solid var(--bdg-border-strong);
-  background: rgba(148, 163, 184, 0.08);
+  background: rgb(var(--bdg-neutral) / 0.08);
 }
 .beat-overlap {
   border-radius: 50%;
@@ -611,7 +622,7 @@ async function onDetectBpm(): Promise<void> {
   height: 28px;
   border-radius: 8px;
   border: 1px solid var(--bdg-border-strong);
-  background: rgba(148, 163, 184, 0.08);
+  background: rgb(var(--bdg-neutral) / 0.08);
   color: var(--bdg-text-dim);
   cursor: pointer;
   display: inline-flex;
@@ -620,21 +631,21 @@ async function onDetectBpm(): Promise<void> {
   padding: 0;
 }
 .quick-icon:hover {
-  background: rgba(148, 163, 184, 0.18);
+  background: rgb(var(--bdg-neutral) / 0.18);
   color: var(--bdg-text);
 }
 .quick-icon.on {
   color: var(--bdg-accent);
-  background: rgba(56, 189, 248, 0.16);
-  border-color: rgba(56, 189, 248, 0.45);
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+  background: rgb(var(--bdg-accent-rgb) / 0.16);
+  border-color: rgb(var(--bdg-accent-rgb) / 0.45);
+  box-shadow: 0 0 8px rgb(var(--bdg-accent-rgb) / 0.25);
 }
 .chip-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--bdg-accent), var(--bdg-accent-2));
-  box-shadow: 0 0 6px rgba(56, 189, 248, 0.55);
+  box-shadow: 0 0 6px rgb(var(--bdg-accent-rgb) / 0.55);
   flex: none;
 }
 .follow-btn {
@@ -642,7 +653,7 @@ async function onDetectBpm(): Promise<void> {
   height: 28px;
   border-radius: 8px;
   border: 1px solid var(--bdg-border-strong);
-  background: rgba(148, 163, 184, 0.08);
+  background: rgb(var(--bdg-neutral) / 0.08);
   color: var(--bdg-text-dim);
   cursor: pointer;
   display: inline-flex;
@@ -651,14 +662,14 @@ async function onDetectBpm(): Promise<void> {
   font-family: inherit;
 }
 .follow-btn:hover {
-  background: rgba(148, 163, 184, 0.18);
+  background: rgb(var(--bdg-neutral) / 0.18);
   color: var(--bdg-text);
 }
 .follow-btn.on {
   color: var(--bdg-accent);
-  border-color: rgba(56, 189, 248, 0.45);
-  background: rgba(56, 189, 248, 0.16);
-  box-shadow: 0 0 8px rgba(56, 189, 248, 0.25);
+  border-color: rgb(var(--bdg-accent-rgb) / 0.45);
+  background: rgb(var(--bdg-accent-rgb) / 0.16);
+  box-shadow: 0 0 8px rgb(var(--bdg-accent-rgb) / 0.25);
 }
 .quick-sub {
   font-size: 11px;

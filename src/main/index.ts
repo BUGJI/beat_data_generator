@@ -60,6 +60,8 @@ let settings: SettingsData = {
     audioLiveBpm: false,
     audioSpectrum: false,
     audioPanel: true,
+    themePreset: "default",
+    themeOverrides: {},
   };
 const settingsPath = (): string =>
   join(app.getPath("userData"), "settings.json");
@@ -233,6 +235,18 @@ function sanitize(raw: Partial<SettingsData>): SettingsData {
     audioLiveBpm: raw.audioLiveBpm !== false,
     audioSpectrum: raw.audioSpectrum !== false,
     audioPanel: raw.audioPanel !== false,
+    themePreset:
+      typeof raw.themePreset === "string" && raw.themePreset
+        ? raw.themePreset
+        : "default",
+    themeOverrides:
+      raw.themeOverrides && typeof raw.themeOverrides === "object"
+        ? Object.fromEntries(
+            Object.entries(raw.themeOverrides).filter(
+              ([, v]) => typeof v === "string",
+            ),
+          )
+        : {},
   };
 }
 

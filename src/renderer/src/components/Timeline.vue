@@ -625,7 +625,7 @@ function drawBpmLaneContent(
       // subtle tempo shading density strip
       const density = (s.bpm - 60) / 240;
       ctx.globalAlpha = 0.12 + density * 0.2;
-      ctx.fillStyle = "#f59e0b";
+      ctx.fillStyle = "var(--bdg-bpm)";
       ctx.fillRect(mid, y1 - 6, Math.max(0, x1 - mid), 3);
       ctx.globalAlpha = 1;
     }
@@ -640,7 +640,7 @@ function drawBpmLaneContent(
       store.ui.selected.kind === "bpm" && store.ui.selected.id === p.id;
     ctx.fillStyle = sel ? COLORS.bpmPointSelected : COLORS.bpmPoint;
     drawDiamond(ctx, x, y0 + 8, sel ? 5 : 3.6);
-    ctx.fillStyle = "rgba(245,158,11,0.35)";
+    ctx.fillStyle = COLORS.bpmFaint;
     ctx.fillRect(x - 0.5, y0 + 12, 1, y1 - y0 - 12);
   }
 }
@@ -724,7 +724,7 @@ function drawMarkerLanesContent(
         const label = formatTime(storeMarkerTime(m));
         ctx.font = "10px Consolas, monospace";
         const tw = ctx.measureText(label).width;
-        ctx.fillStyle = "rgba(20,23,27,0.92)";
+        ctx.fillStyle = COLORS.labelBg;
         ctx.fillRect(x + rr + 3, cy - 8, tw + 8, 15);
         ctx.fillStyle = COLORS.markerSelected;
         ctx.fillText(label, x + rr + 7, cy + 3);
@@ -791,7 +791,7 @@ function drawGhost(
   ctx.font = "10px Consolas, monospace";
   const label = `${beatStr(g.beat)}`;
   const tw = ctx.measureText(label).width;
-  ctx.fillStyle = "rgba(20,23,27,0.92)";
+  ctx.fillStyle = COLORS.labelBg;
   ctx.fillRect(x + 4, g.y1 - 22, tw + 8, 16);
   ctx.fillStyle = g.ok ? COLORS.markerGhostOk : COLORS.markerGhostBad;
   ctx.fillText(label, x + 8, g.y1 - 10);
@@ -1488,9 +1488,9 @@ const effBpm = computed(() =>
 );
 const markerColor = computed(() => {
   const m = selMarker.value;
-  if (!m) return "#888";
+  if (!m) return "var(--bdg-text-dim)";
   return (
-    store.project.tracks.find((tr) => tr.id === m.trackId)?.color ?? "#888"
+    store.project.tracks.find((tr) => tr.id === m.trackId)?.color ?? "var(--bdg-text-dim)"
   );
 });
 const bpmMode = computed<BpmMode>({
@@ -1992,16 +1992,16 @@ const selectionMs = computed<string | null>(() => {
   pointer-events: auto;
   width: 180px;
   min-height: 70px;
-  background: #232942;
-  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: var(--bdg-bg-raised);
+  border: 1px solid rgb(var(--bdg-neutral) / 0.35);
   border-left: 3px solid var(--bdg-accent);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 16px var(--bdg-shadow);
   overflow: hidden;
   user-select: none;
 }
 .note.locked {
-  border-left-color: #fbbf24;
+  border-left-color: var(--bdg-amber);
 }
 .note.locked .note-body {
   opacity: 0.6;
@@ -2011,7 +2011,7 @@ const selectionMs = computed<string | null>(() => {
   align-items: center;
   gap: 6px;
   padding: 4px 6px;
-  background: rgba(148, 163, 184, 0.12);
+  background: rgb(var(--bdg-neutral) / 0.12);
   cursor: grab;
 }
 .note.locked .note-head {
@@ -2051,7 +2051,7 @@ const selectionMs = computed<string | null>(() => {
   padding: 0;
 }
 .note-tool:hover {
-  background: rgba(148, 163, 184, 0.18);
+  background: rgb(var(--bdg-neutral) / 0.18);
   color: var(--bdg-text);
 }
 .note-body {
@@ -2066,7 +2066,7 @@ const selectionMs = computed<string | null>(() => {
   right: 6px;
   bottom: -2px;
   font-size: 9px;
-  color: rgba(148, 163, 184, 0.35);
+  color: rgb(var(--bdg-neutral) / 0.35);
   line-height: 1;
 }
 .note-body.md h1 {
@@ -2091,7 +2091,7 @@ const selectionMs = computed<string | null>(() => {
   margin-bottom: 1px;
 }
 .note-body.md code {
-  background: rgba(148, 163, 184, 0.15);
+  background: rgb(var(--bdg-neutral) / 0.15);
   padding: 0 3px;
   border-radius: 3px;
   font-size: 11px;
@@ -2105,7 +2105,7 @@ const selectionMs = computed<string | null>(() => {
 .note-edit textarea {
   width: 100%;
   min-height: 76px;
-  background: #10131a;
+  background: var(--bdg-bg-sunken);
   border: 1px solid var(--bdg-border-strong);
   border-radius: 6px;
   color: var(--bdg-text);
@@ -2146,7 +2146,7 @@ const selectionMs = computed<string | null>(() => {
   padding: 0 10px;
   font-size: 11px;
   color: var(--bdg-text-dim);
-  background: rgba(20, 23, 27, 0.88);
+  background: rgb(var(--bdg-bg-rgb) / 0.88);
   border-top: 1px solid var(--bdg-border);
   pointer-events: none;
   white-space: nowrap;
@@ -2161,14 +2161,14 @@ const selectionMs = computed<string | null>(() => {
   right: 0;
   bottom: 22px;
   width: 10px;
-  background: rgba(148, 163, 184, 0.08);
+  background: rgb(var(--bdg-neutral) / 0.08);
   border-left: 1px solid var(--bdg-border);
   display: none;
 }
 .vthumb {
   width: 8px;
   margin: 1px auto;
-  background: #3a4453;
+  background: rgb(var(--bdg-neutral) / 0.3);
   border-radius: 4px;
   cursor: pointer;
 }
@@ -2178,14 +2178,14 @@ const selectionMs = computed<string | null>(() => {
   right: 10px;
   bottom: 0;
   height: 10px;
-  background: rgba(148, 163, 184, 0.08);
+  background: rgb(var(--bdg-neutral) / 0.08);
   border-top: 1px solid var(--bdg-border);
   display: none;
 }
 .hthumb {
   height: 8px;
   margin: 1px 0;
-  background: #3a4453;
+  background: rgb(var(--bdg-neutral) / 0.3);
   border-radius: 4px;
   cursor: pointer;
 }
@@ -2193,11 +2193,11 @@ const selectionMs = computed<string | null>(() => {
   position: absolute;
   z-index: 20;
   width: 236px;
-  background: #1c222b;
+  background: var(--bdg-menu);
   border: 1px solid var(--bdg-border-strong);
   border-radius: 10px;
   padding: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  box-shadow: 0 8px 24px var(--bdg-shadow);
   display: flex;
   flex-direction: column;
   gap: 8px;
@@ -2215,7 +2215,7 @@ const selectionMs = computed<string | null>(() => {
   flex: none;
 }
 .pc-dot.bpm {
-  background: #f59e0b;
+  background: var(--bdg-bpm);
 }
 .pc-x {
   margin-left: auto;
@@ -2279,8 +2279,8 @@ const selectionMs = computed<string | null>(() => {
 }
 .pc-missing-tag {
   font-size: 9px;
-  color: #fbbf24;
-  background: rgba(251, 191, 36, 0.14);
+  color: var(--bdg-amber);
+  background: rgb(var(--bdg-amber-rgb) / 0.14);
   padding: 1px 6px;
   border-radius: 4px;
   text-transform: none;
@@ -2297,7 +2297,7 @@ const selectionMs = computed<string | null>(() => {
 .pc-raw {
   margin: 0;
   padding: 6px;
-  background: rgba(148, 163, 184, 0.06);
+  background: rgb(var(--bdg-neutral) / 0.06);
   border: 1px solid var(--bdg-border);
   border-radius: 6px;
   max-height: 120px;
@@ -2328,7 +2328,7 @@ const selectionMs = computed<string | null>(() => {
   box-sizing: border-box;
   border-radius: 5px;
   border: 1px solid var(--bdg-border-strong);
-  background: rgba(148, 163, 184, 0.08);
+  background: rgb(var(--bdg-neutral) / 0.08);
   color: var(--bdg-text);
   font-size: 13px;
   line-height: 1;
@@ -2337,7 +2337,7 @@ const selectionMs = computed<string | null>(() => {
   font-family: inherit;
 }
 .pc-step:hover:not(:disabled) {
-  background: rgba(148, 163, 184, 0.2);
+  background: rgb(var(--bdg-neutral) / 0.2);
   color: var(--bdg-accent);
 }
 .pc-step:disabled {

@@ -185,7 +185,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 16px;
   padding: 0 16px;
-  background: linear-gradient(0deg, #14181f, #171c24);
+  background: linear-gradient(0deg, var(--bdg-bg-sunken), var(--bdg-bg-panel));
   border-top: 1px solid var(--bdg-border);
 }
 .rate-zone {
@@ -208,7 +208,7 @@ onBeforeUnmount(() => {
 }
 .buffering {
   font-size: 11px;
-  color: #fbbf24;
+  color: var(--bdg-amber);
   letter-spacing: 0.05em;
 }
 .rate-ctl {
@@ -219,7 +219,7 @@ onBeforeUnmount(() => {
   padding: 2px 4px;
 }
 .rate-ctl:hover {
-  background: rgba(148, 163, 184, 0.08);
+  background: rgb(var(--bdg-neutral) / 0.08);
 }
 .rate-ctl:hover .rate-label {
   color: var(--bdg-text);
@@ -236,7 +236,7 @@ onBeforeUnmount(() => {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #f59e0b;
+  background: var(--bdg-bpm);
 }
 .bpm-main {
   font-weight: 700;
@@ -244,8 +244,8 @@ onBeforeUnmount(() => {
 .live-bpm {
   font-size: 11px;
   color: var(--bdg-accent);
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.22);
+  background: rgb(var(--bdg-accent-rgb) / 0.12);
+  border: 1px solid rgb(var(--bdg-accent-rgb) / 0.22);
   padding: 1px 7px;
   border-radius: 999px;
   white-space: nowrap;
@@ -274,22 +274,22 @@ onBeforeUnmount(() => {
   height: 30px;
 }
 .btn-icon:hover:not(:disabled) {
-  background: rgba(148, 163, 184, 0.14);
+  background: rgb(var(--bdg-neutral) / 0.14);
 }
 .btn-big {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, var(--bdg-accent), #0ea5e9);
-  color: #04121d;
-  box-shadow: 0 2px 10px rgba(56, 189, 248, 0.35);
+  background: linear-gradient(135deg, var(--bdg-accent), var(--bdg-accent-2));
+  color: rgb(var(--bdg-bg-rgb));
+  box-shadow: 0 2px 10px rgb(var(--bdg-accent-rgb) / 0.35);
 }
 .btn-big:hover:not(:disabled) {
   filter: brightness(1.1);
 }
 .btn-big.playing {
-  background: linear-gradient(135deg, #fbbf24, #f59e0b);
-  box-shadow: 0 2px 10px rgba(251, 191, 36, 0.35);
+  background: linear-gradient(135deg, var(--bdg-amber), var(--bdg-bpm));
+  box-shadow: 0 2px 10px rgb(var(--bdg-amber-rgb) / 0.35);
 }
 button:disabled {
   opacity: 0.35;
@@ -330,6 +330,6 @@ button:disabled {
 .vol-slider {
   flex: 1;
   --el-slider-main-bg-color: var(--bdg-accent);
-  --el-slider-runway-bg-color: rgba(148, 163, 184, 0.2);
+  --el-slider-runway-bg-color: rgb(var(--bdg-neutral) / 0.2);
 }
 </style>

@@ -251,10 +251,10 @@ function onClose(card: Card): void {
 .plugin-win {
   position: absolute;
   pointer-events: auto;
-  background: #161b23;
+  background: var(--bdg-bg-panel);
   border: 1px solid var(--bdg-border-strong);
   border-radius: 10px;
-  box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 14px 44px var(--bdg-shadow);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -267,7 +267,7 @@ function onClose(card: Card): void {
   display: flex;
   align-items: center;
   padding: 6px 8px 6px 12px;
-  background: rgba(148, 163, 184, 0.07);
+  background: rgb(var(--bdg-neutral) / 0.07);
   border-bottom: 1px solid var(--bdg-border);
   cursor: move;
   touch-action: none;

@@ -1,8 +1,23 @@
 <script setup lang="ts">
 import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { store, setSettingsOpen, patchSettings, openDevTools, loadMetronome } from "../store";
+import {
+  store,
+  setSettingsOpen,
+  patchSettings,
+  openDevTools,
+  loadMetronome,
+  setThemePreset,
+  setThemeToken,
+  resetThemeTokens,
+} from "../store";
 import { setLocale, LOCALES } from "../i18n";
+import {
+  THEME_PRESETS,
+  resolveTheme,
+  type ThemeOverrides,
+  type ThemeSpec,
+} from "../theme";
 import {
   pluginEntries,
   pluginName,
@@ -29,6 +44,7 @@ const cat = ref<
   | "edit"
   | "audio"
   | "display"
+  | "theme"
   | "shortcuts"
   | "plugins"
   | "advanced"
@@ -39,6 +55,7 @@ type CatKey =
   | "edit"
   | "audio"
   | "display"
+  | "theme"
   | "shortcuts"
   | "plugins"
   | "advanced";
@@ -48,10 +65,44 @@ const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "edit", icon: "✎" },
   { key: "audio", icon: "🎵" },
   { key: "display", icon: "◩" },
+  { key: "theme", icon: "🎨" },
   { key: "shortcuts", icon: "⌨" },
   { key: "plugins", icon: "▤" },
   { key: "advanced", icon: "⬢" },
 ];
+
+// ---- theme editor ----
+const themeSpec = computed<ThemeSpec>(() =>
+  resolveTheme(
+    store.ui.settings.themePreset,
+    store.ui.settings.themeOverrides as ThemeOverrides,
+  ),
+);
+const themeOverrides = computed<ThemeOverrides>(
+  () => store.ui.settings.themeOverrides as ThemeOverrides,
+);
+const themeGroups: Array<{ key: string; tokens: (keyof ThemeSpec)[] }> = [
+  { key: "surfaces", tokens: ["bg", "panel", "raised", "sunken", "menu"] },
+  { key: "text", tokens: ["text", "textDim", "neutral"] },
+  { key: "brand", tokens: ["accent", "accent2", "danger", "amber", "bpm"] },
+  {
+    key: "timeline",
+    tokens: [
+      "laneBpmBg",
+      "laneMarkerBg",
+      "laneMarkerAlt",
+      "markerDim",
+      "bpmPointSelected",
+    ],
+  },
+];
+
+function onThemeToken(token: keyof ThemeSpec, value: string | null): void {
+  setThemeToken(token, value ?? "");
+}
+function tokenOverridden(token: keyof ThemeSpec): boolean {
+  return themeOverrides.value[token] != null;
+}
 
 const pluginBusy = ref<string | null>(null);
 const pluginsLoading = ref(false);
@@ -531,6 +582,79 @@ function catLabel(key: string): string {
               </div>
             </section>
 
+            <!-- 主题 -->
+            <section v-if="cat === 'theme'">
+              <h3>{{ t("settings.cats.theme") }}</h3>
+
+              <div class="sub-head">{{ t("settings.theme.preset") }}</div>
+              <div class="theme-presets">
+                <button
+                  v-for="p in THEME_PRESETS"
+                  :key="p.id"
+                  class="theme-preset"
+                  :class="{ active: store.ui.settings.themePreset === p.id }"
+                  @click="setThemePreset(p.id)"
+                >
+                  <span class="swatches">
+                    <i :style="{ background: p.spec.bg }" />
+                    <i :style="{ background: p.spec.panel }" />
+                    <i :style="{ background: p.spec.accent }" />
+                    <i :style="{ background: p.spec.accent2 }" />
+                  </span>
+                  {{ t(`settings.theme.presets.${p.name}`) }}
+                </button>
+              </div>
+
+              <div class="sub-head theme-custom-head">
+                <span>{{ t("settings.theme.custom") }}</span>
+                <el-button
+                  size="small"
+                  text
+                  :disabled="Object.keys(themeOverrides).length === 0"
+                  @click="resetThemeTokens()"
+                >
+                  {{ t("settings.theme.reset") }}
+                </el-button>
+              </div>
+              <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
+
+              <div
+                v-for="g in themeGroups"
+                :key="g.key"
+                class="theme-group"
+              >
+                <div class="theme-group-title">
+                  {{ t(`settings.theme.groups.${g.key}`) }}
+                </div>
+                <div
+                  v-for="token in g.tokens"
+                  :key="token"
+                  class="field-row theme-row"
+                >
+                  <div class="field-info">
+                    <span class="field-name">{{
+                      t(`settings.theme.tokens.${token}`)
+                    }}</span>
+                  </div>
+                  <div class="theme-token-ctrl">
+                    <el-color-picker
+                      size="small"
+                      :model-value="themeSpec[token]"
+                      @change="(v: string | null) => onThemeToken(token, v)"
+                    />
+                    <button
+                      class="theme-token-reset"
+                      :class="{ on: tokenOverridden(token) }"
+                      :title="t('settings.theme.reset')"
+                      @click="onThemeToken(token, null)"
+                    >
+                      ↺
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
             <!-- 快捷键 -->
             <section v-if="cat === 'shortcuts'">
               <h3>{{ t("settings.cats.shortcuts") }}</h3>
@@ -686,7 +810,7 @@ function catLabel(key: string): string {
               </div>
               <dl class="about-meta">
                 <dt>{{ t("settings.advanced.version") }}</dt>
-                <dd>v0.1.19</dd>
+                <dd>v0.1.22</dd>
                 <dt>{{ t("settings.advanced.author") }}</dt>
                 <dd>BUGJI</dd>
                 <dt>{{ t("settings.advanced.tech") }}</dt>
@@ -723,7 +847,7 @@ function catLabel(key: string): string {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgba(6, 8, 12, 0.6);
+  background: var(--bdg-mask);
   backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
@@ -732,12 +856,12 @@ function catLabel(key: string): string {
 .panel {
   width: min(680px, 92vw);
   height: min(520px, 86vh);
-  background: #171c24;
+  background: var(--bdg-bg-panel);
   border: 1px solid var(--bdg-border-strong);
   border-radius: 12px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 18px 60px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 18px 60px var(--bdg-shadow);
   overflow: hidden;
 }
 .head {
@@ -790,10 +914,10 @@ function catLabel(key: string): string {
   font-family: inherit;
 }
 .nav-item:hover {
-  background: rgba(148, 163, 184, 0.1);
+  background: rgb(var(--bdg-neutral) / 0.1);
 }
 .nav-item.active {
-  background: rgba(56, 189, 248, 0.16);
+  background: rgb(var(--bdg-accent-rgb) / 0.16);
   color: var(--bdg-accent);
   font-weight: 600;
 }
@@ -875,7 +999,7 @@ function catLabel(key: string): string {
 }
 .kbd {
   display: inline-block;
-  background: rgba(148, 163, 184, 0.12);
+  background: rgb(var(--bdg-neutral) / 0.12);
   border: 1px solid var(--bdg-border-strong);
   border-bottom-width: 2px;
   border-radius: 5px;
@@ -889,8 +1013,8 @@ function catLabel(key: string): string {
   align-items: center;
   gap: 14px;
   padding: 14px;
-  background: rgba(56, 189, 248, 0.07);
-  border: 1px solid rgba(56, 189, 248, 0.18);
+  background: rgb(var(--bdg-accent-rgb) / 0.07);
+  border: 1px solid rgb(var(--bdg-accent-rgb) / 0.18);
   border-radius: 10px;
 }
 .about-logo {
@@ -986,8 +1110,8 @@ function catLabel(key: string): string {
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--bdg-accent);
-  background: rgba(56, 189, 248, 0.12);
-  border: 1px solid rgba(56, 189, 248, 0.22);
+  background: rgb(var(--bdg-accent-rgb) / 0.12);
+  border: 1px solid rgb(var(--bdg-accent-rgb) / 0.22);
   padding: 1px 6px;
   border-radius: 5px;
 }
@@ -1016,7 +1140,7 @@ function catLabel(key: string): string {
   flex: 1 1 0%;
   min-width: 0;
   --el-slider-main-bg-color: var(--bdg-accent);
-  --el-slider-runway-bg-color: rgba(148, 163, 184, 0.2);
+  --el-slider-runway-bg-color: rgb(var(--bdg-neutral) / 0.2);
 }
 .pct-value {
   font-size: 12px;
@@ -1038,5 +1162,80 @@ function catLabel(key: string): string {
   white-space: nowrap;
   flex: 1 1 auto;
   min-width: 0;
+}
+.theme-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.theme-preset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bdg-bg-raised);
+  border: 1px solid var(--bdg-border);
+  color: var(--bdg-text);
+  border-radius: 8px;
+  padding: 6px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+.theme-preset:hover {
+  border-color: var(--bdg-border-strong);
+}
+.theme-preset.active {
+  border-color: var(--bdg-accent);
+  background: rgb(var(--bdg-accent-rgb) / 0.12);
+  color: var(--bdg-accent);
+}
+.swatches {
+  display: inline-flex;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--bdg-border-strong);
+}
+.swatches i {
+  width: 11px;
+  height: 11px;
+  display: block;
+}
+.theme-custom-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.theme-hint {
+  margin: 0 0 8px;
+}
+.theme-group {
+  margin-bottom: 6px;
+}
+.theme-group-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--bdg-text-dim);
+  margin: 10px 0 2px;
+}
+.theme-row {
+  padding: 8px 0;
+}
+.theme-token-ctrl {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.theme-token-reset {
+  background: none;
+  border: none;
+  color: var(--bdg-text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  opacity: 0.25;
+  padding: 0 2px;
+}
+.theme-token-reset.on {
+  opacity: 1;
+  color: var(--bdg-accent);
 }
 </style>

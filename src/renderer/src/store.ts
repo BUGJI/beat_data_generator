@@ -40,6 +40,7 @@ import {
   localeText,
 } from "./plugins/registry";
 import { view } from "./editorView";
+import { applyTheme, resolveTheme, type ThemeOverrides } from "./theme";
 
 interface ProjectState extends BeatProject {
   projectPath: string | null;
@@ -145,6 +146,8 @@ export const store = reactive<{ project: ProjectState; ui: UIState }>({
       audioLiveBpm: false,
       audioSpectrum: false,
       audioPanel: true,
+      themePreset: "default",
+      themeOverrides: {},
     },
     analysisOpen: false,
     followManual: false,
@@ -1115,6 +1118,14 @@ export function applySpeed(rate: number, pitchFollow: boolean): void {
   });
 }
 
+/** Paint the active theme (preset + user overrides) onto the DOM and canvas. */
+export function applyThemeFromSettings(): void {
+  const s = store.ui.settings;
+  applyTheme(
+    resolveTheme(s.themePreset, s.themeOverrides as ThemeOverrides),
+  );
+}
+
 export async function loadSettings(): Promise<void> {
   try {
     const got = await window.api.getSettings();
@@ -1124,6 +1135,7 @@ export async function loadSettings(): Promise<void> {
   } catch {
     /* fallback defaults */
   }
+  applyThemeFromSettings();
 }
 
 /** Load and cache the metronome click audio (empty path clears it). */
@@ -1149,10 +1161,30 @@ let settingsTimer: number | undefined;
 
 export function patchSettings(patch: Partial<SettingsData>): void {
   store.ui.settings = { ...store.ui.settings, ...patch };
+  if ("themePreset" in patch || "themeOverrides" in patch)
+    applyThemeFromSettings();
   if (settingsTimer !== undefined) clearTimeout(settingsTimer);
   settingsTimer = window.setTimeout(() => {
     void window.api.updateSettings({ ...store.ui.settings });
   }, 180);
+}
+
+/** Switch to a preset; keeps existing per-token overrides on top of it. */
+export function setThemePreset(id: string): void {
+  patchSettings({ themePreset: id });
+}
+
+/** Set/clear one token override ("" removes it and falls back to the preset). */
+export function setThemeToken(token: string, value: string): void {
+  const next: Record<string, string> = { ...store.ui.settings.themeOverrides };
+  if (value) next[token] = value;
+  else delete next[token];
+  patchSettings({ themeOverrides: next });
+}
+
+/** Drop all custom overrides, returning to the pure preset. */
+export function resetThemeTokens(): void {
+  patchSettings({ themeOverrides: {} });
 }
 
 export function setSettingsOpen(open: boolean): void {

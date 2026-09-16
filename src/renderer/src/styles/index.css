@@ -1,14 +1,37 @@
 :root {
+  /* Surfaces */
   --bdg-bg: #0e1116;
   --bdg-bg-panel: #161a21;
   --bdg-bg-raised: #1b2028;
+  --bdg-bg-sunken: #10131a;
+  --bdg-menu: #1c222b;
+  /* Borders / text */
   --bdg-border: rgba(148, 163, 184, 0.14);
   --bdg-border-strong: rgba(148, 163, 184, 0.28);
   --bdg-text: #e6ebf2;
   --bdg-text-dim: #8b97a8;
+  --bdg-text-faint: rgba(148, 163, 184, 0.35);
+  /* Brand / semantic (solid) */
   --bdg-accent: #38bdf8;
   --bdg-accent-2: #34d399;
   --bdg-danger: #f43f5e;
+  --bdg-amber: #fbbf24;
+  --bdg-bpm: #f59e0b;
+  --bdg-marker: #38bdf8;
+  --bdg-marker-selected: #fbbf24;
+  --bdg-playhead: #f43f5e;
+  /* Space-separated RGB triples for `rgb(var(--x) / <alpha>)` */
+  --bdg-bg-rgb: 14 17 22;
+  --bdg-panel-rgb: 22 26 33;
+  --bdg-neutral: 148 163 184;
+  --bdg-accent-rgb: 56 189 248;
+  --bdg-accent2-rgb: 52 211 153;
+  --bdg-danger-rgb: 244 63 94;
+  --bdg-amber-rgb: 251 191 36;
+  --bdg-bpm-rgb: 245 158 11;
+  --bdg-mask: rgba(14, 17, 22, 0.7);
+  --bdg-shadow: rgba(0, 0, 0, 0.5);
+  /* Layout */
   --bdg-toolbar-h: 46px;
   --bdg-transport-h: 52px;
   --bdg-left-w: 290px;
@@ -38,33 +61,36 @@ body {
   user-select: none;
 }
 
+/* Element Plus fallback mapping (overridden inline by theme.ts on load). */
 html.dark {
-  --el-color-primary: #38bdf8;
-  --el-bg-color: #161a21;
-  --el-bg-color-overlay: #1d232c;
-  --el-fill-color-blank: #161a21;
-  --el-fill-color: #20262f;
-  --el-fill-color-light: #1a2028;
-  --el-fill-color-lighter: #181d25;
-  --el-border-color: rgba(148, 163, 184, 0.2);
-  --el-border-color-light: rgba(148, 163, 184, 0.14);
-  --el-border-color-lighter: rgba(148, 163, 184, 0.1);
-  --el-text-color-primary: #e6ebf2;
-  --el-text-color-regular: #c3ccd9;
-  --el-text-color-secondary: #8b97a8;
-  --el-mask-color: rgba(8, 10, 14, 0.7);
+  --el-color-primary: var(--bdg-accent);
+  --el-color-danger: var(--bdg-danger);
+  --el-color-warning: var(--bdg-amber);
+  --el-bg-color: var(--bdg-bg-panel);
+  --el-bg-color-overlay: var(--bdg-menu);
+  --el-fill-color-blank: var(--bdg-bg-panel);
+  --el-fill-color: var(--bdg-bg-raised);
+  --el-fill-color-light: var(--bdg-bg-raised);
+  --el-fill-color-lighter: var(--bdg-bg-panel);
+  --el-border-color: rgb(var(--bdg-neutral) / 0.2);
+  --el-border-color-light: rgb(var(--bdg-neutral) / 0.14);
+  --el-border-color-lighter: rgb(var(--bdg-neutral) / 0.1);
+  --el-text-color-primary: var(--bdg-text);
+  --el-text-color-regular: var(--bdg-text-dim);
+  --el-text-color-secondary: var(--bdg-text-dim);
+  --el-mask-color: var(--bdg-mask);
 }
 
 * {
   scrollbar-width: thin;
-  scrollbar-color: #2b333f transparent;
+  scrollbar-color: rgb(var(--bdg-neutral) / 0.2) transparent;
 }
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #2b333f;
+  background: rgb(var(--bdg-neutral) / 0.2);
   border-radius: 6px;
   border: 2px solid transparent;
   background-clip: content-box;

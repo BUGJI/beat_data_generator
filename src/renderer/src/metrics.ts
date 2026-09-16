@@ -1,3 +1,5 @@
+import { reactive } from "vue";
+
 export const TIME_RULER_H = 20;
 export const BEAT_RULER_H = 28;
 export const RULER_H = TIME_RULER_H + BEAT_RULER_H;
@@ -15,7 +17,38 @@ export const BEATS_PER_BAR = 4;
 export const MIN_PX_PER_SEC = 6;
 export const MAX_PX_PER_SEC = 4000;
 
-export const COLORS = {
+export interface CanvasColors {
+  background: string;
+  rulerTimeBg: string;
+  rulerBeatBg: string;
+  laneBpmBg: string;
+  laneMarkerBg: string;
+  laneMarkerAlt: string;
+  gridBeat: string;
+  gridBar: string;
+  gridSub: string;
+  rulerText: string;
+  rulerTick: string;
+  waveform: string;
+  playhead: string;
+  marker: string;
+  markerDim: string;
+  markerSelected: string;
+  markerGhostOk: string;
+  markerGhostBad: string;
+  bpmPoint: string;
+  bpmPointSelected: string;
+  bpmSegmentText: string;
+  bpmFaint: string;
+  labelBg: string;
+  barText: string;
+  rowLine: string;
+  laneLockedBg: string;
+}
+
+/** Canvas palette. Reactive so a theme switch repaints without code changes:
+ *  drawing reads `COLORS.x` every frame. See `theme.ts` for the active values. */
+export const COLORS = reactive<CanvasColors>({
   background: "#14171b",
   rulerTimeBg: "rgba(148,163,184,0.05)",
   rulerBeatBg: "rgba(56,189,248,0.05)",
@@ -37,10 +70,12 @@ export const COLORS = {
   bpmPoint: "#f59e0b",
   bpmPointSelected: "#fff",
   bpmSegmentText: "rgba(245,158,11,0.85)",
+  bpmFaint: "rgba(245,158,11,0.35)",
+  labelBg: "rgba(20,23,27,0.92)",
   barText: "rgba(52,211,153,0.9)",
   rowLine: "rgba(148,163,184,0.08)",
   laneLockedBg: "rgba(148,163,184,0.10)",
-} as const;
+});
 
 export const LANE_COLORS = [
   "#38bdf8",

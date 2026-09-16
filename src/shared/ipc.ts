@@ -70,6 +70,10 @@ export interface SettingsData {
   audioSpectrum: boolean;
   /** Show the audio analysis panel button in the top bar. */
   audioPanel: boolean;
+  /** Active theme preset id (see renderer src/theme.ts). */
+  themePreset: string;
+  /** Per-token color overrides on top of the preset (token name -> hex). */
+  themeOverrides: Record<string, string>;
 }
 
 export interface IpcApi {
