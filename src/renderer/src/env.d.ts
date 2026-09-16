@@ -13,6 +13,9 @@ declare global {
   }
 
   const process: { versions: ProcessVersions };
+
+  /** Injected by electron.vite.config.ts from package.json. */
+  const __APP_VERSION__: string;
 }
 
 declare module "*.vue" {

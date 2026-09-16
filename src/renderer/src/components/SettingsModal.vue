@@ -46,6 +46,7 @@ const runtime = Object.freeze({
   chrome: pv?.chrome ?? "--",
   electron: pv?.electron ?? "--",
 });
+const appVersion = __APP_VERSION__;
 const cat = ref<
   | "general"
   | "edit"
@@ -804,11 +805,14 @@ function catLabel(key: string): string {
               </div>
               <dl class="about-meta">
                 <dt>{{ t("settings.advanced.version") }}</dt>
-                <dd>v0.1.24</dd>
+                <dd>v{{ appVersion }}</dd>
                 <dt>{{ t("settings.advanced.author") }}</dt>
                 <dd>BUGJI</dd>
                 <dt>{{ t("settings.advanced.tech") }}</dt>
-                <dd>Electron · Vue 3 · TypeScript · Element Plus</dd>
+                <dd>
+                  Electron · Vue 3 · TypeScript · Vite · Pinia · Tailwind CSS ·
+                  Reka UI
+                </dd>
                 <dt>{{ t("settings.advanced.license") }}</dt>
                 <dd>GNU GPL v3</dd>
                 <dt>{{ t("settings.advanced.runtime") }}</dt>
