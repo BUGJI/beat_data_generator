@@ -63,9 +63,9 @@ type CatKey =
 const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "general", icon: "⚙" },
   { key: "edit", icon: "✎" },
-  { key: "audio", icon: "🎵" },
+  { key: "audio", icon: "♪" },
   { key: "display", icon: "◩" },
-  { key: "theme", icon: "🎨" },
+  { key: "theme", icon: "◐" },
   { key: "shortcuts", icon: "⌨" },
   { key: "plugins", icon: "▤" },
   { key: "advanced", icon: "⬢" },
@@ -810,7 +810,7 @@ function catLabel(key: string): string {
               </div>
               <dl class="about-meta">
                 <dt>{{ t("settings.advanced.version") }}</dt>
-                <dd>v0.1.22</dd>
+                <dd>v0.1.24</dd>
                 <dt>{{ t("settings.advanced.author") }}</dt>
                 <dd>BUGJI</dd>
                 <dt>{{ t("settings.advanced.tech") }}</dt>

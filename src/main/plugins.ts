@@ -278,14 +278,11 @@ function unloadMain(id: string): void {
 
 function refreshEnabled(): PluginEntry[] {
   const list = scanAll();
-  const nextEnabled = state.enabled.filter((id) =>
-    list.some((e) => e.id === id),
-  );
-  if (nextEnabled.length !== state.enabled.length) {
-    state.enabled = nextEnabled;
-    persistState();
-  }
-  // load main.js for every currently enabled plugin that offers one
+  // Do NOT prune enabled ids that are not currently discoverable. A plugin can
+  // be transiently absent (a packaged run where the dev plugin folder isn't
+  // scanned, a plugin being edited/renamed, a folder not yet synced). Persisting
+  // the pruned list here would silently disable the plugin for good. Unknown
+  // ids are simply inert until their plugin reappears.
   for (const entry of list) {
     if (entry.enabled && entry.main) {
       unloadMain(entry.id);

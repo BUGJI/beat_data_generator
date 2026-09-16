@@ -16,7 +16,7 @@ export default {
       "Quick place: hold the left button and sweep over lanes to place markers; hold the right button and sweep to delete markers there",
     pctTip: "Auto-follow trigger position (% from the left of the viewport)",
     timeAlignTip:
-      "Time align: pins every marker to its current absolute time for this session, so BPM / offset edits don't move them; toggling off commits the current positions back into the markers' beat positions instead of snapping back to the grid",
+      "Time align: when on, editing BPM / offset rewrites each marker's beat so it keeps its current absolute time instead of moving with the grid; beats stay in sync with the current tempo map, so the saved file always matches the timeline",
   },
   app: {
     name: "Beat Data Generator",

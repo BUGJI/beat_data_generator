@@ -27,6 +27,7 @@ import type {
   BeatProject,
   BpmMode,
   BpmPoint,
+  LoopConfig,
   Marker,
   MarkerTrack,
   ProjectNote,
@@ -279,18 +280,62 @@ export const findMarker = (id: string): Marker | undefined =>
 export const findBpmPoint = (id: string): BpmPoint | undefined =>
   store.project.bpmPoints.find((p) => p.id === id);
 
-// session-only absolute-time anchors used while `timeAlign` is on. Markers are
-// always stored as beats; when time-aligned they are displayed/exported at these
-// fixed times so BPM/offset edits don't move them. Cleared when toggled off.
-const timeAnchors = new Map<string, number>();
+// `timeAlign` keeps markers pinned to their absolute time when the tempo map
+// (base BPM / offset / tempo points) changes. It does so by rewriting each
+// marker's beat against the new map, so beats always describe the current tempo
+// map — saving, reloading and exporting therefore always match what is on
+// screen. (The old implementation kept session-only anchors and only rewrote
+// beats on toggle-off, which desynced from the saved file and mixed markers
+// that were anchored under different tempo maps.)
 
-export const markerTime = (m: Marker): number => {
-  if (store.ui.timeAlign) {
-    const ms = timeAnchors.get(m.id);
-    if (typeof ms === "number" && Number.isFinite(ms)) return ms;
-  }
-  return timeOfBeat(m.beat);
-};
+/** Snapshot the absolute times of every marker and the ms-length of every loop
+ *  interval; the returned function rewrites beats/intervals against the
+ *  (possibly changed) tempo map so those absolute times are preserved. */
+function captureTimePositions(): () => void {
+  const before = tempoMap();
+  const markerTimes = store.project.markers
+    .filter((m) => !m.parentId)
+    .map((m) => ({ id: m.id, timeMs: before.timeOfBeat(m.beat) }));
+  const loopSpans = store.project.markers
+    .filter((m) => !!m.loop)
+    .map((m) => {
+      const loop = m.loop as LoopConfig;
+      return {
+        id: m.id,
+        spanMs: loop.interval * (60_000 / before.bpmAtBeat(m.beat)),
+      };
+    });
+  return () => {
+    const after = tempoMap();
+    for (const it of markerTimes) {
+      const m = findMarker(it.id);
+      if (m) m.beat = Math.max(0, after.beatOfTime(it.timeMs));
+    }
+    for (const it of loopSpans) {
+      const m = findMarker(it.id);
+      if (m?.loop)
+        m.loop.interval = Math.max(
+          1e-4,
+          it.spanMs / (60_000 / after.bpmAtBeat(m.beat)),
+        );
+    }
+    for (const m of store.project.markers.filter(
+      (x) => x.loop && !x.parentId,
+    ))
+      refreshChildren(m);
+  };
+}
+
+/** Run a tempo-map mutation; while `timeAlign` is on, marker absolute positions
+ *  are preserved by rewriting their beats afterward. */
+function withTimeAlign<T>(mutate: () => T): T {
+  const restore = store.ui.timeAlign ? captureTimePositions() : null;
+  const result = mutate();
+  if (restore) restore();
+  return result;
+}
+
+export const markerTime = (m: Marker): number => timeOfBeat(m.beat);
 
 export function timeAlignOn(): boolean {
   return store.ui.timeAlign;
@@ -298,30 +343,7 @@ export function timeAlignOn(): boolean {
 
 export function toggleTimeAlign(): boolean {
   store.ui.timeAlign = !store.ui.timeAlign;
-  if (store.ui.timeAlign) {
-    for (const m of store.project.markers) {
-      timeAnchors.set(m.id, timeOfBeat(m.beat));
-    }
-  } else {
-    // Commit each marker back to the exact beat of its anchored absolute time,
-    // so markers keep the positions shown while aligned (adjusting BPM/offset
-    // during the session no longer snaps them back to the grid).
-    historyGestureBegin();
-    for (const m of store.project.markers) {
-      const ms = timeAnchors.get(m.id);
-      if (typeof ms === "number" && Number.isFinite(ms)) {
-        m.beat = Math.max(0, beatOfTime(ms));
-      }
-    }
-    store.project.dirty = true;
-    historyGestureEnd();
-    timeAnchors.clear();
-  }
   return store.ui.timeAlign;
-}
-
-function setTimeAnchor(m: Marker): void {
-  if (store.ui.timeAlign) timeAnchors.set(m.id, timeOfBeat(m.beat));
 }
 
 export const markerCount = (): number =>
@@ -616,7 +638,6 @@ function addMarkerToStore(
   if (!track) return null;
   const marker: Marker = { id: makeId(), trackId, beat, ...extra };
   store.project.markers.push(marker);
-  setTimeAnchor(marker);
   return marker;
 }
 
@@ -767,7 +788,6 @@ export function moveMarker(
   if (blocked) return false;
   pushHistory();
   m.beat = beat;
-  setTimeAnchor(m);
   if (m.loop) refreshChildren(m);
   store.project.dirty = true;
   return true;
@@ -909,7 +929,9 @@ export function addBpmPoint(
     mode,
     value: value ?? clampBpm(inheritBpm),
   };
-  store.project.bpmPoints.push(point);
+  withTimeAlign(() => {
+    store.project.bpmPoints.push(point);
+  });
   store.project.dirty = true;
   store.ui.selected = { kind: "bpm", id: point.id };
   return point;
@@ -921,28 +943,29 @@ export function updateBpmPoint(
 ): void {
   const p = findBpmPoint(id);
   if (!p || isBpmLocked()) return;
+  const beat =
+    patch.beat !== undefined ? Math.max(0, snapped(patch.beat)) : undefined;
+  if (beat !== undefined && pointHasBeat(beat, id)) return;
   if (!editingGesture) pushHistory();
-  if (patch.beat !== undefined) {
-    const beat = Math.max(0, snapped(patch.beat));
-    if (pointHasBeat(beat, id)) return;
-    p.beat = beat;
-  }
-  if (patch.mode !== undefined && patch.mode !== p.mode) {
-    const eff = effectiveBpmFor(p);
-    if (patch.mode === "mult") {
-      const prev = bpmAtBeat(Math.max(0, p.beat - 1e-4));
-      p.mode = "mult";
-      p.value = prev > 0 ? round(eff / prev) : 1;
-    } else {
-      p.mode = "abs";
-      p.value = clampBpm(eff);
+  withTimeAlign(() => {
+    if (beat !== undefined) p.beat = beat;
+    if (patch.mode !== undefined && patch.mode !== p.mode) {
+      const eff = effectiveBpmFor(p);
+      if (patch.mode === "mult") {
+        const prev = bpmAtBeat(Math.max(0, p.beat - 1e-4));
+        p.mode = "mult";
+        p.value = prev > 0 ? round(eff / prev) : 1;
+      } else {
+        p.mode = "abs";
+        p.value = clampBpm(eff);
+      }
     }
-  }
-  if (patch.value !== undefined) {
-    const v = Number(patch.value) || 0;
-    p.value =
-      p.mode === "mult" ? Math.min(100, Math.max(0.01, v)) : clampBpm(v);
-  }
+    if (patch.value !== undefined) {
+      const v = Number(patch.value) || 0;
+      p.value =
+        p.mode === "mult" ? Math.min(100, Math.max(0.01, v)) : clampBpm(v);
+    }
+  });
   store.project.dirty = true;
 }
 
@@ -957,7 +980,9 @@ export function removeBpmPoint(id: string): void {
   const i = store.project.bpmPoints.findIndex((p) => p.id === id);
   if (i >= 0) {
     pushHistory();
-    store.project.bpmPoints.splice(i, 1);
+    withTimeAlign(() => {
+      store.project.bpmPoints.splice(i, 1);
+    });
     store.project.dirty = true;
     clearSelectionIfMissing();
   }
@@ -1165,7 +1190,15 @@ export function patchSettings(patch: Partial<SettingsData>): void {
     applyThemeFromSettings();
   if (settingsTimer !== undefined) clearTimeout(settingsTimer);
   settingsTimer = window.setTimeout(() => {
-    void window.api.updateSettings({ ...store.ui.settings });
+    // IPC uses structured clone, which cannot serialize the reactive Proxies
+    // held by nested settings values (e.g. themeOverrides). Settings are plain
+    // JSON, so snapshot through JSON to send a clone-safe payload.
+    const snapshot = JSON.parse(
+      JSON.stringify(store.ui.settings),
+    ) as SettingsData;
+    void window.api.updateSettings(snapshot).catch((err) => {
+      console.error("persist settings failed", err);
+    });
   }, 180);
 }
 
@@ -1443,7 +1476,6 @@ function freshProject(): void {
   store.ui.multi = [];
   store.ui.cardOpen = false;
   store.ui.timeAlign = false;
-  timeAnchors.clear();
   resetHistory();
   markSaved();
   addTrack(undefined, false);
@@ -2021,7 +2053,9 @@ export function setBaseBpm(v: number): void {
   const next = clampBpm(v);
   if (next === store.project.baseBpm) return;
   pushHistory();
-  store.project.baseBpm = next;
+  withTimeAlign(() => {
+    store.project.baseBpm = next;
+  });
   store.project.dirty = true;
 }
 
@@ -2029,7 +2063,9 @@ export function setOffset(v: number): void {
   const next = Math.round(v);
   if (next === store.project.offsetMs) return;
   pushHistory();
-  store.project.offsetMs = next;
+  withTimeAlign(() => {
+    store.project.offsetMs = next;
+  });
   store.project.dirty = true;
 }
 
