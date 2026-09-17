@@ -51,9 +51,7 @@ export function patchSettings(patch: Partial<SettingsData>): void {
     // IPC uses structured clone, which cannot serialize the reactive Proxies
     // held by nested settings values (e.g. themeOverrides). Settings are plain
     // JSON, so snapshot through JSON to send a clone-safe payload.
-    const snapshot = JSON.parse(
-      JSON.stringify(store.settings),
-    ) as SettingsData;
+    const snapshot = JSON.parse(JSON.stringify(store.settings)) as SettingsData;
     void window.api.updateSettings(snapshot).catch((err) => {
       console.error("persist settings failed", err);
     });

@@ -120,19 +120,13 @@ export interface PluginApi {
       renameTrack: (trackId: string, name: string) => void;
       setTrackLocked: (trackId: string, v: boolean) => void;
       setTrackHidden: (trackId: string, v: boolean) => void;
-      addMarker: (opts: {
-        trackId: string;
-        beat: number;
-      }) => string | null;
+      addMarker: (opts: { trackId: string; beat: number }) => string | null;
       moveMarker: (id: string, beat: number) => boolean;
       removeMarker: (id: string) => void;
       /** Create a track of a plugin-typed kind; null when the type is unknown. */
       addTypedTrack: (typeKey: string, name?: string) => string | null;
       /** Merge changes into a marker's plugin attributes (undo aware). */
-      setMarkerAttrs: (
-        id: string,
-        attrs: Record<string, unknown>,
-      ) => void;
+      setMarkerAttrs: (id: string, attrs: Record<string, unknown>) => void;
       /** Set a main marker's loop group config (undo aware); null clears it. */
       setMarkerLoop: (
         id: string,
@@ -169,11 +163,17 @@ export interface PluginApi {
   };
 
   events: {
-    on: (name: "project" | "selection" | "playhead" | "playing", cb: (payload?: unknown) => void) => () => void;
+    on: (
+      name: "project" | "selection" | "playhead" | "playing",
+      cb: (payload?: unknown) => void,
+    ) => () => void;
   };
 
   ui: {
-    registerAction: (def: { label: string | Record<string, string>; run: () => void | Promise<void> }) => () => void;
+    registerAction: (def: {
+      label: string | Record<string, string>;
+      run: () => void | Promise<void>;
+    }) => () => void;
     registerPanel: (def: {
       id: string;
       title: string | Record<string, string>;
@@ -200,13 +200,18 @@ export interface PluginApi {
   };
 
   system: {
-    pickFile: (opts?: { title?: string; filters?: FileFilter[] }) => Promise<string | null>;
+    pickFile: (opts?: {
+      title?: string;
+      filters?: FileFilter[];
+    }) => Promise<string | null>;
     saveFile: (opts: {
       title?: string;
       defaultPath?: string;
       filters?: FileFilter[];
     }) => Promise<{ canceled: boolean; filePath?: string }>;
-    readText: (path: string) => Promise<{ canceled: boolean; filePath?: string; content?: string }>;
+    readText: (
+      path: string,
+    ) => Promise<{ canceled: boolean; filePath?: string; content?: string }>;
     writeText: (path: string, content: string) => Promise<boolean>;
     openWindow: (opts: OpenWindowOptions) => Promise<void>;
     openPluginsFolder: () => Promise<void>;
@@ -276,19 +281,19 @@ export function createPluginApi(binding: PluginBinding): {
       markers: p.markers
         .filter((m) => !hiddenSet.has(m.trackId))
         .map((m) => {
-        const out: MarkerView = {
-          id: m.id,
-          trackId: m.trackId,
-          beat: m.beat,
-          timeMs: map.timeOfBeat(m.beat),
-        };
-        if (m.parentId) out.parentId = m.parentId;
-        const loop = clampMarkerLoop(m.loop);
-        if (loop) out.loop = loop;
-        const attrs = (m as { attrs?: Record<string, unknown> }).attrs;
-        if (attrs) out.attrs = { ...attrs };
-        return out;
-      }),
+          const out: MarkerView = {
+            id: m.id,
+            trackId: m.trackId,
+            beat: m.beat,
+            timeMs: map.timeOfBeat(m.beat),
+          };
+          if (m.parentId) out.parentId = m.parentId;
+          const loop = clampMarkerLoop(m.loop);
+          if (loop) out.loop = loop;
+          const attrs = (m as { attrs?: Record<string, unknown> }).attrs;
+          if (attrs) out.attrs = { ...attrs };
+          return out;
+        }),
       bpmPoints: p.bpmPoints.map((b) => ({
         id: b.id,
         beat: b.beat,

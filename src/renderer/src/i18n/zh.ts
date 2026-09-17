@@ -14,7 +14,8 @@ export default {
     pctTip: "自动跟随触发位置（视口左起百分比）",
     timeAlignTip:
       "时间轴对齐：开启后修改 BPM 或偏移会改写踩点的拍位，使踩点保持当前绝对时间不变、不随网格移动；拍位始终与当前速度图一致，保存的工程与时间轴所见始终相同",
-    alignTip: "自动对齐：按“设置 → 编辑”中的保留小数位与取整方式对齐所有踩点拍位",
+    alignTip:
+      "自动对齐：按“设置 → 编辑”中的保留小数位与取整方式对齐所有踩点拍位",
   },
   app: {
     name: "Beat Data Generator",
@@ -224,8 +225,7 @@ export default {
       roundCeil: "向上取整",
     },
     audio: {
-      tagline:
-        "音频智能分析由 pleco-xa 提供。每项能力都是独立开关。",
+      tagline: "音频智能分析由 pleco-xa 提供。每项能力都是独立开关。",
       autoBpm: "自动检测 BPM",
       autoBpmDesc:
         "载入音频时检测速度并写入工程 BPM（BPM 被锁定时跳过不覆盖）。",
@@ -236,11 +236,9 @@ export default {
       loopDetectDesc:
         "载入音频时找出最佳循环段落，在分析面板里显示其起止时间作为提示。",
       liveBpm: "实时刷新 BPM",
-      liveBpmDesc:
-        "播放过程中在面板实时刷新 BPM 读数。绝不影响工程 BPM。",
+      liveBpmDesc: "播放过程中在面板实时刷新 BPM 读数。绝不影响工程 BPM。",
       spectrum: "频谱分析面板",
-      spectrumDesc:
-        "计算梅尔频谱图并渲染到音频分析面板。",
+      spectrumDesc: "计算梅尔频谱图并渲染到音频分析面板。",
       panel: "分析面板按钮",
       panelDesc: "在顶部工具栏显示音频分析面板的开关按钮。",
       metronomeTitle: "打拍音",
@@ -261,8 +259,7 @@ export default {
       loopNone: "未检测到循环",
       confidence: "置信度",
       spectrumTitle: "频谱",
-      spectrumHint:
-        "打开“频谱分析面板”开关，可在此显示梅尔频谱图。",
+      spectrumHint: "打开“频谱分析面板”开关，可在此显示梅尔频谱图。",
       noAudio: "请先载入音频再分析。",
       addBeats: "添加节拍轨道",
     },
@@ -299,7 +296,8 @@ export default {
       master: "开发者选项",
       masterDesc: "关闭时禁用调试工具并隐藏入口",
       freeInput: "去除输入限制",
-      freeInputDesc: "开启后所有数值输入框不再限制上下限/小数位，可输入任意数字",
+      freeInputDesc:
+        "开启后所有数值输入框不再限制上下限/小数位，可输入任意数字",
       openTools: "打开浏览器调试工具",
       openToolsDesc: "点击先关闭再重新打开调试工具窗口。",
       disabledNote: "开发者选项已关闭，开启总开关以使用调试工具。",
@@ -315,7 +313,8 @@ export default {
       reload: "重新扫描并加载",
       openFolder: "打开插件目录",
       none: "尚未发现任何插件",
-      noneHint: "把插件文件夹放进插件目录（或项目内 plugins/ 目录），然后点“重新扫描并加载”。",
+      noneHint:
+        "把插件文件夹放进插件目录（或项目内 plugins/ 目录），然后点“重新扫描并加载”。",
       version: "版本",
     },
   },

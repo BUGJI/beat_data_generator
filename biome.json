@@ -7,7 +7,21 @@
   },
   "files": {
     "ignoreUnknown": true,
-    "includes": ["**", "!**/*.vue", "!plugins", "!out", "!release", "!dist", "!coverage"]
+    "includes": [
+      "**",
+      "!**/*.vue",
+      "!**/*.html",
+      "!plugins",
+      "!out",
+      "!release",
+      "!dist",
+      "!coverage"
+    ]
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
   },
   "formatter": {
     "enabled": true,

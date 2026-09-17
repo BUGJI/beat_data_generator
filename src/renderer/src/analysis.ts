@@ -58,7 +58,11 @@ function sampleRate(): number | null {
 }
 
 /** Linear-decimate a float signal to a target sample rate (analysis tier). */
-function downsample(y: Float32Array, src: number, target: number): Float32Array {
+function downsample(
+  y: Float32Array,
+  src: number,
+  target: number,
+): Float32Array {
   if (src <= target || src <= 0) return y;
   const ratio = src / target;
   const outLen = Math.max(1, Math.floor(y.length / ratio));
@@ -77,10 +81,7 @@ function downsample(y: Float32Array, src: number, target: number): Float32Array 
 
 let worker: Worker | null = null;
 let workerId = 0;
-const pending = new Map<
-  number,
-  (res: AnalyseResponse) => void
->();
+const pending = new Map<number, (res: AnalyseResponse) => void>();
 
 function ensureWorker(): Worker {
   if (worker) return worker;
@@ -108,7 +109,10 @@ function ensureWorker(): Worker {
 }
 
 /** Fire a beat/loop/spectrum analysis in the worker. */
-function requestAnalysis(wantLoop: boolean, wantSpectrum: boolean): Promise<AnalyseResponse> {
+function requestAnalysis(
+  wantLoop: boolean,
+  wantSpectrum: boolean,
+): Promise<AnalyseResponse> {
   const y = mono();
   const sr = sampleRate();
   if (!y || !sr) {
@@ -243,16 +247,15 @@ function pollLiveBpm(): void {
   const yLen = y ? y.length : 0;
   if (!y || !src || yLen === 0 || !useTransportStore().playing) return;
   const winSec = 6;
-  const startSec = Math.max(0, useTransportStore().positionMs / 1000 - winSec / 2);
+  const startSec = Math.max(
+    0,
+    useTransportStore().positionMs / 1000 - winSec / 2,
+  );
   const start = Math.min(yLen - 1, Math.floor(startSec * src));
   const end = Math.min(yLen, start + winSec * src);
   if (end - start < src * 0.5) return;
   const downSr = Math.min(src, 22050);
-  const seg = downsample(
-    (y as Float32Array).subarray(start, end),
-    src,
-    downSr,
-  );
+  const seg = downsample((y as Float32Array).subarray(start, end), src, downSr);
   void requestLive(seg, downSr).then((bpm) => {
     if (bpm !== null) analysis.liveBpm = bpm;
     // keep the last good readout if this window was ambiguous

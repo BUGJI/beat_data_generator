@@ -154,17 +154,15 @@ const lastBeatLabel = computed(() => {
   return formatTime(last);
 });
 const markersLabel = computed(() => String(markerCount()));
-const zoomLabel = computed(
-  () => `${view.pxPerSec.toFixed(1)} px/s`,
-);
-const followPctLabel = computed(
-  () => `${settings.settings.followPercent}%`,
-);
+const zoomLabel = computed(() => `${view.pxPerSec.toFixed(1)} px/s`);
+const followPctLabel = computed(() => `${settings.settings.followPercent}%`);
 
 function wheelOffset(e: WheelEvent): void {
   const step = Math.sign(e.deltaY) * 5;
   const cur = project.offsetMs;
-  const v = freeInput.value ? cur - step : Math.max(-100000, Math.min(100000, cur - step));
+  const v = freeInput.value
+    ? cur - step
+    : Math.max(-100000, Math.min(100000, cur - step));
   if (v !== cur) offset.value = v;
 }
 
@@ -195,7 +193,8 @@ const snapOptions = computed<Array<{ value: number; label: string }>>(() => {
 });
 
 function parseSnapDenominator(raw: string | number): number | null {
-  if (typeof raw === "number") return Number.isFinite(raw) && raw > 0 ? raw : null;
+  if (typeof raw === "number")
+    return Number.isFinite(raw) && raw > 0 ? raw : null;
   const m = /^(?:1\/)?(\d+(?:\.\d+)?)$/.exec(raw.trim());
   if (!m) return null;
   const d = Number(m[1]);
@@ -311,7 +310,10 @@ async function onDetectBpm(): Promise<void> {
         <span class="snap-unit">{{ t("sidebar.snapUnit") }}</span>
       </div>
 
-      <div v-if="transport.audioMissing || transport.audioConflict" class="warn">
+      <div
+        v-if="transport.audioMissing || transport.audioConflict"
+        class="warn"
+      >
         {{
           transport.audioConflict
             ? t("dialogs.audioMismatch")
@@ -448,7 +450,13 @@ async function onDetectBpm(): Promise<void> {
             <path d="M4 12h14" />
             <path d="M4 17h8" />
             <circle cx="19" cy="6" r="1.7" fill="currentColor" stroke="none" />
-            <circle cx="19.5" cy="12" r="1.7" fill="currentColor" stroke="none" />
+            <circle
+              cx="19.5"
+              cy="12"
+              r="1.7"
+              fill="currentColor"
+              stroke="none"
+            />
           </svg>
         </button>
         <button

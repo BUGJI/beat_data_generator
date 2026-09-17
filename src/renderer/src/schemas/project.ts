@@ -249,9 +249,7 @@ export function parseProjectDocument(raw: unknown): ParsedProject | null {
   const o = raw as Record<string, unknown>;
   if (o.app !== APP_ID || o.markers === undefined) return null;
   const legacyAudioPath =
-    typeof o.audioPath === "string" && o.audioPath.trim()
-      ? o.audioPath
-      : null;
+    typeof o.audioPath === "string" && o.audioPath.trim() ? o.audioPath : null;
 
   if (o.version !== PROJECT_VERSION) return parseLegacy(o, legacyAudioPath);
 

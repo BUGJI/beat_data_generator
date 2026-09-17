@@ -124,10 +124,7 @@ export function clearSelectionIfMissing(): void {
 
 // ---- public function API (routes through the actions above) ----
 
-export function select(
-  kind: "marker" | "bpm" | null,
-  id: string | null,
-): void {
+export function select(kind: "marker" | "bpm" | null, id: string | null): void {
   useSelectionStore().select(kind, id);
 }
 

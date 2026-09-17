@@ -39,9 +39,7 @@ import UiSwitch from "./ui/UiSwitch.vue";
 const settings = useSettingsStore();
 const { t, locale } = useI18n();
 const pv =
-  typeof process !== "undefined" && process.versions
-    ? process.versions
-    : null;
+  typeof process !== "undefined" && process.versions ? process.versions : null;
 const runtime = Object.freeze({
   node: pv?.node ?? "--",
   chrome: pv?.chrome ?? "--",
@@ -286,12 +284,15 @@ const audioPanel = computed({
 });
 
 async function pickMetronome(): Promise<void> {
-  const path = await window.api.pickFile(t("settings.audio.metronomePickTitle"), [
-    {
-      name: t("settings.audio.metronomeAudioFilter"),
-      extensions: ["wav", "mp3", "ogg", "flac", "m4a", "aac", "webm"],
-    },
-  ]);
+  const path = await window.api.pickFile(
+    t("settings.audio.metronomePickTitle"),
+    [
+      {
+        name: t("settings.audio.metronomeAudioFilter"),
+        extensions: ["wav", "mp3", "ogg", "flac", "m4a", "aac", "webm"],
+      },
+    ],
+  );
   if (!path) return;
   await loadMetronome(path);
   patchSettings({ metronomePath: path });
@@ -391,7 +392,9 @@ function catLabel(key: string): string {
                   class="mode-group"
                   :model-value="closeMode"
                   :options="closeModeOptions"
-                  @update:model-value="(v: string) => (closeMode = v as CloseMode)"
+                  @update:model-value="
+                    (v: string) => (closeMode = v as CloseMode)
+                  "
                 />
               </div>
             </section>
@@ -515,7 +518,9 @@ function catLabel(key: string): string {
             <!-- 音频 -->
             <section v-if="cat === 'audio'">
               <h3>{{ t("settings.cats.audio") }}</h3>
-              <p class="muted audio-tagline">{{ t("settings.audio.tagline") }}</p>
+              <p class="muted audio-tagline">
+                {{ t("settings.audio.tagline") }}
+              </p>
 
               <div class="field-row">
                 <div class="field-info">
@@ -589,7 +594,9 @@ function catLabel(key: string): string {
                 <UiSwitch v-model="audioPanel" />
               </div>
 
-              <div class="sub-head">{{ t("settings.audio.metronomeTitle") }}</div>
+              <div class="sub-head">
+                {{ t("settings.audio.metronomeTitle") }}
+              </div>
 
               <div class="field-row">
                 <div class="field-info">
@@ -681,11 +688,7 @@ function catLabel(key: string): string {
               </div>
               <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
 
-              <div
-                v-for="g in themeGroups"
-                :key="g.key"
-                class="theme-group"
-              >
+              <div v-for="g in themeGroups" :key="g.key" class="theme-group">
                 <div class="theme-group-title">
                   {{ t(`settings.theme.groups.${g.key}`) }}
                 </div>
@@ -702,7 +705,9 @@ function catLabel(key: string): string {
                   <div class="theme-token-ctrl">
                     <UiColorPicker
                       :model-value="themeSpec[token]"
-                      @update:model-value="(v: string) => onThemeToken(token, v)"
+                      @update:model-value="
+                        (v: string) => onThemeToken(token, v)
+                      "
                     />
                     <button
                       class="theme-token-reset"
@@ -756,7 +761,11 @@ function catLabel(key: string): string {
                 <p class="muted">{{ t("settings.plugins.noneHint") }}</p>
               </div>
 
-              <div v-for="entry in pluginEntries" :key="entry.id" class="plugin-card">
+              <div
+                v-for="entry in pluginEntries"
+                :key="entry.id"
+                class="plugin-card"
+              >
                 <div class="plugin-main">
                   <div class="plugin-titles">
                     <span class="plugin-name">

@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import {
   markersInTrack,
@@ -69,7 +76,13 @@ import {
   MIN_PX_PER_SEC,
   BEATS_PER_BAR,
 } from "../metrics";
-import type { BpmMode, Marker, MarkerTrack, BpmPoint, ProjectNote } from "../types";
+import type {
+  BpmMode,
+  Marker,
+  MarkerTrack,
+  BpmPoint,
+  ProjectNote,
+} from "../types";
 import { render as mdRender, escapeHtml } from "slimdown-js";
 import {
   getTypedef,
@@ -253,9 +266,7 @@ const laneKindAt = (
 // ---- snapping helpers ----
 
 function doSnap(raw: number): number {
-  return view.snapEnabled
-    ? snapBeat(Math.max(0, raw), view.snapDiv)
-    : raw;
+  return view.snapEnabled ? snapBeat(Math.max(0, raw), view.snapDiv) : raw;
 }
 
 function markerOccupy(
@@ -563,7 +574,10 @@ function gridSubDiv(t0: number, t1: number): number {
     const d = timeOfBeat(b + 1) - timeOfBeat(b);
     if (d < minSecPerBeat) minSecPerBeat = d;
   }
-  if (!Number.isFinite(minSecPerBeat) || (pps * minSecPerBeat) / actual < MIN_SUB_PX) {
+  if (
+    !Number.isFinite(minSecPerBeat) ||
+    (pps * minSecPerBeat) / actual < MIN_SUB_PX
+  ) {
     return 0;
   }
   return actual;
@@ -701,8 +715,7 @@ function drawMarkerLanesContent(
   const selGroup = new Set<string>();
   for (const mid of markerSelectionIds()) {
     selGroup.add(mid);
-    for (const c of project.markers)
-      if (c.parentId === mid) selGroup.add(c.id);
+    for (const c of project.markers) if (c.parentId === mid) selGroup.add(c.id);
   }
   for (const r of rows) {
     const track = trackAt(r.i);
@@ -972,7 +985,8 @@ function applyBoxSelection(): void {
   const picked: string[] = [];
   project.tracks.forEach((tr, idx) => {
     // screen y of this lane's vertical centre
-    const my = RULER_H - view.y + BPM_LANE_H + idx * MARKER_LANE_H + MARKER_LANE_H / 2;
+    const my =
+      RULER_H - view.y + BPM_LANE_H + idx * MARKER_LANE_H + MARKER_LANE_H / 2;
     if (my < b.y0 || my > b.y1) return;
     for (const m of markersInTrack(tr.id)) {
       if (m.parentId) continue; // box selects the loop parents only
@@ -1112,10 +1126,7 @@ function onPointerMove(e: PointerEvent): void {
   if (Math.abs(x - downX) > 3 || Math.abs(y - downY) > 3) moved = true;
 
   if (mode === "pan") {
-    setScroll(
-      panStartViewX - (x - panStartX),
-      panStartViewY - (y - panStartY),
-    );
+    setScroll(panStartViewX - (x - panStartX), panStartViewY - (y - panStartY));
     return;
   }
   const lane = laneKindAt(y);
@@ -1140,7 +1151,9 @@ function onPointerMove(e: PointerEvent): void {
     // translate the whole group by the grabbed point's delta so the point under
     // the cursor stays grabbed; the main moves by the same offset.
     const mainBeat = mainStartBeat + (raw - grabStartBeat);
-    const ok = !e.altKey ? !markerOccupy(dragTrackId, mainBeat, dragGroupIds) : true;
+    const ok = !e.altKey
+      ? !markerOccupy(dragTrackId, mainBeat, dragGroupIds)
+      : true;
     if (ok) moveMarker(dragId, mainBeat, true);
   } else if (mode === "brushAdd" || mode === "brushErase") {
     brushStep(x, y);
@@ -1179,8 +1192,7 @@ function onPointerUp(e: PointerEvent): void {
     } else if (mode === "placeBpm") {
       const beat = doSnap(Math.max(0, beatOfTime(screenToTime(x))));
       const pt = addBpmPoint(beat);
-      if (pt)
-        openCard(x, y);
+      if (pt) openCard(x, y);
     } else if (mode === "placeMarker") {
       const lane = laneKindAt(y);
       const track = lane.kind === "marker" ? trackAt(lane.index) : undefined;
@@ -1273,7 +1285,10 @@ function onWheel(e: WheelEvent): void {
     const from = view.pxPerSec;
     const target = Math.min(
       MAX_PX_PER_SEC,
-      Math.max(MIN_PX_PER_SEC, view.pxPerSec * (e.deltaY < 0 ? 1.25 : 1 / 1.25)),
+      Math.max(
+        MIN_PX_PER_SEC,
+        view.pxPerSec * (e.deltaY < 0 ? 1.25 : 1 / 1.25),
+      ),
     );
     const tc = screenToTime(cx); // time currently at the viewport centre
     const applyZoom = (k: number): void => {
@@ -1371,8 +1386,7 @@ const selMarker = computed<Marker | null>(() =>
 );
 const selBpm = computed<BpmPoint | null>(() =>
   selection.selected.kind === "bpm"
-    ? (project.bpmPoints.find((p) => p.id === selection.selected.id) ??
-      null)
+    ? (project.bpmPoints.find((p) => p.id === selection.selected.id) ?? null)
     : null,
 );
 const cardVisible = computed(() => selection.cardOpen);
@@ -1540,7 +1554,8 @@ const markerColor = computed(() => {
   const m = selMarker.value;
   if (!m) return "var(--bdg-text-dim)";
   return (
-    project.tracks.find((tr) => tr.id === m.trackId)?.color ?? "var(--bdg-text-dim)"
+    project.tracks.find((tr) => tr.id === m.trackId)?.color ??
+    "var(--bdg-text-dim)"
   );
 });
 const bpmMode = computed<BpmMode>({
@@ -1591,8 +1606,8 @@ const typedMarkerInfo = computed<{
   };
 });
 
-const typedFields = computed<PluginFieldDef[]>(() =>
-  typedMarkerInfo.value?.def?.fields ?? [],
+const typedFields = computed<PluginFieldDef[]>(
+  () => typedMarkerInfo.value?.def?.fields ?? [],
 );
 
 const markerAttrsJson = computed(() => {
@@ -1798,9 +1813,7 @@ const selectionMs = computed<string | null>(() => {
       <span class="sep">·</span>
       <span>{{ t("timeline.tempoHint") }}</span>
       <span v-if="view.snapEnabled" class="sep">·</span>
-      <span v-if="view.snapEnabled" class="num"
-        >snap 1/{{ view.snapDiv }}</span
-      >
+      <span v-if="view.snapEnabled" class="num">snap 1/{{ view.snapDiv }}</span>
       <span v-if="selectionMs" class="sep">·</span>
       <span v-if="selectionMs" class="num">{{ selectionMs }}</span>
     </div>
@@ -1927,8 +1940,13 @@ const selectionMs = computed<string | null>(() => {
               <UiInput
                 v-else-if="f.type === 'string'"
                 :model-value="String(markerFieldValue(f) ?? '')"
-                @blur="(e: FocusEvent) => onTextField(f, (e.target as HTMLInputElement).value)"
-                @keyup.enter="onTextField(f, ($event.target as HTMLInputElement).value)"
+                @blur="
+                  (e: FocusEvent) =>
+                    onTextField(f, (e.target as HTMLInputElement).value)
+                "
+                @keyup.enter="
+                  onTextField(f, ($event.target as HTMLInputElement).value)
+                "
               />
               <UiSwitch
                 v-else-if="f.type === 'bool'"

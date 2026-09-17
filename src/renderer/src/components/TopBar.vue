@@ -33,7 +33,8 @@ import {
   isPanelOpen,
 } from "../plugins/registry";
 import { pluginEntries, pluginName } from "../plugins/host";
-import { newProject,
+import {
+  newProject,
   openProject,
   saveProject,
   saveProjectQuick,
@@ -341,9 +342,9 @@ onMounted(() => {
           :value="(ch.kind === 'action' ? 'a' : 'p') + ch.uid"
           :class="{ 'plug-open': ch.kind === 'panel' && ch.open }"
         >
-          <span v-if="ch.kind === 'panel'" class="plug-check"
-            >{{ ch.open ? "●" : "○" }}</span
-          >
+          <span v-if="ch.kind === 'panel'" class="plug-check">{{
+            ch.open ? "●" : "○"
+          }}</span>
           <span v-else class="plug-check">▸</span>
           <span class="plug-label">{{ ch.label }}</span>
         </UiDropdownItem>
@@ -377,10 +378,7 @@ onMounted(() => {
       </template>
     </UiDropdownMenu>
 
-    <span
-      v-if="dirtyTitle"
-      class="top-dirty"
-      :title="t('toolbar.unsavedDot')"
+    <span v-if="dirtyTitle" class="top-dirty" :title="t('toolbar.unsavedDot')"
       >●</span
     >
 
@@ -437,7 +435,11 @@ onMounted(() => {
   align-items: center;
   gap: 4px;
   padding: 0 10px;
-  background: linear-gradient(180deg, var(--bdg-bg-raised), var(--bdg-bg-panel));
+  background: linear-gradient(
+    180deg,
+    var(--bdg-bg-raised),
+    var(--bdg-bg-panel)
+  );
   border-bottom: 1px solid var(--bdg-border);
   flex: none;
 }

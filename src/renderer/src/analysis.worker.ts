@@ -48,7 +48,9 @@ export type LiveResponse = {
 export type WorkerResponse = AnalyseResponse | LiveResponse;
 
 const post = (msg: WorkerResponse): void =>
-  (self as unknown as { postMessage: (m: WorkerResponse) => void }).postMessage(msg);
+  (self as unknown as { postMessage: (m: WorkerResponse) => void }).postMessage(
+    msg,
+  );
 
 self.onmessage = async (e: MessageEvent<AnalyseRequest | LiveRequest>) => {
   const req = e.data;

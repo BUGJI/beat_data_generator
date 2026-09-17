@@ -32,7 +32,9 @@ const totalLabel = computed(() =>
   hasAudio.value ? formatTime(contentEndMs()) : "--:--.---",
 );
 const bpmLabel = computed(() => bpmAtTime(transport.positionMs).toFixed(1));
-const liveBpmOn = computed(() => settings.settings.audioLiveBpm && !!analysis.liveBpm);
+const liveBpmOn = computed(
+  () => settings.settings.audioLiveBpm && !!analysis.liveBpm,
+);
 const liveBpmLabel = computed(() =>
   analysis.liveBpm ? analysis.liveBpm.toFixed(1) : "--",
 );
@@ -92,7 +94,8 @@ onBeforeUnmount(() => {
           v-if="liveBpmOn"
           class="live-bpm"
           :title="t('transport.bpmReadout')"
-        >{{ t("transport.bpmReadout") }}: {{ liveBpmLabel }}</span>
+          >{{ t("transport.bpmReadout") }}: {{ liveBpmLabel }}</span
+        >
       </div>
       <div
         class="rate-ctl"
@@ -170,7 +173,13 @@ onBeforeUnmount(() => {
 
     <div class="tr-right">
       <span class="vol-label">{{ t("transport.volume") }}</span>
-      <UiSlider v-model="vol" :min="0" :max="1" :step="0.01" class="vol-slider" />
+      <UiSlider
+        v-model="vol"
+        :min="0"
+        :max="1"
+        :step="0.01"
+        class="vol-slider"
+      />
     </div>
   </footer>
 </template>

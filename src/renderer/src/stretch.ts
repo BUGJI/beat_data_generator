@@ -45,11 +45,7 @@ export async function stretchAudioBuffer(
     }
   }
   const ctx = new OfflineAudioContext(1, 1, original.sampleRate);
-  const target = ctx.createBuffer(
-    ch,
-    Math.max(1, total),
-    original.sampleRate,
-  );
+  const target = ctx.createBuffer(ch, Math.max(1, total), original.sampleRate);
   const L = target.getChannelData(0);
   for (let i = 0; i < total; i++) L[i] = out[i * ch];
   if (!mono) {

@@ -113,9 +113,7 @@ function drawSpectrum(): void {
       const db = 20 * Math.log10(v + 1e-6);
       const norm = Math.max(0, Math.min(1, (db + 80) / 90));
       const ci = Math.min(95, Math.floor(norm * 96));
-      const [r, g, b] = colors[ci]!
-        .match(/\d+/g)!
-        .map((x) => Number(x));
+      const [r, g, b] = colors[ci]!.match(/\d+/g)!.map((x) => Number(x));
       const idx = (py * w + px) * 4;
       img.data[idx] = r;
       img.data[idx + 1] = g;
@@ -186,7 +184,9 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="ana-row">
-            <span class="ana-label">{{ t("settings.audio.liveBpmTitle") }}</span>
+            <span class="ana-label">{{
+              t("settings.audio.liveBpmTitle")
+            }}</span>
             <span class="ana-value num live">{{ live }}</span>
           </div>
 
@@ -196,21 +196,25 @@ onBeforeUnmount(() => {
           </div>
 
           <div class="ana-actions">
-            <UiButton size="sm" :loading="analysis.analyzing" @click="onReanalyze">
+            <UiButton
+              size="sm"
+              :loading="analysis.analyzing"
+              @click="onReanalyze"
+            >
               {{ t("settings.audio.reanalyze") }}
             </UiButton>
-            <UiButton size="sm" :disabled="!analysis.beats.length" @click="onGenerateBeats">
+            <UiButton
+              size="sm"
+              :disabled="!analysis.beats.length"
+              @click="onGenerateBeats"
+            >
               {{ t("settings.audio.genBeats") }}
             </UiButton>
           </div>
 
           <div class="ana-spectrum">
             <div class="ana-sub">{{ t("settings.audio.spectrumTitle") }}</div>
-            <canvas
-              v-if="showSpectrum"
-              ref="canvas"
-              class="ana-canvas"
-            />
+            <canvas v-if="showSpectrum" ref="canvas" class="ana-canvas" />
             <div v-else class="ana-spectrum-empty">
               {{ t("settings.audio.spectrumHint") }}
             </div>

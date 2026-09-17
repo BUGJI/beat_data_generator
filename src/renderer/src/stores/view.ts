@@ -73,7 +73,10 @@ export const lanesTotalH = (): number => {
 };
 
 export const contentWidthPx = (): number =>
-  Math.max((contentEndMs() / 1000) * useViewStore().pxPerSec + 400, useViewStore().vw);
+  Math.max(
+    (contentEndMs() / 1000) * useViewStore().pxPerSec + 400,
+    useViewStore().vw,
+  );
 
 export const maxX = (): number =>
   Math.max(0, contentWidthPx() - useViewStore().vw);
@@ -119,7 +122,7 @@ function clampZoom(v: number): number {
 }
 
 function easeOutCubic(t: number): number {
-  return 1 - Math.pow(1 - t, 3);
+  return 1 - (1 - t) ** 3;
 }
 
 let zoomAnchorSec: number | null = null;
@@ -146,7 +149,10 @@ function animateZoomTo(target: number, anchorSec: number | null): void {
   } else {
     zoomAnchorSec = null;
   }
-  if (!useSettingsStore().settings.animEnabled || Math.abs(target - from) < 0.001) {
+  if (
+    !useSettingsStore().settings.animEnabled ||
+    Math.abs(target - from) < 0.001
+  ) {
     view.pxPerSec = target;
     keepZoomAnchor();
     zoomAnchorSec = null;

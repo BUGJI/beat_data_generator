@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { computed } from "vue";
-import {
-  SliderRange,
-  SliderRoot,
-  SliderThumb,
-  SliderTrack,
-} from "reka-ui";
+import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from "reka-ui";
 
-withDefaults(
-  defineProps<{ min?: number; max?: number; step?: number }>(),
-  { min: 0, max: 100, step: 1 },
-);
+withDefaults(defineProps<{ min?: number; max?: number; step?: number }>(), {
+  min: 0,
+  max: 100,
+  step: 1,
+});
 
 const model = defineModel<number>({ required: true });
 

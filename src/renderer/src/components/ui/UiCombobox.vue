@@ -60,9 +60,7 @@ function choose(opt: ComboboxOption): void {
 function commit(): void {
   const raw = text.value.trim();
   if (raw) {
-    const exact = props.options.find(
-      (o) => o.label === raw || o.value === raw,
-    );
+    const exact = props.options.find((o) => o.label === raw || o.value === raw);
     if (exact) {
       choose(exact);
       return;
@@ -75,9 +73,7 @@ function commit(): void {
 
 function onEnter(): void {
   const raw = text.value.trim();
-  const exact = props.options.find(
-    (o) => o.label === raw || o.value === raw,
-  );
+  const exact = props.options.find((o) => o.label === raw || o.value === raw);
   if (exact) {
     choose(exact);
     return;
@@ -131,7 +127,10 @@ function onEscape(): void {
           @mousedown.prevent="choose(o)"
         >
           <Check
-            :class="['size-3.5 shrink-0', o.value === model ? 'text-accent' : 'invisible']"
+            :class="[
+              'size-3.5 shrink-0',
+              o.value === model ? 'text-accent' : 'invisible',
+            ]"
           />
           <span>{{ o.label }}</span>
         </button>

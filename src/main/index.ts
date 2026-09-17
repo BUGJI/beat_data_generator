@@ -1,4 +1,12 @@
-import { app, BrowserWindow, ipcMain, dialog, Menu, Notification, shell } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  Menu,
+  Notification,
+  shell,
+} from "electron";
 import { autoUpdater } from "electron-updater";
 import { createHash } from "crypto";
 import { readFile, writeFile } from "fs/promises";
@@ -122,7 +130,7 @@ function joinDefaultDir(
   defaultPath: string,
   dirFromPath: string,
 ): string | undefined {
-  const base = defaultPath.split(/[\/]/).pop() || defaultPath;
+  const base = defaultPath.split(/[/]/).pop() || defaultPath;
   if (dirFromPath && dirFromPath.length) return join(dirFromPath, base);
   const dir = lastDirs[kind];
   return dir ? join(dir, base) : defaultPath;
@@ -186,9 +194,10 @@ function saveWindowState(): void {
 
 function loadSettings(): void {
   try {
-    const raw = JSON.parse(
-      readFileSync(settingsPath(), "utf-8"),
-    ) as Record<string, unknown>;
+    const raw = JSON.parse(readFileSync(settingsPath(), "utf-8")) as Record<
+      string,
+      unknown
+    >;
     let changed = false;
     // Migration: v1 shipped with auto audio-analysis toggles defaulting on.
     // Reset the analysis toggles to their current defaults so residual
@@ -416,13 +425,7 @@ function registerIpc(): void {
   ipcMain.handle(
     "text:saveEdl",
     (_e, defaultPath: string, content: string): Promise<SaveResult> =>
-      saveViaDialog(
-        "export",
-        "Export EDL",
-        defaultPath,
-        EDL_FILTERS,
-        content,
-      ),
+      saveViaDialog("export", "Export EDL", defaultPath, EDL_FILTERS, content),
   );
 
   ipcMain.handle(
@@ -622,7 +625,9 @@ function registerIpc(): void {
       const r = await dialog.showSaveDialog(w, {
         title: typeof title === "string" && title ? title : "Save file",
         defaultPath:
-          typeof defaultPath === "string" && defaultPath ? defaultPath : "untitled",
+          typeof defaultPath === "string" && defaultPath
+            ? defaultPath
+            : "untitled",
         filters: sanitizeFilters(filters),
       });
       if (r.canceled || !r.filePath) return { canceled: true };
@@ -753,7 +758,9 @@ function createWindow(): void {
   if (process.env["ELECTRON_RENDERER_URL"]) {
     mainWindow.webContents.on("console-message", ((...args: unknown[]) => {
       const arg = args[1] as
-        { level?: string | number; message?: string } | number | undefined;
+        | { level?: string | number; message?: string }
+        | number
+        | undefined;
       let level: string | number | undefined;
       let message: string;
       if (arg && typeof arg === "object" && "message" in arg) {

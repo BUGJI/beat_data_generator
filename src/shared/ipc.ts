@@ -81,10 +81,7 @@ export interface IpcApi {
   /** Fired by the main process whenever the plugin set or its state changes. */
   onPluginsChanged: (cb: () => void) => () => void;
   /** Generic native open picker for arbitrary extensions (plugin service). */
-  pickFile: (
-    title: string,
-    filters: IpcFileFilter[],
-  ) => Promise<string | null>;
+  pickFile: (title: string, filters: IpcFileFilter[]) => Promise<string | null>;
   /** Generic native save dialog; returns the chosen path, caller writes. */
   saveFileDialog: (
     title: string,

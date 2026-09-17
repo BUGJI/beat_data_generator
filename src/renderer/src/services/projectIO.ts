@@ -6,10 +6,7 @@ import {
   useProjectStore,
   visibleMarkers,
 } from "../stores/project";
-import {
-  BeatProjectSchema,
-  parseProjectDocument,
-} from "../schemas/project";
+import { BeatProjectSchema, parseProjectDocument } from "../schemas/project";
 import { useTransportStore } from "../stores/transport";
 import { useSelectionStore } from "../stores/selection";
 import { useUiStore } from "../stores/ui";
@@ -246,8 +243,7 @@ export async function exportTimestamps(): Promise<void> {
     `${safe}-timestamps.txt`,
     lines.join("\n"),
   );
-  if (!res.canceled)
-    toast.success(t("dialogs.exportOk", { n: lines.length }));
+  if (!res.canceled) toast.success(t("dialogs.exportOk", { n: lines.length }));
 }
 
 // ---- CMX3600 EDL export (25 fps, non-drop frame) ----
@@ -302,8 +298,7 @@ export async function exportEDL(): Promise<void> {
   }
   const safe = (p.name || "untitled").replace(/[\\/:*?"<>|]/g, "_");
   const res = await window.api.saveEDLFile(`${safe}.edl`, text);
-  if (!res.canceled)
-    toast.success(t("dialogs.exportEdlOk", { n: count }));
+  if (!res.canceled) toast.success(t("dialogs.exportEdlOk", { n: count }));
 }
 
 export async function autoSaveTick(): Promise<void> {

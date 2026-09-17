@@ -49,8 +49,7 @@ const api: IpcApi = {
   invokePlugin: (id, method, ...args) =>
     ipcRenderer.invoke("plugins:invoke", id, method, args),
   onPluginsChanged,
-  pickFile: (title, filters) =>
-    ipcRenderer.invoke("io:pick", title, filters),
+  pickFile: (title, filters) => ipcRenderer.invoke("io:pick", title, filters),
   saveFileDialog: (title, defaultPath, filters) =>
     ipcRenderer.invoke("io:save", title, defaultPath, filters),
   writeTextFile: (filePath, content) =>

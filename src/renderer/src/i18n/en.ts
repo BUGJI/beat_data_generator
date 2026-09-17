@@ -66,8 +66,7 @@ export default {
     baseBpm: "Base BPM (beat 0)",
     bpmTooltip: "Spacing of the beat grid",
     detectBpm: "Detect",
-    detectBpmTip:
-      "Analyze the audio and set the detected BPM into this field.",
+    detectBpmTip: "Analyze the audio and set the detected BPM into this field.",
     offset: "Offset (ms)",
     offsetTooltip: "Beat grid offset vs. time axis",
     duration: "Duration",
@@ -99,7 +98,8 @@ export default {
     trackName: "Track name…",
     changeColor: "Change color",
     lockTip: "Lock track (block content editing)",
-    hideTip: "Hide track: markers greyed, still editable, but excluded from playback/export",
+    hideTip:
+      "Hide track: markers greyed, still editable, but excluded from playback/export",
     noTracks: "No marker tracks. Click ＋ top-left to add",
     markers: "Markers",
     count: "Count",
@@ -278,8 +278,7 @@ export default {
       autoHideGridDesc:
         "Caps the drawn subdivision detail by zoom to keep rendering fast: at most 1/16 below 500 px/s, 1/8 below 250 px/s, and 1/4 below 100 px/s. Your snap setting is unchanged \u2014 only the display is affected; beat and bar lines always show.",
       editor: "Editor animations",
-      editorDesc:
-        "Zoom/pan the timeline with an interruptible 0.1s ease-out",
+      editorDesc: "Zoom/pan the timeline with an interruptible 0.1s ease-out",
     },
     shortcuts: {
       note: "Shortcuts are read-only for now; rebinding will come later.",

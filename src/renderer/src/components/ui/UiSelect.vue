@@ -35,7 +35,11 @@ const model = defineModel<string>({ required: true });
   <SelectRoot v-model="model" :disabled="disabled">
     <SelectTrigger
       class="inline-flex items-center justify-between gap-2 rounded-ui border border-line bg-sunken px-2 text-fg outline-none hover:border-line-strong disabled:opacity-40"
-      :class="size === 'sm' ? 'h-7 min-w-[96px] text-xs' : 'h-8 min-w-[120px] text-[13px]'"
+      :class="
+        size === 'sm'
+          ? 'h-7 min-w-[96px] text-xs'
+          : 'h-8 min-w-[120px] text-[13px]'
+      "
     >
       <SelectValue :placeholder="placeholder" />
       <SelectIcon><ChevronDown class="size-3.5 text-fg-dim" /></SelectIcon>

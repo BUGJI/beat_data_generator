@@ -8,10 +8,7 @@ import {
   writeFileSync,
 } from "fs";
 import { join } from "path";
-import type {
-  PluginEntry,
-  PluginManifest,
-} from "../shared/plugin";
+import type { PluginEntry, PluginManifest } from "../shared/plugin";
 
 /**
  * Main-process plugin manager.
@@ -102,9 +99,10 @@ function isEnabled(id: string): boolean {
 
 // ---- manifest helpers ----
 
-function resolveText(
-  v: unknown,
-): { fallback: string; i18n: Record<string, string> } {
+function resolveText(v: unknown): {
+  fallback: string;
+  i18n: Record<string, string>;
+} {
   if (typeof v === "string" && v.trim()) {
     return { fallback: v.trim(), i18n: {} };
   }
@@ -135,7 +133,9 @@ function scanPluginDir(dir: string): PluginEntry | null {
       readFileSync(manifestPath, "utf-8"),
     ) as PluginManifest;
   } catch (err) {
-    const name = dir.slice(Math.max(dir.lastIndexOf("/"), dir.lastIndexOf("\\")) + 1);
+    const name = dir.slice(
+      Math.max(dir.lastIndexOf("/"), dir.lastIndexOf("\\")) + 1,
+    );
     return {
       id: name,
       version: "0.0.0",
@@ -152,12 +152,16 @@ function scanPluginDir(dir: string): PluginEntry | null {
   if (typeof manifest !== "object" || !manifest) return null;
   const id = typeof manifest.id === "string" ? manifest.id.trim() : "";
   if (!id) return null;
-  const version = typeof manifest.version === "string" ? manifest.version : "0.0.0";
+  const version =
+    typeof manifest.version === "string" ? manifest.version : "0.0.0";
   const name = resolveText(manifest.name);
   const description = resolveText(manifest.description);
-  const main = typeof manifest.main === "string" && manifest.main ? manifest.main : null;
+  const main =
+    typeof manifest.main === "string" && manifest.main ? manifest.main : null;
   const renderer =
-    typeof manifest.renderer === "string" && manifest.renderer ? manifest.renderer : null;
+    typeof manifest.renderer === "string" && manifest.renderer
+      ? manifest.renderer
+      : null;
   return {
     id,
     version,
@@ -216,8 +220,7 @@ function makeContext(entry: PluginEntry): PluginContext {
   return {
     id: entry.id,
     dir: entry.dir,
-    log: (...args: unknown[]) =>
-      console.log(`[plugin:${entry.id}]`, ...args),
+    log: (...args: unknown[]) => console.log(`[plugin:${entry.id}]`, ...args),
     registerHandler: (name, fn) => {
       h.handlers.set(name, fn);
     },
@@ -241,7 +244,9 @@ function loadMain(entry: PluginEntry): void {
       typeof mod === "function"
         ? mod
         : mod && typeof (mod as { activate?: unknown }).activate === "function"
-          ? ((mod as { activate: unknown }).activate as (...a: unknown[]) => unknown)
+          ? ((mod as { activate: unknown }).activate as (
+              ...a: unknown[]
+            ) => unknown)
           : undefined;
     if (typeof activate !== "function") {
       entry.error = "main entry must export a function or { activate(ctx) }";
@@ -339,20 +344,17 @@ export function installPluginManager(): void {
     return list.map((e) => ({ ...e }));
   });
 
-  ipcMain.handle(
-    "plugins:renderer-source",
-    (_e, id: string): string | null => {
-      if (typeof id !== "string") return null;
-      const entry = scanAll().find((e) => e.id === id);
-      if (!entry || !entry.renderer || !entry.enabled) return null;
-      const full = join(entry.dir, entry.renderer);
-      try {
-        return readFileSync(full, "utf-8");
-      } catch {
-        return null;
-      }
-    },
-  );
+  ipcMain.handle("plugins:renderer-source", (_e, id: string): string | null => {
+    if (typeof id !== "string") return null;
+    const entry = scanAll().find((e) => e.id === id);
+    if (!entry || !entry.renderer || !entry.enabled) return null;
+    const full = join(entry.dir, entry.renderer);
+    try {
+      return readFileSync(full, "utf-8");
+    } catch {
+      return null;
+    }
+  });
 
   ipcMain.handle("plugins:open-folder", (): void => {
     void shell.openPath(userPluginsDir());

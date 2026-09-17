@@ -47,11 +47,7 @@ body,
 
 body {
   font-family:
-    "Segoe UI",
-    "PingFang SC",
-    "Microsoft YaHei",
-    system-ui,
-    -apple-system,
+    "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system,
     sans-serif;
   background: var(--bdg-bg);
   color: var(--bdg-text);

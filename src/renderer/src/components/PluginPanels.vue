@@ -185,9 +185,7 @@ function bindPanel(key: string, el: HTMLElement | null): void {
     const sep = key.indexOf(":");
     const pluginId = key.slice(0, sep);
     const uid = Number(key.slice(sep + 1));
-    const p = allPanels.find(
-      (x) => x.pluginId === pluginId && x.uid === uid,
-    );
+    const p = allPanels.find((x) => x.pluginId === pluginId && x.uid === uid);
     if (!p) return;
     try {
       const ret = p.def.mount(el);
@@ -222,21 +220,12 @@ function onClose(card: Card): void {
       :style="styleOf(card.key)"
       @pointerdown="bringToFront(card.key)"
     >
-      <div
-        class="pw-head"
-        @pointerdown.stop="onHeaderDown($event, card)"
-      >
+      <div class="pw-head" @pointerdown.stop="onHeaderDown($event, card)">
         <span class="pw-title">{{ card.title }}</span>
         <button class="pw-x" @click.stop="onClose(card)">✕</button>
       </div>
-      <div
-        class="pw-body"
-        :ref="panelRefFor(card.key)"
-      />
-      <div
-        class="pw-resize"
-        @pointerdown.stop="onResizeDown($event, card)"
-      />
+      <div class="pw-body" :ref="panelRefFor(card.key)" />
+      <div class="pw-resize" @pointerdown.stop="onResizeDown($event, card)" />
     </div>
   </div>
 </template>

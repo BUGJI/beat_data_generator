@@ -1,8 +1,7 @@
 <script setup lang="ts">
-withDefaults(
-  defineProps<{ disabled?: boolean; title?: string }>(),
-  { disabled: false },
-);
+withDefaults(defineProps<{ disabled?: boolean; title?: string }>(), {
+  disabled: false,
+});
 
 const model = defineModel<string>({ required: true });
 

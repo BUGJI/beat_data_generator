@@ -61,10 +61,9 @@ async function loadRenderer(entry: PluginEntry): Promise<void> {
       pending = activate;
     };
     try {
-      const run = new Function(
-        "window",
-        `"use strict";\n${src}\n`,
-      ) as (win: Window) => void;
+      const run = new Function("window", `"use strict";\n${src}\n`) as (
+        win: Window,
+      ) => void;
       run(window);
     } catch (err) {
       console.error(`[plugins] renderer load failed for ${entry.id}`, err);

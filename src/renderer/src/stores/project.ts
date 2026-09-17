@@ -18,11 +18,7 @@ import {
   select,
 } from "./selection";
 import { pushHistory } from "../services/history";
-import {
-  bpmAtBeat,
-  effectiveBpmFor,
-  tempoMap,
-} from "../services/timeline";
+import { bpmAtBeat, effectiveBpmFor, tempoMap } from "../services/timeline";
 import type {
   BpmMode,
   BpmPoint,
@@ -206,9 +202,7 @@ export function removeSelectedMarkers(): boolean {
   for (const id of ids) {
     const m = findMarker(id);
     if (m && !isTrackBlocked(m.trackId)) {
-      p.markers = p.markers.filter(
-        (x) => x.id !== m.id && x.parentId !== m.id,
-      );
+      p.markers = p.markers.filter((x) => x.id !== m.id && x.parentId !== m.id);
       removed = true;
     }
   }
@@ -232,9 +226,7 @@ export function addTrack(
     id: makeId(),
     name:
       name?.trim() ||
-      (p.tracks.length
-        ? `Track ${p.tracks.length + 1}`
-        : "Marker 1"),
+      (p.tracks.length ? `Track ${p.tracks.length + 1}` : "Marker 1"),
     color: color || nextColor(p.tracks.map((tr) => tr.color)),
   };
   if (type) track.type = type;
@@ -424,10 +416,7 @@ function updateMarkerLoopImpl(
   } else {
     parent.loop = {
       interval: cfg.interval > 0 ? cfg.interval : 1,
-      count: Math.min(
-        MAX_LOOP_CHILDREN,
-        Math.max(1, Math.floor(cfg.count)),
-      ),
+      count: Math.min(MAX_LOOP_CHILDREN, Math.max(1, Math.floor(cfg.count))),
       ...(Array.isArray(cfg.exclude) && cfg.exclude.length
         ? { exclude: cfg.exclude }
         : {}),
@@ -506,11 +495,7 @@ function removeMarkerAtImpl(
   return false;
 }
 
-function moveMarkerImpl(
-  id: string,
-  rawBeat: number,
-  force = false,
-): boolean {
+function moveMarkerImpl(id: string, rawBeat: number, force = false): boolean {
   const p = useProjectStore();
   const m = findMarker(id);
   if (!m || m.parentId) return false;
@@ -693,9 +678,7 @@ export function addBpmPoint(
 ): BpmPoint | null {
   const p = useProjectStore();
   const beat = Math.max(0, snapped(rawBeat));
-  const existing = p.bpmPoints.find(
-    (pt) => Math.abs(pt.beat - beat) < 1e-6,
-  );
+  const existing = p.bpmPoints.find((pt) => Math.abs(pt.beat - beat) < 1e-6);
   if (isBpmLocked()) {
     if (existing) {
       select("bpm", existing.id);

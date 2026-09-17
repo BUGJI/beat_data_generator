@@ -99,10 +99,7 @@ export function closeAllPluginPanels(pluginId: string): void {
   }
 }
 
-function registerAction(
-  pluginId: string,
-  def: PluginActionDef,
-): () => void {
+function registerAction(pluginId: string, def: PluginActionDef): () => void {
   const item: RegisteredAction = { pluginId, uid: nextUid(), def };
   actions.push(item);
   return () => {
@@ -120,10 +117,7 @@ export interface PanelHandle {
   isOpen: () => boolean;
 }
 
-function registerPanel(
-  pluginId: string,
-  def: PluginPanelDef,
-): PanelHandle {
+function registerPanel(pluginId: string, def: PluginPanelDef): PanelHandle {
   const item: RegisteredPanel = { pluginId, uid: nextUid(), def };
   panels.push(item);
   const remove = (): void => {
@@ -205,7 +199,12 @@ function parseCombo(combo: string): ComboParts | null {
     if (low === "ctrl" || low === "control") out.ctrl = true;
     else if (low === "shift") out.shift = true;
     else if (low === "alt" || low === "option") out.alt = true;
-    else if (low === "meta" || low === "cmd" || low === "command" || low === "win")
+    else if (
+      low === "meta" ||
+      low === "cmd" ||
+      low === "command" ||
+      low === "win"
+    )
       out.meta = true;
     else out.key = p;
   }
@@ -235,10 +234,7 @@ export function dispatchShortcut(e: KeyboardEvent): boolean {
           void r;
         }
       } catch (err) {
-        console.error(
-          `[plugin:${s.pluginId}] shortcut ${s.def.id} error`,
-          err,
-        );
+        console.error(`[plugin:${s.pluginId}] shortcut ${s.def.id} error`, err);
       }
       return true;
     }
@@ -305,9 +301,7 @@ export function uiHandleFor(pluginId: string): UiContributions & {
 
 /** Return the panel record for a plugin+uid, or null. */
 export function panelOf(pluginId: string, uid: number): RegisteredPanel | null {
-  return (
-    panels.find((p) => p.pluginId === pluginId && p.uid === uid) ?? null
-  );
+  return panels.find((p) => p.pluginId === pluginId && p.uid === uid) ?? null;
 }
 
 // ---------------------------------------------------------------------------
@@ -374,7 +368,10 @@ export function registerTrackType(
     return { ok: false, reason: "plugin id must not contain ':'" };
   }
   if (!def || typeof def.id !== "string" || !def.id || def.id.includes(":")) {
-    return { ok: false, reason: "track type id must be a non-empty string without ':'" };
+    return {
+      ok: false,
+      reason: "track type id must be a non-empty string without ':'",
+    };
   }
   const key = typeKeyOf(pluginId, def.id);
   if (getTypedef(key)) {
@@ -395,9 +392,7 @@ export function registerTrackType(
 }
 
 export function getTypedef(key: string): TrackTypeDef | null {
-  const t = trackTypes.find(
-    (x) => typeKeyOf(x.pluginId, x.def.id) === key,
-  );
+  const t = trackTypes.find((x) => typeKeyOf(x.pluginId, x.def.id) === key);
   return t ? t.def : null;
 }
 
@@ -420,9 +415,7 @@ export function defaultForField(f: PluginFieldDef): FieldValue | undefined {
   if (f.type === "enum") {
     const opts = f.options ?? [];
     if (typeof f.default !== "undefined") {
-      const hit = opts.find(
-        (o) => o && (o.value as FieldValue) === f.default,
-      );
+      const hit = opts.find((o) => o && (o.value as FieldValue) === f.default);
       if (hit) return f.default;
     }
     return opts[0]?.value ?? "";

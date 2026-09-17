@@ -68,7 +68,12 @@ describe("parseProjectDocument / v2", () => {
           { id: "ok", trackId: "t1", beat: 1 },
           { id: "bad", trackId: "t1", beat: "nope" },
           { id: "neg", trackId: "t1", beat: -5 },
-          { id: "badloop", trackId: "t1", beat: 2, loop: { interval: 0, count: 5 } },
+          {
+            id: "badloop",
+            trackId: "t1",
+            beat: 2,
+            loop: { interval: 0, count: 5 },
+          },
           null,
         ],
       }),
@@ -134,7 +139,10 @@ describe("parseProjectDocument / v1 migration", () => {
 
 describe("BeatProjectSchema", () => {
   it("fills defaults for a minimal document", () => {
-    const doc = BeatProjectSchema.parse({ app: APP_ID, version: PROJECT_VERSION });
+    const doc = BeatProjectSchema.parse({
+      app: APP_ID,
+      version: PROJECT_VERSION,
+    });
     expect(doc.name).toBe("");
     expect(doc.baseBpm).toBe(120);
     expect(doc.offsetMs).toBe(0);
