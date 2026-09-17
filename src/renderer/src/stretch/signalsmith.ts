@@ -8,8 +8,9 @@ const TAIL_SECONDS = 0.25;
  *
  * Signalsmith is a realtime node, but we only need an offline buffer to match
  * the existing playback model, so it is rendered through an OfflineAudioContext
- * and trimmed to the expected stretched length. Requires `worker-src blob:` in
- * the CSP because the worklet module is loaded from a blob URL.
+ * and trimmed to the expected stretched length. The worklet module is loaded
+ * from a blob URL, so the CSP needs `blob:` in `script-src` (AudioWorklet
+ * modules are checked against `script-src`/`script-src-elem`, not `worker-src`).
  */
 export async function stretchWithSignalsmith(
   original: AudioBuffer,
