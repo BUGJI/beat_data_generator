@@ -31,11 +31,11 @@ export const CloseModeSchema = z.enum(["ask", "minimize", "close"]);
 export const AlignRoundingSchema = z.enum(["round", "floor", "ceil"]);
 export type AlignRounding = z.infer<typeof AlignRoundingSchema>;
 
-/** Pitch-preserving time-stretch backend. Signalsmith is experimental. */
+/** Pitch-preserving time-stretch backend. */
 export const StretchEngineSchema = z
   .enum(["soundtouch", "signalsmith"])
-  .catch("soundtouch")
-  .default("soundtouch");
+  .catch("signalsmith")
+  .default("signalsmith");
 export type StretchEngine = z.infer<typeof StretchEngineSchema>;
 
 export const SettingsSchema = z.object({

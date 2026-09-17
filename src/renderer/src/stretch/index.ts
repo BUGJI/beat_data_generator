@@ -35,7 +35,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 export async function stretchAudioBuffer(
   original: AudioBuffer,
   tempo: number,
-  engine: StretchEngine = "soundtouch",
+  engine: StretchEngine = "signalsmith",
 ): Promise<AudioBuffer> {
   if (engine === "signalsmith") {
     try {

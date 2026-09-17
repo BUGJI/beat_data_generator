@@ -39,7 +39,7 @@
 | 组件库 | reka-ui（无头组件）+ Tailwind CSS v4 |
 | 图标 | @lucide/vue |
 | 国际化 | vue-i18n |
-| 音频变速 | soundtouchjs |
+| 音频变速 | signalsmith-stretch（默认）/ soundtouchjs（回退） |
 | 音频智能分析 | pleco-xa（Web Worker 异步） |
 | 波形绘制 | Canvas（自绘） |
 
@@ -103,7 +103,7 @@ npm run test:cov
 
 运行日志（electron-log）默认只输出到终端；如需落盘，在 **设置 → 开发者选项** 打开“记录运行日志到文件”（默认关闭）。开启后写入 `<userData>/logs/main.log`（超过 5 MB 自动轮转），主进程日志与渲染进程的 console 警告 / 错误都会汇集到此文件（Windows 通常为 `%APPDATA%\<应用名>\logs\main.log`），便于排查打包后没有 DevTools 的场景。
 
-变速播放（保持音高）默认使用 `soundtouchjs`；可在 **设置 → 开发者选项** 把“时间拉伸引擎”切到实验性的 `signalsmith-stretch` 做 A/B 对比，失败或超时会自动回退到 SoundTouch。
+变速播放（保持音高）默认使用 `signalsmith-stretch`（WASM 离线渲染，音质更好）；可在 **设置 → 音频 → 播放** 切回 `soundtouchjs`。Signalsmith 渲染失败或超时会自动回退到 SoundTouch。
 
 ## 使用入门
 

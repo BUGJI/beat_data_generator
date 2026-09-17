@@ -174,8 +174,8 @@ const stretchEngine = computed<string>({
 
 const stretchEngineOptions = computed<Array<{ value: string; label: string }>>(
   () => [
-    { value: "soundtouch", label: t("settings.advanced.engineSoundtouch") },
-    { value: "signalsmith", label: t("settings.advanced.engineSignalsmith") },
+    { value: "soundtouch", label: t("settings.audio.engineSoundtouch") },
+    { value: "signalsmith", label: t("settings.audio.engineSignalsmith") },
   ],
 );
 
@@ -644,6 +644,25 @@ function catLabel(key: string): string {
                   >
                 </div>
               </div>
+
+              <div class="sub-head">
+                {{ t("settings.audio.playbackTitle") }}
+              </div>
+
+              <div class="field-row col">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.audio.stretchEngine")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.audio.stretchEngineDesc")
+                  }}</span>
+                </div>
+                <UiRadioGroup
+                  v-model="stretchEngine"
+                  :options="stretchEngineOptions"
+                />
+              </div>
             </section>
 
             <!-- 显示 -->
@@ -880,22 +899,6 @@ function catLabel(key: string): string {
                   }}</span>
                 </div>
                 <UiSwitch v-model="logToFile" :disabled="!devEnabled" />
-              </div>
-
-              <div class="field-row col">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.advanced.stretchEngine")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.advanced.stretchEngineDesc")
-                  }}</span>
-                </div>
-                <UiRadioGroup
-                  v-model="stretchEngine"
-                  :options="stretchEngineOptions"
-                  :disabled="!devEnabled"
-                />
               </div>
 
               <div class="dev-block" :class="{ off: !devEnabled }">

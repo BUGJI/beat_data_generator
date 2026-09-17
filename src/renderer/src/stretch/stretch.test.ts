@@ -19,19 +19,19 @@ beforeEach(() => {
 });
 
 describe("stretchAudioBuffer", () => {
-  it("uses soundtouch by default", async () => {
-    soundtouch.mockResolvedValue(result);
+  it("uses signalsmith by default", async () => {
+    signalsmith.mockResolvedValue(result);
     const out = await stretchAudioBuffer(original, 1.5);
-    expect(soundtouch).toHaveBeenCalledWith(original, 1.5);
-    expect(signalsmith).not.toHaveBeenCalled();
+    expect(signalsmith).toHaveBeenCalledWith(original, 1.5);
+    expect(soundtouch).not.toHaveBeenCalled();
     expect(out).toBe(result);
   });
 
-  it("uses signalsmith when selected", async () => {
-    signalsmith.mockResolvedValue(result);
-    const out = await stretchAudioBuffer(original, 1.5, "signalsmith");
-    expect(signalsmith).toHaveBeenCalledWith(original, 1.5);
-    expect(soundtouch).not.toHaveBeenCalled();
+  it("uses soundtouch when selected", async () => {
+    soundtouch.mockResolvedValue(result);
+    const out = await stretchAudioBuffer(original, 1.5, "soundtouch");
+    expect(soundtouch).toHaveBeenCalledWith(original, 1.5);
+    expect(signalsmith).not.toHaveBeenCalled();
     expect(out).toBe(result);
   });
 

@@ -7,7 +7,7 @@ describe("defaultSettings", () => {
     expect(s.closeMode).toBe("ask");
     expect(s.devEnabled).toBe(false);
     expect(s.logToFile).toBe(false);
-    expect(s.stretchEngine).toBe("soundtouch");
+    expect(s.stretchEngine).toBe("signalsmith");
     expect(s.followPercent).toBe(90);
     expect(s.autoSave).toBe(true);
     expect(s.autoSaveMinutes).toBe(5);
@@ -78,10 +78,10 @@ describe("sanitizeSettings", () => {
 
   it("keeps a valid stretch engine and repairs an unknown one", () => {
     expect(
-      sanitizeSettings({ stretchEngine: "signalsmith" }).stretchEngine,
-    ).toBe("signalsmith");
+      sanitizeSettings({ stretchEngine: "soundtouch" }).stretchEngine,
+    ).toBe("soundtouch");
     expect(sanitizeSettings({ stretchEngine: "nope" }).stretchEngine).toBe(
-      "soundtouch",
+      "signalsmith",
     );
   });
 });
