@@ -27,7 +27,7 @@ import {
 } from "../plugins/host";
 import type { PluginEntry } from "../../../shared/plugin";
 import type { CloseMode } from "../../../shared/ipc";
-import type { AlignRounding } from "../../../shared/settings";
+import type { AlignRounding, StretchEngine } from "../../../shared/settings";
 import { useSettingsStore } from "../stores/settings";
 import UiButton from "./ui/UiButton.vue";
 import UiColorPicker from "./ui/UiColorPicker.vue";
@@ -164,6 +164,20 @@ const logToFile = computed({
     void patchSettings({ logToFile: v });
   },
 });
+
+const stretchEngine = computed<string>({
+  get: () => settings.settings.stretchEngine,
+  set: (v: string) => {
+    void patchSettings({ stretchEngine: v as StretchEngine });
+  },
+});
+
+const stretchEngineOptions = computed<Array<{ value: string; label: string }>>(
+  () => [
+    { value: "soundtouch", label: t("settings.advanced.engineSoundtouch") },
+    { value: "signalsmith", label: t("settings.advanced.engineSignalsmith") },
+  ],
+);
 
 const language = computed<string>({
   get: () => locale.value,
@@ -866,6 +880,22 @@ function catLabel(key: string): string {
                   }}</span>
                 </div>
                 <UiSwitch v-model="logToFile" :disabled="!devEnabled" />
+              </div>
+
+              <div class="field-row col">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.advanced.stretchEngine")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.advanced.stretchEngineDesc")
+                  }}</span>
+                </div>
+                <UiRadioGroup
+                  v-model="stretchEngine"
+                  :options="stretchEngineOptions"
+                  :disabled="!devEnabled"
+                />
               </div>
 
               <div class="dev-block" :class="{ off: !devEnabled }">

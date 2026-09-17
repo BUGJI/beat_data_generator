@@ -7,6 +7,7 @@ describe("defaultSettings", () => {
     expect(s.closeMode).toBe("ask");
     expect(s.devEnabled).toBe(false);
     expect(s.logToFile).toBe(false);
+    expect(s.stretchEngine).toBe("soundtouch");
     expect(s.followPercent).toBe(90);
     expect(s.autoSave).toBe(true);
     expect(s.autoSaveMinutes).toBe(5);
@@ -73,5 +74,14 @@ describe("sanitizeSettings", () => {
     const s = sanitizeSettings({ settingsVersion: "2", themePreset: "" });
     expect(s.settingsVersion).toBe(2);
     expect(s.themePreset).toBe("default");
+  });
+
+  it("keeps a valid stretch engine and repairs an unknown one", () => {
+    expect(
+      sanitizeSettings({ stretchEngine: "signalsmith" }).stretchEngine,
+    ).toBe("signalsmith");
+    expect(sanitizeSettings({ stretchEngine: "nope" }).stretchEngine).toBe(
+      "soundtouch",
+    );
   });
 });

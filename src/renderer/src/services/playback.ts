@@ -1,5 +1,6 @@
 import { engine } from "../engine";
 import { stretchAudioBuffer } from "../stretch";
+import { useSettingsStore } from "../stores/settings";
 import { useTransportStore } from "../stores/transport";
 import { refreshBeatFlash } from "./flash";
 
@@ -28,7 +29,11 @@ async function ensureStretched(rate: number): Promise<AudioBuffer | null> {
   const seq = ++buildSeq;
   t.buffering = true;
   try {
-    const buf = await stretchAudioBuffer(src, rate);
+    const buf = await stretchAudioBuffer(
+      src,
+      rate,
+      useSettingsStore().settings.stretchEngine,
+    );
     if (seq !== buildSeq) return null;
     engine.stretched = buf;
     engine.stretchedFor = rate;

@@ -312,6 +312,11 @@ export default {
       logToFile: "Record logs to file",
       logToFileDesc:
         "Write runtime logs to logs/main.log in the user data folder (main process and renderer console together; off by default).",
+      stretchEngine: "Time-stretch engine",
+      stretchEngineDesc:
+        "Engine used for off-speed playback with pitch preserved. SoundTouch is the default; Signalsmith is experimental (higher quality, possible latency or timing differences) and needs A/B validation.",
+      engineSoundtouch: "SoundTouch",
+      engineSignalsmith: "Signalsmith (exp.)",
       openTools: "Open browser DevTools",
       openToolsDesc: "Closes first, then reopens the DevTools window.",
       disabledNote:

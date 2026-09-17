@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { applyTheme, resolveTheme, type ThemeOverrides } from "../theme";
+import { engine } from "../engine";
 import { loadMetronome } from "../services/audioIO";
 import { useTransportStore } from "./transport";
 import {
@@ -46,6 +47,7 @@ export function patchSettings(patch: Partial<SettingsData>): void {
   store.settings = sanitizeSettings({ ...store.settings, ...patch });
   if ("themePreset" in patch || "themeOverrides" in patch)
     applyThemeFromSettings();
+  if ("stretchEngine" in patch) engine.clearStretched();
   if (settingsTimer !== undefined) clearTimeout(settingsTimer);
   settingsTimer = window.setTimeout(() => {
     // IPC uses structured clone, which cannot serialize the reactive Proxies

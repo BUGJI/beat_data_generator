@@ -99,6 +99,12 @@ export class PlaybackEngine {
     return this.stretchedFor === rate && this.stretched !== null;
   }
 
+  /** Drop the cached stretched buffer (e.g. after the engine setting changes). */
+  clearStretched(): void {
+    this.stretched = null;
+    this.stretchedFor = 0;
+  }
+
   setVolume(v: number): void {
     this.volume = v;
     if (this.gain && this.ctx) {

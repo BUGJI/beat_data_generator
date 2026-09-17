@@ -301,6 +301,11 @@ export default {
       logToFile: "记录运行日志到文件",
       logToFileDesc:
         "把运行日志写入用户数据目录的 logs/main.log（主进程与渲染进程 console 一并记录，默认关闭）。",
+      stretchEngine: "时间拉伸引擎",
+      stretchEngineDesc:
+        "变速播放（保持音高）时使用的引擎。SoundTouch 为默认；Signalsmith 为实验性，质量更高但可能有延迟或时序差异，需要自行对比验证。",
+      engineSoundtouch: "SoundTouch",
+      engineSignalsmith: "Signalsmith（实验）",
       openTools: "打开浏览器调试工具",
       openToolsDesc: "点击先关闭再重新打开调试工具窗口。",
       disabledNote: "开发者选项已关闭，开启总开关以使用调试工具。",

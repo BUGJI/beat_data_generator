@@ -31,12 +31,21 @@ export const CloseModeSchema = z.enum(["ask", "minimize", "close"]);
 export const AlignRoundingSchema = z.enum(["round", "floor", "ceil"]);
 export type AlignRounding = z.infer<typeof AlignRoundingSchema>;
 
+/** Pitch-preserving time-stretch backend. Signalsmith is experimental. */
+export const StretchEngineSchema = z
+  .enum(["soundtouch", "signalsmith"])
+  .catch("soundtouch")
+  .default("soundtouch");
+export type StretchEngine = z.infer<typeof StretchEngineSchema>;
+
 export const SettingsSchema = z.object({
   closeMode: CloseModeSchema.catch("ask").default("ask"),
   devEnabled: bool(false),
   devFreeInput: bool(false),
   /** write runtime logs to <userData>/logs/main.log (off by default). */
   logToFile: bool(false),
+  /** time-stretch backend used when playing off-speed with pitch preserved. */
+  stretchEngine: StretchEngineSchema,
   animEnabled: bool(true),
   /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
   gridAutoHide: bool(true),

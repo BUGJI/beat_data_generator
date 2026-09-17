@@ -101,6 +101,8 @@ Tests currently cover the pure-logic layer: tempo math (`tempo.ts`), project-fil
 
 Runtime logs (electron-log) go to the terminal by default. To persist them, enable "Record logs to file" under **Settings → Developer options** (off by default): they are then written to `<userData>/logs/main.log`, rotated at 5 MB, with main-process logs plus renderer console warnings/errors funnelled into it (on Windows usually `%APPDATA%\<app name>\logs\main.log`). This helps when a packaged build has no DevTools.
 
+Pitch-preserving off-speed playback uses `soundtouchjs` by default; switch the "Time-stretch engine" to the experimental `signalsmith-stretch` under **Settings → Developer options** for A/B comparison. Failures or timeouts fall back to SoundTouch automatically.
+
 ## Quick Start
 
 1. Launch the app and choose **Open Audio** from the File menu; the waveform loads into the timeline.

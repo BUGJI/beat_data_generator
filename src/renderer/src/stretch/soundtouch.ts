@@ -8,11 +8,12 @@ const tick = (): Promise<void> =>
   });
 
 /**
- * Time-stretch a decoded AudioBuffer so that it plays `tempo` times faster/slower
- * while keeping the original pitch. Returns a new AudioBuffer sized for the new
- * duration. Pure offline processing with periodic yields to keep the UI alive.
+ * Time-stretch a decoded AudioBuffer with SoundTouch so that it plays `tempo`
+ * times faster/slower while keeping the original pitch. Returns a new
+ * AudioBuffer sized for the new duration. Pure offline processing with periodic
+ * yields to keep the UI alive.
  */
-export async function stretchAudioBuffer(
+export async function stretchWithSoundtouch(
   original: AudioBuffer,
   tempo: number,
 ): Promise<AudioBuffer> {

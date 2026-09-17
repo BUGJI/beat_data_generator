@@ -103,6 +103,8 @@ npm run test:cov
 
 运行日志（electron-log）默认只输出到终端；如需落盘，在 **设置 → 开发者选项** 打开“记录运行日志到文件”（默认关闭）。开启后写入 `<userData>/logs/main.log`（超过 5 MB 自动轮转），主进程日志与渲染进程的 console 警告 / 错误都会汇集到此文件（Windows 通常为 `%APPDATA%\<应用名>\logs\main.log`），便于排查打包后没有 DevTools 的场景。
 
+变速播放（保持音高）默认使用 `soundtouchjs`；可在 **设置 → 开发者选项** 把“时间拉伸引擎”切到实验性的 `signalsmith-stretch` 做 A/B 对比，失败或超时会自动回退到 SoundTouch。
+
 ## 使用入门
 
 1. 启动后从“文件”菜单 **打开音频**，波形将载入时间线。
