@@ -13,6 +13,7 @@ import { readFile, writeFile } from "fs/promises";
 import { readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import { installPluginManager } from "./plugins";
+import log from "./logger";
 import {
   defaultSettings,
   sanitizeSettings,
@@ -91,7 +92,7 @@ function persistRecents(): void {
   try {
     writeFileSync(recentsPath(), JSON.stringify(recents, null, 2), "utf-8");
   } catch (err) {
-    console.error("persist recents failed", err);
+    log.error("persist recents failed", err);
   }
 }
 
@@ -188,7 +189,7 @@ function saveWindowState(): void {
       "utf-8",
     );
   } catch (err) {
-    console.error("persist window state failed", err);
+    log.error("persist window state failed", err);
   }
 }
 
@@ -224,7 +225,7 @@ function persistSettings(): void {
   try {
     writeFileSync(settingsPath(), JSON.stringify(settings, null, 2), "utf-8");
   } catch (err) {
-    console.error("persist settings failed", err);
+    log.error("persist settings failed", err);
   }
 }
 
@@ -353,7 +354,7 @@ function registerIpc(): void {
       const content = await readFile(r.filePaths[0], "utf-8");
       return { canceled: false, filePath: r.filePaths[0], content };
     } catch (err) {
-      console.error("open project failed", err);
+      log.error("open project failed", err);
       return { canceled: true };
     }
   });
@@ -749,36 +750,36 @@ function createWindow(): void {
   mainWindow.webContents.on(
     "render-process-gone",
     (_e, details: { reason: string; exitCode: number }) => {
-      console.log(
-        `[main] renderer gone: reason=${details.reason} exitCode=${details.exitCode}`,
+      log.error(
+        `renderer gone: reason=${details.reason} exitCode=${details.exitCode}`,
       );
     },
   );
 
+  // Route renderer console output into the log file even in production, so a
+  // build without DevTools still leaves a trail. Handles both the legacy
+  // (event, level, message) and current (event, details) payloads.
+  mainWindow.webContents.on("console-message", ((...args: unknown[]) => {
+    const arg = args[1] as
+      | { level?: string | number; message?: string }
+      | number
+      | undefined;
+    let level: string | number | undefined;
+    let message: string;
+    if (arg && typeof arg === "object" && "message" in arg) {
+      level = arg.level ?? undefined;
+      message = arg.message ?? "";
+    } else {
+      level = arg as number | undefined;
+      message = String(args[2] ?? "");
+    }
+    const text = `[renderer] ${String(message)}`;
+    if (level === 3 || level === "error") log.error(text);
+    else if (level === 2 || level === "warning") log.warn(text);
+    else if (!app.isPackaged) log.info(text);
+  }) as (event: unknown, level: number, message: string) => void);
+
   if (process.env["ELECTRON_RENDERER_URL"]) {
-    mainWindow.webContents.on("console-message", ((...args: unknown[]) => {
-      const arg = args[1] as
-        | { level?: string | number; message?: string }
-        | number
-        | undefined;
-      let level: string | number | undefined;
-      let message: string;
-      if (arg && typeof arg === "object" && "message" in arg) {
-        level = arg.level ?? undefined;
-        message = arg.message ?? "";
-      } else {
-        level = arg as number | undefined;
-        message = String(args[2] ?? "");
-      }
-      if (
-        level === 3 ||
-        level === 2 ||
-        level === "error" ||
-        level === "warning"
-      ) {
-        console.log(`[renderer:${String(level)}] ${String(message)}`);
-      }
-    }) as (event: unknown, level: number, message: string) => void);
     mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
@@ -792,6 +793,7 @@ let updaterReady = false;
 function setupUpdater(): void {
   if (updaterReady) return;
   updaterReady = true;
+  autoUpdater.logger = log;
   autoUpdater.autoDownload = false; // notify first, open the release page on click
   let notified = false;
   autoUpdater.on("update-available", (info) => {
@@ -810,7 +812,7 @@ function setupUpdater(): void {
     n.show();
   });
   autoUpdater.on("error", (err) => {
-    console.error("[updater]", err);
+    log.error("[updater]", err);
   });
 }
 
@@ -818,7 +820,7 @@ function checkUpdatesSilent(): void {
   if (!settings.checkUpdates) return;
   setupUpdater();
   void autoUpdater.checkForUpdates().catch((err) => {
-    console.error("[updater] check failed", err);
+    log.error("[updater] check failed", err);
   });
 }
 

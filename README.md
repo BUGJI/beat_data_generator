@@ -101,6 +101,8 @@ npm run test:cov
 
 测试目前覆盖纯逻辑层：节拍换算（`tempo.ts`）、工程文件解析与容错（`schemas/project.ts`）、设置修复（`shared/settings.ts`），以及撤销/重做与导出格式（`services/history.ts` / `services/projectIO.ts`）。
 
+运行日志（electron-log）写入 `<userData>/logs/main.log`，超过 5 MB 自动轮转；主进程日志与渲染进程的 console 警告 / 错误都会汇集到此文件（Windows 通常为 `%APPDATA%\<应用名>\logs\main.log`），便于排查打包后没有 DevTools 的场景。
+
 ## 使用入门
 
 1. 启动后从“文件”菜单 **打开音频**，波形将载入时间线。

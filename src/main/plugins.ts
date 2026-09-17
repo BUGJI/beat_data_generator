@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from "fs";
 import { join } from "path";
+import log from "./logger";
 import type { PluginEntry, PluginManifest } from "../shared/plugin";
 
 /**
@@ -89,7 +90,7 @@ function persistState(): void {
     mkdirSync(app.getPath("userData"), { recursive: true });
     writeFileSync(statePath(), JSON.stringify(state, null, 2), "utf-8");
   } catch (err) {
-    console.error("[plugins] persist state failed", err);
+    log.error("[plugins] persist state failed", err);
   }
 }
 
@@ -217,10 +218,11 @@ function makeContext(entry: PluginEntry): PluginContext {
     };
     loaded.set(entry.id, h);
   }
+  const scoped = log.scope(`plugin:${entry.id}`);
   return {
     id: entry.id,
     dir: entry.dir,
-    log: (...args: unknown[]) => console.log(`[plugin:${entry.id}]`, ...args),
+    log: (...args: unknown[]) => scoped.info(...args),
     registerHandler: (name, fn) => {
       h.handlers.set(name, fn);
     },
@@ -260,7 +262,7 @@ function loadMain(entry: PluginEntry): void {
     }
   } catch (err) {
     entry.error = String(err);
-    console.error(`[plugins] failed to load main.js of ${entry.id}`, err);
+    log.error(`[plugins] failed to load main.js of ${entry.id}`, err);
   }
 }
 
@@ -271,7 +273,7 @@ function unloadMain(id: string): void {
     try {
       fn();
     } catch (err) {
-      console.error(`[plugins] dispose error for ${id}`, err);
+      log.error(`[plugins] dispose error for ${id}`, err);
     }
   }
   h.disposers.length = 0;
