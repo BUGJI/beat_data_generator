@@ -13,7 +13,7 @@ import { readFile, writeFile } from "fs/promises";
 import { readFileSync, writeFileSync } from "fs";
 import { basename, join } from "path";
 import { installPluginManager } from "./plugins";
-import log from "./logger";
+import log, { setFileLogging } from "./logger";
 import {
   defaultSettings,
   sanitizeSettings,
@@ -557,8 +557,14 @@ function registerIpc(): void {
   ipcMain.handle(
     "settings:update",
     (_e, patch: Partial<SettingsData>): SettingsData => {
+      const wasLogging = settings.logToFile === true;
       settings = sanitizeSettings({ ...settings, ...patch });
       persistSettings();
+      const isLogging = settings.logToFile === true;
+      if (isLogging !== wasLogging) {
+        setFileLogging(isLogging);
+        if (isLogging) log.info("file logging enabled");
+      }
       if (!settings.devEnabled) closeDevToolsAll();
       if (settings.checkUpdates) checkUpdatesSilent();
       return settings;
@@ -826,6 +832,7 @@ function checkUpdatesSilent(): void {
 
 app.whenReady().then(() => {
   loadSettings();
+  setFileLogging(settings.logToFile === true);
   loadLastDirs();
   loadRecents();
   registerIpc();

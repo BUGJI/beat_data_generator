@@ -158,6 +158,13 @@ const devFreeInput = computed({
   },
 });
 
+const logToFile = computed({
+  get: () => settings.settings.logToFile,
+  set: (v: boolean) => {
+    void patchSettings({ logToFile: v });
+  },
+});
+
 const language = computed<string>({
   get: () => locale.value,
   set: (v: string) => {
@@ -847,6 +854,18 @@ function catLabel(key: string): string {
                   }}</span>
                 </div>
                 <UiSwitch v-model="devFreeInput" :disabled="!devEnabled" />
+              </div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.advanced.logToFile")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.advanced.logToFileDesc")
+                  }}</span>
+                </div>
+                <UiSwitch v-model="logToFile" :disabled="!devEnabled" />
               </div>
 
               <div class="dev-block" :class="{ off: !devEnabled }">

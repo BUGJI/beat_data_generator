@@ -309,6 +309,9 @@ export default {
       freeInput: "Remove input limits",
       freeInputDesc:
         "When on, numeric inputs drop their min/max/precision so any number can be typed",
+      logToFile: "Record logs to file",
+      logToFileDesc:
+        "Write runtime logs to logs/main.log in the user data folder (main process and renderer console together; off by default).",
       openTools: "Open browser DevTools",
       openToolsDesc: "Closes first, then reopens the DevTools window.",
       disabledNote:

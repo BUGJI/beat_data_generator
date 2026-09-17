@@ -35,6 +35,8 @@ export const SettingsSchema = z.object({
   closeMode: CloseModeSchema.catch("ask").default("ask"),
   devEnabled: bool(false),
   devFreeInput: bool(false),
+  /** write runtime logs to <userData>/logs/main.log (off by default). */
+  logToFile: bool(false),
   animEnabled: bool(true),
   /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
   gridAutoHide: bool(true),

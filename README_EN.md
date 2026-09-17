@@ -99,7 +99,7 @@ npm run test:cov
 
 Tests currently cover the pure-logic layer: tempo math (`tempo.ts`), project-file parsing and recovery (`schemas/project.ts`), settings repair (`shared/settings.ts`), and undo/redo plus export formats (`services/history.ts` / `services/projectIO.ts`).
 
-Runtime logs (electron-log) are written to `<userData>/logs/main.log`, rotated at 5 MB; main-process logs plus renderer console warnings/errors are funnelled into it (on Windows usually `%APPDATA%\<app name>\logs\main.log`), which helps when a packaged build has no DevTools.
+Runtime logs (electron-log) go to the terminal by default. To persist them, enable "Record logs to file" under **Settings → Developer options** (off by default): they are then written to `<userData>/logs/main.log`, rotated at 5 MB, with main-process logs plus renderer console warnings/errors funnelled into it (on Windows usually `%APPDATA%\<app name>\logs\main.log`). This helps when a packaged build has no DevTools.
 
 ## Quick Start
 

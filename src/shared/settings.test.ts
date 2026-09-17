@@ -5,6 +5,8 @@ describe("defaultSettings", () => {
   it("returns the documented defaults", () => {
     const s = defaultSettings();
     expect(s.closeMode).toBe("ask");
+    expect(s.devEnabled).toBe(false);
+    expect(s.logToFile).toBe(false);
     expect(s.followPercent).toBe(90);
     expect(s.autoSave).toBe(true);
     expect(s.autoSaveMinutes).toBe(5);
