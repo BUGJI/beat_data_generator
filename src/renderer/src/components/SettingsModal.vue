@@ -27,6 +27,7 @@ import {
 } from "../plugins/host";
 import type { PluginEntry } from "../../../shared/plugin";
 import type { CloseMode } from "../../../shared/ipc";
+import type { AlignRounding } from "../../../shared/settings";
 import { useSettingsStore } from "../stores/settings";
 import UiButton from "./ui/UiButton.vue";
 import UiColorPicker from "./ui/UiColorPicker.vue";
@@ -235,6 +236,28 @@ const ctrlSpeedPlay = computed({
   },
 });
 
+const alignDecimals = computed({
+  get: () => settings.settings.alignDecimals,
+  set: (v: number) => {
+    void patchSettings({ alignDecimals: v });
+  },
+});
+
+const alignRounding = computed<string>({
+  get: () => settings.settings.alignRounding,
+  set: (v: string) => {
+    void patchSettings({ alignRounding: v as AlignRounding });
+  },
+});
+
+const alignRoundingOptions = computed<Array<{ value: string; label: string }>>(
+  () => [
+    { value: "round", label: t("settings.edit.roundRound") },
+    { value: "floor", label: t("settings.edit.roundFloor") },
+    { value: "ceil", label: t("settings.edit.roundCeil") },
+  ],
+);
+
 const metronomePath = computed(() => settings.settings.metronomePath);
 
 const audioAutoBpm = computed({
@@ -419,6 +442,41 @@ function catLabel(key: string): string {
                   }}</span>
                 </div>
                 <UiSwitch v-model="ctrlSpeedPlay" />
+              </div>
+
+              <div class="sub-head">{{ t("settings.edit.alignTitle") }}</div>
+
+              <div class="field-row">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.edit.alignDecimals")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.edit.alignDecimalsDesc")
+                  }}</span>
+                </div>
+                <UiNumberInput
+                  v-model="alignDecimals"
+                  :min="0"
+                  :max="6"
+                  :step="1"
+                  class="decimals-input"
+                />
+              </div>
+
+              <div class="field-row col">
+                <div class="field-info">
+                  <span class="field-name">{{
+                    t("settings.edit.alignRounding")
+                  }}</span>
+                  <span class="field-desc">{{
+                    t("settings.edit.alignRoundingDesc")
+                  }}</span>
+                </div>
+                <UiRadioGroup
+                  v-model="alignRounding"
+                  :options="alignRoundingOptions"
+                />
               </div>
 
               <div class="field-row">
@@ -1137,6 +1195,10 @@ function catLabel(key: string): string {
   min-width: 34px;
   text-align: right;
   color: var(--bdg-accent);
+}
+.decimals-input {
+  width: 84px;
+  flex: none;
 }
 .metronome-row {
   display: flex;

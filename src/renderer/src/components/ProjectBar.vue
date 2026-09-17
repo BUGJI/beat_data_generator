@@ -14,6 +14,7 @@ import {
   visibleMarkers,
   clickFollow,
   toggleTimeAlign,
+  alignMarkersToStep,
 } from "../store";
 import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
@@ -169,6 +170,10 @@ function wheelOffset(e: WheelEvent): void {
 
 function toggleSnap(): void {
   view.snapEnabled = !view.snapEnabled;
+}
+
+function onAlignMarkers(): void {
+  alignMarkersToStep();
 }
 
 // dev "free input" toggle relaxes numeric bounds/precision while typing
@@ -464,6 +469,25 @@ async function onDetectBpm(): Promise<void> {
           >
             <circle cx="12" cy="12" r="8.5" />
             <path d="M12 8v4l3 2" />
+          </svg>
+        </button>
+        <button
+          class="quick-icon"
+          :title="t('follow.alignTip')"
+          @click="onAlignMarkers"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="15"
+            height="15"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+          >
+            <path d="M4 6h16" />
+            <path d="M7 12h10" />
+            <path d="M4 18h16" />
           </svg>
         </button>
       </div>

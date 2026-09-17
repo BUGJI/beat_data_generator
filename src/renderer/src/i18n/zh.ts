@@ -14,6 +14,7 @@ export default {
     pctTip: "自动跟随触发位置（视口左起百分比）",
     timeAlignTip:
       "时间轴对齐：开启后修改 BPM 或偏移会改写踩点的拍位，使踩点保持当前绝对时间不变、不随网格移动；拍位始终与当前速度图一致，保存的工程与时间轴所见始终相同",
+    alignTip: "自动对齐：按“设置 → 编辑”中的保留小数位与取整方式对齐所有踩点拍位",
   },
   app: {
     name: "Beat Data Generator",
@@ -213,6 +214,14 @@ export default {
       ctrlSpeedPlay: "按住 Ctrl 才变速播放",
       ctrlSpeedPlayDesc:
         "开启后：按住 Ctrl+空格(播放) 按当前倍速播放，直接空格则按原速播放；关闭时直接空格即按当前倍速播放。",
+      alignTitle: "踩点自动对齐",
+      alignDecimals: "保留小数位",
+      alignDecimalsDesc: "点击“自动对齐”时踩点拍位保留的小数位数（0–6）。",
+      alignRounding: "取整方式",
+      alignRoundingDesc: "自动对齐时按所选精度对拍位取整的方式。",
+      roundRound: "四舍五入",
+      roundFloor: "向下取整",
+      roundCeil: "向上取整",
     },
     audio: {
       tagline:

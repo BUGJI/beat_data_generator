@@ -10,6 +10,8 @@ import {
 } from "../plugins/registry";
 import { useViewStore } from "./view";
 import { useUiStore } from "./ui";
+import { useSettingsStore } from "./settings";
+import type { AlignRounding } from "../../../shared/settings";
 import {
   clearSelectionIfMissing,
   markerSelectionIds,
@@ -527,6 +529,48 @@ function moveMarkerImpl(
   if (m.loop) refreshChildren(m);
   p.dirty = true;
   return true;
+}
+
+/** Quantize a beat to a power-of-ten step using one of the rounding modes. */
+export function quantizeBeat(
+  beat: number,
+  decimals: number,
+  mode: AlignRounding,
+): number {
+  const factor = 10 ** decimals;
+  const scaled = beat * factor;
+  const n =
+    mode === "floor"
+      ? Math.floor(scaled)
+      : mode === "ceil"
+        ? Math.ceil(scaled)
+        : Math.round(scaled);
+  return n / factor;
+}
+
+/**
+ * Round every editable marker's beat to the configured decimal places using
+ * the configured rounding mode, so beats snap to a clean grid. Loop children
+ * are rounded in place too; the loop interval is left untouched. Returns the
+ * number of markers changed.
+ */
+export function alignMarkersToStep(
+  decimals?: number,
+  mode?: AlignRounding,
+): number {
+  const p = useProjectStore();
+  const prefs = useSettingsStore().settings;
+  const dec = decimals ?? prefs.alignDecimals;
+  const md = mode ?? prefs.alignRounding;
+  const roundTo = (b: number): number => quantizeBeat(b, dec, md);
+  const changed = p.markers.filter(
+    (m) => !isTrackBlocked(m.trackId) && roundTo(m.beat) !== m.beat,
+  );
+  if (!changed.length) return 0;
+  pushHistory();
+  for (const m of changed) m.beat = Math.max(0, roundTo(m.beat));
+  p.dirty = true;
+  return changed.length;
 }
 
 export function changeMarkerTrack(id: string, trackId: string): boolean {

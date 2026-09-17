@@ -28,6 +28,9 @@ const intInRange = (def: number, min: number, max: number) =>
 
 export const CloseModeSchema = z.enum(["ask", "minimize", "close"]);
 
+export const AlignRoundingSchema = z.enum(["round", "floor", "ceil"]);
+export type AlignRounding = z.infer<typeof AlignRoundingSchema>;
+
 export const SettingsSchema = z.object({
   closeMode: CloseModeSchema.catch("ask").default("ask"),
   devEnabled: bool(false),
@@ -45,6 +48,10 @@ export const SettingsSchema = z.object({
   autoSaveMinutes: intInRange(5, 1, 60),
   /** hold Ctrl when pressing Space to play at the current rate; plain Space plays at 1x. */
   ctrlSpeedPlay: bool(false),
+  /** decimal places kept by the "align markers" action (0–6). */
+  alignDecimals: intInRange(2, 0, 6),
+  /** how "align markers" rounds each beat: nearest / toward zero / away. */
+  alignRounding: AlignRoundingSchema.catch("round").default("round"),
   /** optional audio file played once each time a beat marker is passed (empty = disabled). */
   metronomePath: z.string().catch("").default(""),
   settingsVersion: z.coerce.number().catch(0).default(0),

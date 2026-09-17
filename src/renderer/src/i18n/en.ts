@@ -17,6 +17,8 @@ export default {
     pctTip: "Auto-follow trigger position (% from the left of the viewport)",
     timeAlignTip:
       "Time align: when on, editing BPM / offset rewrites each marker's beat so it keeps its current absolute time instead of moving with the grid; beats stay in sync with the current tempo map, so the saved file always matches the timeline",
+    alignTip:
+      "Align: round every marker's beat using the precision and rounding mode set in Settings → Edit",
   },
   app: {
     name: "Beat Data Generator",
@@ -217,6 +219,16 @@ export default {
       ctrlSpeedPlay: "Hold Ctrl to play at speed",
       ctrlSpeedPlayDesc:
         "When on, pressing Ctrl+Space (play) plays at the current rate and plain Space plays at 1x; when off, plain Space always plays at the current rate.",
+      alignTitle: "Marker alignment",
+      alignDecimals: "Decimal places",
+      alignDecimalsDesc:
+        'Decimal places kept when the "Align" button rounds marker beats (0–6).',
+      alignRounding: "Rounding mode",
+      alignRoundingDesc:
+        'How the "Align" button rounds each beat to the chosen precision.',
+      roundRound: "Round",
+      roundFloor: "Floor",
+      roundCeil: "Ceil",
     },
     audio: {
       tagline:
