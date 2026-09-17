@@ -2,7 +2,7 @@
 
 > 作者：**BUGJI** · 协议：**GNU GPL v3**
 
-基于 **Electron + Vue 3 + TypeScript + Element Plus** 的音乐节拍踩点编辑器。在波形图上对齐歌曲节拍轴，放置踩点（beat marker）与 BPM 变速点，用于生成节奏类应用的节拍数据。
+基于 **Electron + Vue 3 + TypeScript + Tailwind CSS** 的音乐节拍踩点编辑器。在波形图上对齐歌曲节拍轴，放置踩点（beat marker）与 BPM 变速点，用于生成节奏类应用的节拍数据。
 
 ## 功能特性
 
@@ -22,7 +22,8 @@
 - **导出**：时间戳列表 `.txt`（毫秒精度去重）与 **CMX3600 EDL** `.edl`（25fps non-drop）。
 - **插件系统**：可扩展新的导入 / 导出格式、侧栏浮动静默面板、自定义快捷键、独立预览窗口与类型化轨道；详情见 `docs/plugin-system.md`。
 - **自动保存**：可配置间隔（1–60 分钟）后台自动保存当前工程。
-- **其他**：多语言界面（中文 / English）、欢迎页与最近工程、记住窗口位置、退出模式设置、深色主题。
+- **主题系统**：6 套预设（default / midnight / forest / amber / graphite / light），并支持按 token 自定义配色，实时生效。
+- **其他**：多语言界面（中文 / English）、欢迎页与最近工程、记住窗口位置、退出模式设置。
 
 <img width="1000" height="650" alt="image" src="https://github.com/user-attachments/assets/79314d83-6f06-4afc-9e28-ccdd6d2c1f36" />
 
@@ -33,7 +34,10 @@
 | 桌面框架 | Electron |
 | 构建工具 | electron-vite / Vite |
 | 前端 | Vue 3 + TypeScript |
-| 组件库 | Element Plus + @element-plus/icons-vue |
+| 状态管理 | Pinia |
+| 数据校验 | zod（工程文件 / 设置 schema） |
+| 组件库 | reka-ui（无头组件）+ Tailwind CSS v4 |
+| 图标 | @lucide/vue |
 | 国际化 | vue-i18n |
 | 音频变速 | soundtouchjs |
 | 音频智能分析 | pleco-xa（Web Worker 异步） |
@@ -43,27 +47,31 @@
 
 ```
 src/
-├── main/            # Electron 主进程：窗口管理、IPC、文件对话框、设置/最近工程持久化
+├── main/            # Electron 主进程：窗口管理、IPC、文件对话框、设置/最近工程持久化、插件管理
 ├── preload/         # 预加载脚本（contextBridge 暴露安全 API）
-├── shared/          # 主/渲染进程共享的 IPC 类型定义
+├── shared/          # 主/渲染进程共享的 IPC 类型、设置 schema 与插件契约
 └── renderer/        # Vue 渲染进程
     └── src/
         ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar / AnalysisPanel 等
-        ├── i18n/         # 中英文案（zh / en）
+        ├── stores/       # Pinia stores：project / selection / transport / view / settings / ui
+        ├── services/     # 业务编排：timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
+        ├── schemas/      # zod 工程文件 schema（v1 → v2 迁移与逐项容错）
         ├── plugins/      # 插件宿主：注册表 / 事件 / 桥接 API
-        ├── store.ts      # 全局状态与业务逻辑（标记、轨道、BPM、历史、导入导出）
+        ├── i18n/         # 中英文案（zh / en）
         ├── engine.ts     # Web Audio 播放引擎
         ├── tempo.ts      # 节拍 ↔ 时间换算与 tempo map
         ├── stretch.ts    # soundtouchjs 时间拉伸
         ├── analysis.ts   # 音频智能分析桥接（pleco-xa，Web Worker 异步）
         ├── analysis.worker.ts # 分析 Worker（BPM / 节拍 / 循环 / 频谱）
-        ├── editorView.ts # 视口 / 滚动 / 缩放模型
+        ├── theme.ts      # 主题预设与配色 token 派生
         └── metrics.ts    # 绘制度量与配色
 ```
 
+> 注：`src/renderer/src/store/index.ts` 只是兼容旧引用的 re-export 桶文件，实际状态在 `stores/`、编排在 `services/`。
+
 ## 开发
 
-要求 Node.js（建议 ≥ 18）与 npm。
+要求 Node.js ≥ 20.19（Vite 7 的最低要求）与 npm。
 
 ```bash
 # 安装依赖
@@ -80,7 +88,18 @@ npm run build
 
 # 类型检查
 npm run typecheck
+
+# 运行测试（vitest）
+npm test
+
+# 测试（监听模式）
+npm run test:watch
+
+# 测试覆盖率
+npm run test:cov
 ```
+
+测试目前覆盖纯逻辑层：节拍换算（`tempo.ts`）、工程文件解析与容错（`schemas/project.ts`）、设置修复（`shared/settings.ts`），以及撤销/重做与导出格式（`services/history.ts` / `services/projectIO.ts`）。
 
 ## 使用入门
 

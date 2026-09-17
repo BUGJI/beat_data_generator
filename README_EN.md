@@ -2,7 +2,7 @@
 
 > Author: **BUGJI** · License: **GNU GPL v3**
 
-A music beat-marker editor built with **Electron + Vue 3 + TypeScript + Element Plus**. Align a beat grid over an audio waveform, place beat markers and BPM change points, and generate beat data for rhythm-based applications.
+A music beat-marker editor built with **Electron + Vue 3 + TypeScript + Tailwind CSS**. Align a beat grid over an audio waveform, place beat markers and BPM change points, and generate beat data for rhythm-based applications.
 
 ## Features
 
@@ -22,7 +22,8 @@ A music beat-marker editor built with **Electron + Vue 3 + TypeScript + Element 
 - **Exports**: timestamp list `.txt` (millisecond precision, de-duplicated) and **CMX3600 EDL** `.edl` (25 fps, non-drop).
 - **Plugin system**: extend with new import/export formats, floating sidebar panels, custom shortcuts, standalone preview windows, and typed tracks. See `docs/plugin-system.md`.
 - **Auto-save**: configurable interval (1–60 min) saves the current project in the background.
-- **Extras**: bilingual UI (中文 / English), welcome screen with recent projects, window-state memory, close-mode settings, dark theme.
+- **Theming**: 6 presets (default / midnight / forest / amber / graphite / light) with per-token color overrides, applied live.
+- **Extras**: bilingual UI (中文 / English), welcome screen with recent projects, window-state memory, close-mode settings.
 
 ## Tech Stack
 
@@ -31,7 +32,10 @@ A music beat-marker editor built with **Electron + Vue 3 + TypeScript + Element 
 | Desktop shell | Electron |
 | Build tooling | electron-vite / Vite |
 | Frontend | Vue 3 + TypeScript |
-| UI library | Element Plus + @element-plus/icons-vue |
+| State | Pinia |
+| Validation | zod (project-file / settings schemas) |
+| UI | reka-ui (headless) + Tailwind CSS v4 |
+| Icons | @lucide/vue |
 | i18n | vue-i18n |
 | Time-stretch | soundtouchjs |
 | Audio intelligence | pleco-xa (async via Web Worker) |
@@ -41,27 +45,31 @@ A music beat-marker editor built with **Electron + Vue 3 + TypeScript + Element 
 
 ```
 src/
-├── main/            # Electron main process: windows, IPC, dialogs, settings/recents persistence
+├── main/            # Electron main process: windows, IPC, dialogs, settings/recents persistence, plugin manager
 ├── preload/         # Preload script (contextBridge exposes a safe API)
-├── shared/          # IPC type definitions shared by main & renderer
+├── shared/          # IPC types, settings schema and plugin contract shared by main & renderer
 └── renderer/        # Vue renderer
     └── src/
         ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar / AnalysisPanel etc.
-        ├── i18n/         # Chinese & English strings (zh / en)
+        ├── stores/       # Pinia stores: project / selection / transport / view / settings / ui
+        ├── services/     # Orchestration: timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
+        ├── schemas/      # zod project-file schema (v1 → v2 migration and per-item recovery)
         ├── plugins/      # Plugin host: registry / events / bridge API
-        ├── store.ts      # Global state & domain logic (markers, tracks, BPM, history, IO)
+        ├── i18n/         # Chinese & English strings (zh / en)
         ├── engine.ts     # Web Audio playback engine
         ├── tempo.ts      # beat↔time mapping and tempo map builder
         ├── stretch.ts    # soundtouchjs time stretch wrapper
         ├── analysis.ts   # Audio intelligence bridge (pleco-xa, async in Web Worker)
         ├── analysis.worker.ts # Analysis worker (BPM / beats / loop / spectrogram)
-        ├── editorView.ts # viewport / scroll / zoom model
+        ├── theme.ts      # theme presets and color-token derivation
         └── metrics.ts    # drawing metrics & palette
 ```
 
+> Note: `src/renderer/src/store/index.ts` is only a re-export barrel kept for older imports; state lives in `stores/` and orchestration in `services/`.
+
 ## Development
 
-Requires Node.js (≥ 18 recommended) and npm.
+Requires Node.js ≥ 20.19 (Vite 7's minimum) and npm.
 
 ```bash
 # Install dependencies
@@ -78,7 +86,18 @@ npm run build
 
 # Type checking
 npm run typecheck
+
+# Run tests (vitest)
+npm test
+
+# Tests in watch mode
+npm run test:watch
+
+# Test coverage
+npm run test:cov
 ```
+
+Tests currently cover the pure-logic layer: tempo math (`tempo.ts`), project-file parsing and recovery (`schemas/project.ts`), settings repair (`shared/settings.ts`), and undo/redo plus export formats (`services/history.ts` / `services/projectIO.ts`).
 
 ## Quick Start
 
