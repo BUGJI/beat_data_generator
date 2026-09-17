@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import {
-  BPM_MAX,
   BPM_MIN,
   buildTempoMap,
   clampBpm,
@@ -9,6 +8,7 @@ import {
   fmtBarBeat,
 } from "./tempo";
 import type { BpmPoint } from "./types";
+import { setFreeInput } from "../../shared/limits";
 
 const point = (
   beat: number,
@@ -17,10 +17,22 @@ const point = (
 ): BpmPoint => ({ id: `p${beat}`, beat, mode, value });
 
 describe("clampBpm", () => {
-  it("clamps to the allowed range", () => {
+  it("keeps bpm strictly positive without an upper cap", () => {
     expect(clampBpm(0)).toBe(BPM_MIN);
-    expect(clampBpm(5000)).toBe(BPM_MAX);
+    expect(clampBpm(-5)).toBe(BPM_MIN);
+    expect(clampBpm(5000)).toBe(5000);
     expect(clampBpm(120)).toBe(120);
+  });
+
+  it("drops all bounds when free input is enabled", () => {
+    setFreeInput(true);
+    try {
+      expect(clampBpm(0)).toBe(0);
+      expect(clampBpm(-5)).toBe(-5);
+      expect(clampBpm(5000)).toBe(5000);
+    } finally {
+      setFreeInput(false);
+    }
   });
 });
 
@@ -95,10 +107,10 @@ describe("buildTempoMap", () => {
     expect(map.timeOfBeat(8)).toBe(3000);
   });
 
-  it("clamps the base bpm and point values", () => {
+  it("keeps the base bpm and point values positive", () => {
     const map = buildTempoMap(5000, 0, [point(2, "abs", 1)]);
-    expect(map.bpmAtBeat(0)).toBe(BPM_MAX);
-    expect(map.bpmAtBeat(2)).toBe(BPM_MIN);
+    expect(map.bpmAtBeat(0)).toBe(5000);
+    expect(map.bpmAtBeat(2)).toBe(1);
   });
 
   it("sorts points and ignores non-positive beats", () => {

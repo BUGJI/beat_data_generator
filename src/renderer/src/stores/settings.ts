@@ -9,6 +9,7 @@ import {
   sanitizeSettings,
   type SettingsData,
 } from "../../../shared/settings";
+import { setFreeInput } from "../../../shared/limits";
 
 /**
  * Persisted user settings plus the settings-dialog open flag.
@@ -32,6 +33,7 @@ export async function loadSettings(): Promise<void> {
   try {
     const got = await window.api.getSettings();
     store.settings = sanitizeSettings({ ...store.settings, ...got });
+    setFreeInput(store.settings.devFreeInput);
     useTransportStore().followManual = got.followPreset;
     if (got.metronomePath) void loadMetronome(got.metronomePath);
   } catch {
@@ -45,6 +47,7 @@ let settingsTimer: number | undefined;
 export function patchSettings(patch: Partial<SettingsData>): void {
   const store = useSettingsStore();
   store.settings = sanitizeSettings({ ...store.settings, ...patch });
+  setFreeInput(store.settings.devFreeInput);
   if ("themePreset" in patch || "themeOverrides" in patch)
     applyThemeFromSettings();
   if ("stretchEngine" in patch) engine.clearStretched();

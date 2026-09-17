@@ -51,12 +51,12 @@ describe("parseProjectDocument / v2", () => {
     expect(parsed!.doc.bpmLocked).toBe(true);
   });
 
-  it("clamps base BPM and repairs missing optional fields", () => {
+  it("keeps base BPM positive and repairs missing optional fields", () => {
     const parsed = parseProjectDocument(
       v2({ baseBpm: 5000, audioName: undefined, audioMd5: undefined }),
     );
     expect(parsed).not.toBeNull();
-    expect(parsed!.doc.baseBpm).toBe(999);
+    expect(parsed!.doc.baseBpm).toBe(5000);
     expect(parsed!.doc.audioName).toBeNull();
     expect(parsed!.doc.audioMd5).toBeNull();
   });

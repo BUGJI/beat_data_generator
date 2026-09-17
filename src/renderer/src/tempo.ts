@@ -1,7 +1,8 @@
 import type { BpmPoint, Segment } from "./types";
+import { isFreeInput } from "../../shared/limits";
 
-export const BPM_MIN = 20;
-export const BPM_MAX = 999;
+/** Smallest positive BPM representable at the UI's 1-decimal precision. */
+export const BPM_MIN = 0.1;
 
 export interface TempoMap {
   segments: Segment[];
@@ -12,7 +13,8 @@ export interface TempoMap {
 }
 
 export function clampBpm(v: number): number {
-  return Math.min(BPM_MAX, Math.max(BPM_MIN, v));
+  if (isFreeInput()) return v;
+  return Math.max(BPM_MIN, v);
 }
 
 /** Build ordered tempo segments from the base BPM (beat 0) and tempo-change points. */

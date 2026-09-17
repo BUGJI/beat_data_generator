@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
-import { snapBeat, makeId, clampBpm, BPM_MAX, BPM_MIN } from "../tempo";
+import { snapBeat, makeId, clampBpm, BPM_MIN } from "../tempo";
+import { isFreeInput } from "../../../shared/limits";
 import { nextColor } from "../metrics";
 import {
   getTypedef,
@@ -99,7 +100,13 @@ export const useProjectStore = defineStore("project", () => {
   };
 });
 
-const round = (b: number): number => Math.round(b * 1e6) / 1e6;
+const round = (b: number): number =>
+  isFreeInput() ? b : Math.round(b * 1e6) / 1e6;
+
+/** Non-negative beat guard (dropped when free input is on). */
+function clampBeat(b: number): number {
+  return isFreeInput() ? b : Math.max(0, b);
+}
 
 export const sortedTracks = (): MarkerTrack[] => useProjectStore().tracks;
 
@@ -386,8 +393,10 @@ export function refreshChildren(parent: Marker): void {
   // drop current children of this parent
   p.markers = p.markers.filter((x) => x.parentId !== parent.id);
   const cfg = parent.loop;
-  if (!(cfg.interval > 0) || cfg.count < 1) return;
-  const count = Math.min(cfg.count, MAX_LOOP_CHILDREN);
+  if (!isFreeInput() && (!(cfg.interval > 0) || cfg.count < 1)) return;
+  const count = isFreeInput()
+    ? Math.floor(cfg.count)
+    : Math.min(cfg.count, MAX_LOOP_CHILDREN);
   const exclude = new Set(cfg.exclude ?? []);
   const used = new Set<number>();
   for (const m of p.markers) {
@@ -415,8 +424,14 @@ function updateMarkerLoopImpl(
     parent.loop = null;
   } else {
     parent.loop = {
-      interval: cfg.interval > 0 ? cfg.interval : 1,
-      count: Math.min(MAX_LOOP_CHILDREN, Math.max(1, Math.floor(cfg.count))),
+      interval: isFreeInput()
+        ? cfg.interval
+        : cfg.interval > 0
+          ? cfg.interval
+          : 1,
+      count: isFreeInput()
+        ? Math.floor(cfg.count)
+        : Math.min(MAX_LOOP_CHILDREN, Math.max(1, Math.floor(cfg.count))),
       ...(Array.isArray(cfg.exclude) && cfg.exclude.length
         ? { exclude: cfg.exclude }
         : {}),
@@ -429,7 +444,7 @@ function updateMarkerLoopImpl(
 function addMarkerImpl(trackId: string, rawBeat: number): Marker | null {
   if (isTrackBlocked(trackId)) return null;
   const p = useProjectStore();
-  const beat = Math.max(0, snapped(rawBeat));
+  const beat = clampBeat(snapped(rawBeat));
   if (trackHasBeat(trackId, beat)) return null;
   pushHistory();
   const track = p.tracks.find((x) => x.id === trackId);
@@ -500,7 +515,7 @@ function moveMarkerImpl(id: string, rawBeat: number, force = false): boolean {
   const m = findMarker(id);
   if (!m || m.parentId) return false;
   if (isTrackBlocked(m.trackId)) return false;
-  const beat = Math.max(0, force ? round(rawBeat) : snapped(rawBeat));
+  const beat = clampBeat(force ? round(rawBeat) : snapped(rawBeat));
   const ownGroup = new Set([m.id, ...childrenOf(m.id).map((c) => c.id)]);
   const blocked = p.markers.some(
     (x) =>
@@ -666,8 +681,9 @@ export function setBpmLocked(v: boolean): void {
 }
 
 function pointHasBeat(beat: number, exceptId?: string): boolean {
+  const b = clampBeat(beat);
   return useProjectStore().bpmPoints.some(
-    (p) => p.id !== exceptId && Math.abs(p.beat - Math.max(0, beat)) < 1e-6,
+    (p) => p.id !== exceptId && Math.abs(p.beat - b) < 1e-6,
   );
 }
 
@@ -677,7 +693,7 @@ export function addBpmPoint(
   value?: number,
 ): BpmPoint | null {
   const p = useProjectStore();
-  const beat = Math.max(0, snapped(rawBeat));
+  const beat = clampBeat(snapped(rawBeat));
   const existing = p.bpmPoints.find((pt) => Math.abs(pt.beat - beat) < 1e-6);
   if (isBpmLocked()) {
     if (existing) {
@@ -714,7 +730,7 @@ function updateBpmPointImpl(
   const pt = findBpmPoint(id);
   if (!pt || isBpmLocked()) return;
   const beat =
-    patch.beat !== undefined ? Math.max(0, snapped(patch.beat)) : undefined;
+    patch.beat !== undefined ? clampBeat(snapped(patch.beat)) : undefined;
   if (beat !== undefined && pointHasBeat(beat, id)) return;
   pushHistory();
   withTimeAlign(() => {
@@ -732,8 +748,11 @@ function updateBpmPointImpl(
     }
     if (patch.value !== undefined) {
       const v = Number(patch.value) || 0;
-      pt.value =
-        pt.mode === "mult" ? Math.min(100, Math.max(0.01, v)) : clampBpm(v);
+      pt.value = isFreeInput()
+        ? v
+        : pt.mode === "mult"
+          ? Math.min(100, Math.max(0.01, v))
+          : clampBpm(v);
     }
   });
   p.dirty = true;
@@ -774,7 +793,7 @@ function setBaseBpmImpl(v: number): void {
 
 function setOffsetImpl(v: number): void {
   const p = useProjectStore();
-  const next = Math.round(v);
+  const next = isFreeInput() ? v : Math.round(v);
   if (next === p.offsetMs) return;
   pushHistory();
   withTimeAlign(() => {
@@ -836,4 +855,4 @@ export function setOffset(v: number): void {
   useProjectStore().setOffset(v);
 }
 
-export { clampBpm, BPM_MAX, BPM_MIN };
+export { clampBpm, BPM_MIN };

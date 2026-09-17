@@ -18,6 +18,7 @@ import {
 } from "../store";
 import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
+import { BPM_MIN } from "../tempo";
 import { resolveTheme, type ThemeOverrides } from "../theme";
 import { useProjectStore } from "../stores/project";
 import { useTransportStore } from "../stores/transport";
@@ -160,9 +161,7 @@ const followPctLabel = computed(() => `${settings.settings.followPercent}%`);
 function wheelOffset(e: WheelEvent): void {
   const step = Math.sign(e.deltaY) * 5;
   const cur = project.offsetMs;
-  const v = freeInput.value
-    ? cur - step
-    : Math.max(-100000, Math.min(100000, cur - step));
+  const v = cur - step;
   if (v !== cur) offset.value = v;
 }
 
@@ -266,8 +265,7 @@ async function onDetectBpm(): Promise<void> {
           <div class="bpm-row">
             <UiNumberInput
               v-model="baseBpm"
-              :min="freeInput ? undefined : 20"
-              :max="freeInput ? undefined : 999"
+              :min="freeInput ? undefined : BPM_MIN"
               :step="1"
               :precision="freeInput ? undefined : 1"
               class="bpm-input"
@@ -290,8 +288,6 @@ async function onDetectBpm(): Promise<void> {
           </span>
           <UiNumberInput
             v-model="offset"
-            :min="freeInput ? undefined : -100000"
-            :max="freeInput ? undefined : 100000"
             :step="5"
             @wheel.prevent="wheelOffset"
           />

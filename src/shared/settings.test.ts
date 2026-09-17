@@ -41,6 +41,20 @@ describe("sanitizeSettings", () => {
     expect(low.autoSaveMinutes).toBe(1);
   });
 
+  it("bypasses numeric ranges under free input", () => {
+    const s = sanitizeSettings({
+      devFreeInput: true,
+      followPercent: -5,
+      autoSaveMinutes: -3,
+      alignDecimals: -2,
+    });
+    expect(s.followPercent).toBe(-5);
+    expect(s.autoSaveMinutes).toBe(-3);
+    expect(s.alignDecimals).toBe(-2);
+    // the flag must not leak into later parses
+    expect(sanitizeSettings({ followPercent: -5 }).followPercent).toBe(0);
+  });
+
   it("falls back for invalid enums and non-boolean flags", () => {
     const s = sanitizeSettings({
       closeMode: "nope",

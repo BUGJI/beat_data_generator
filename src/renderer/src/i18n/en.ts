@@ -314,7 +314,7 @@ export default {
       masterDesc: "When off, devtools are disabled and the entry is hidden",
       freeInput: "Remove input limits",
       freeInputDesc:
-        "When on, numeric inputs drop their min/max/precision so any number can be typed",
+        "When on, numeric inputs drop their min/max/precision so any positive or negative number can be typed",
       logToFile: "Record logs to file",
       logToFileDesc:
         "Write runtime logs to logs/main.log in the user data folder (main process and renderer console together; off by default).",

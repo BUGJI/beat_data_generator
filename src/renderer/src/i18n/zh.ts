@@ -303,7 +303,7 @@ export default {
       masterDesc: "关闭时禁用调试工具并隐藏入口",
       freeInput: "去除输入限制",
       freeInputDesc:
-        "开启后所有数值输入框不再限制上下限/小数位，可输入任意数字",
+        "开启后所有数值输入框不再限制上下限/小数位，可输入任意正数或负数",
       logToFile: "记录运行日志到文件",
       logToFileDesc:
         "把运行日志写入用户数据目录的 logs/main.log（主进程与渲染进程 console 一并记录，默认关闭）。",

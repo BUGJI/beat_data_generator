@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isFreeInput, setFreeInput } from "./limits";
 
 /**
  * Persisted settings contract.
@@ -18,13 +19,15 @@ export const SETTINGS_VERSION = 2;
 /** Boolean that repairs to `def` for any non-boolean input. */
 const bool = (def: boolean) => z.boolean().catch(def).default(def);
 
-/** Integer clamped into [min, max] with a safe fallback. */
+/** Integer clamped into [min, max] with a safe fallback (bypassed by free input). */
 const intInRange = (def: number, min: number, max: number) =>
   z.coerce
     .number()
     .catch(def)
     .default(def)
-    .transform((v) => Math.min(max, Math.max(min, Math.round(v))));
+    .transform((v) =>
+      isFreeInput() ? v : Math.min(max, Math.max(min, Math.round(v))),
+    );
 
 export const CloseModeSchema = z.enum(["ask", "minimize", "close"]);
 
@@ -109,5 +112,13 @@ export function defaultSettings(): SettingsData {
 export function sanitizeSettings(raw: unknown): SettingsData {
   const input =
     raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
-  return SettingsSchema.parse(input);
+  // free-input intentionally disables the other numeric clamps, so it must be
+  // in effect while the rest of the object is parsed.
+  const prev = isFreeInput();
+  setFreeInput((input as Record<string, unknown>).devFreeInput === true);
+  try {
+    return SettingsSchema.parse(input);
+  } finally {
+    setFreeInput(prev);
+  }
 }

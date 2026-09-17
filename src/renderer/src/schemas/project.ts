@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { buildTempoMap, clampBpm, makeId } from "../tempo";
+import { isFreeInput } from "../../../shared/limits";
 import type {
   BeatProject,
   BpmPoint,
@@ -31,6 +32,11 @@ function baseName(p: string): string {
   return i >= 0 ? n.slice(i + 1) : n;
 }
 
+/** Non-negative beat guard (dropped when free input is on). */
+function clampBeat(b: number): number {
+  return isFreeInput() ? b : Math.max(0, b);
+}
+
 /** Parse each element, silently skipping the ones that do not validate. */
 function recoverArray<T>(schema: z.ZodType<T>, arr: unknown): T[] {
   if (!Array.isArray(arr)) return [];
@@ -48,7 +54,13 @@ function normalizeLoop(v: unknown): LoopConfig | undefined {
   const l = v as Record<string, unknown>;
   const iv = Number(l.interval);
   const cnt = Number(l.count);
-  if (!Number.isFinite(iv) || iv <= 0 || !Number.isFinite(cnt) || cnt < 1)
+  const free = isFreeInput();
+  if (
+    !Number.isFinite(iv) ||
+    (!free && iv <= 0) ||
+    !Number.isFinite(cnt) ||
+    (!free && cnt < 1)
+  )
     return undefined;
   const out: LoopConfig = { interval: iv, count: Math.floor(cnt) };
   if (Array.isArray(l.exclude)) {
@@ -102,7 +114,7 @@ export const MarkerSchema: z.ZodType<Marker> = z
     beat: z.coerce
       .number()
       .finite()
-      .transform((b) => Math.max(0, b)),
+      .transform((b) => clampBeat(b)),
     parentId: z
       .unknown()
       .optional()
@@ -131,14 +143,17 @@ export const BpmPointSchema: z.ZodType<BpmPoint> = z.object({
     .unknown()
     .default(null)
     .transform((v) => (v == null ? makeId() : String(v))),
-  beat: z.coerce.number().finite().gt(0),
+  beat: z.coerce
+    .number()
+    .finite()
+    .refine((b) => isFreeInput() || b > 0),
   mode: z.enum(["abs", "mult"]).catch("abs").default("abs"),
   value: z.coerce
     .number()
     .finite()
     .catch(1)
     .default(1)
-    .transform((v) => v || 1),
+    .transform((v) => (v > 0 ? v : 1)),
 });
 
 export const ProjectNoteSchema: z.ZodType<ProjectNote> = z.object({
@@ -146,8 +161,14 @@ export const ProjectNoteSchema: z.ZodType<ProjectNote> = z.object({
     .unknown()
     .default(null)
     .transform((v) => (v == null ? makeId() : String(v))),
-  timeMs: z.coerce.number().finite().min(0),
-  y: z.coerce.number().finite().min(0),
+  timeMs: z.coerce
+    .number()
+    .finite()
+    .refine((v) => isFreeInput() || v >= 0),
+  y: z.coerce
+    .number()
+    .finite()
+    .refine((v) => isFreeInput() || v >= 0),
   text: z.string().catch("").default(""),
   locked: optionalTrue,
 });
@@ -212,7 +233,7 @@ function parseLegacy(
     markers.push({
       id: rec.id == null ? makeId() : String(rec.id),
       trackId: track.id,
-      beat: Math.max(0, map.beatOfTime(tms)),
+      beat: clampBeat(map.beatOfTime(tms)),
     });
   }
   const rawAudioName =

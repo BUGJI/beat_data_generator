@@ -3,6 +3,7 @@ import { stretchAudioBuffer } from "../stretch";
 import { useSettingsStore } from "../stores/settings";
 import { useTransportStore } from "../stores/transport";
 import { refreshBeatFlash } from "./flash";
+import { isFreeInput } from "../../../shared/limits";
 
 /**
  * Playback orchestration around the audio engine: play / pause / stop / seek,
@@ -119,9 +120,16 @@ export function seekTo(ms: number): void {
   refreshBeatFlash(t.positionMs);
 }
 
+/** Smallest positive playback rate representable at the UI's 2-decimal precision. */
+export const SPEED_MIN = 0.01;
+
 export function applySpeed(rate: number, pitchFollow: boolean): void {
   const t = useTransportStore();
-  const r = Math.min(4, Math.max(0.1, rate));
+  const r = !Number.isFinite(rate)
+    ? 1
+    : isFreeInput()
+      ? rate
+      : Math.max(SPEED_MIN, rate);
   t.rate = r;
   t.pitchFollow = pitchFollow;
   if (!t.playing || !t.hasAudio) return;

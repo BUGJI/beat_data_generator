@@ -481,8 +481,8 @@ function catLabel(key: string): string {
                 </div>
                 <UiNumberInput
                   v-model="alignDecimals"
-                  :min="0"
-                  :max="6"
+                  :min="devFreeInput ? undefined : 0"
+                  :max="devFreeInput ? undefined : 6"
                   :step="1"
                   class="decimals-input"
                 />
@@ -524,8 +524,8 @@ function catLabel(key: string): string {
                 <div class="pct-row">
                   <UiNumberInput
                     v-model="autoSaveMinutes"
-                    :min="1"
-                    :max="60"
+                    :min="devFreeInput ? undefined : 1"
+                    :max="devFreeInput ? undefined : 60"
                     :step="1"
                     class="minutes-input"
                   />

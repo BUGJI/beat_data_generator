@@ -9,6 +9,7 @@ import {
   contentEndMs,
   setVolume,
   applySpeed,
+  SPEED_MIN,
   bpmAtTime,
 } from "../store";
 import { useTransportStore } from "../stores/transport";
@@ -70,10 +71,11 @@ function onRateWheel(e: WheelEvent): void {
     const steps = Math.round(d / 100); // each wheel notch ≈ 0.05
     // snap onto the 0.05 grid first so values like 1.00 stay reachable
     const cur = transport.rate;
-    const grid = Math.round(cur / 0.05) * 0.05;
+    const free = freeInput.value;
+    const grid = free ? cur : Math.round(cur / 0.05) * 0.05;
     let v = grid - steps * 0.05;
-    v = Math.min(4, Math.max(0.1, v));
-    const next = Math.round(v * 100) / 100;
+    if (!free) v = Math.max(SPEED_MIN, v);
+    const next = free ? v : Math.round(v * 100) / 100;
     if (next !== cur) applySpeed(next, transport.pitchFollow);
   });
 }
@@ -105,8 +107,7 @@ onBeforeUnmount(() => {
         <span class="rate-label">{{ t("transport.speedRate") }}</span>
         <UiNumberInput
           v-model="speed"
-          :min="freeInput ? undefined : 0.1"
-          :max="freeInput ? undefined : 4"
+          :min="freeInput ? undefined : SPEED_MIN"
           :step="0.05"
           :precision="freeInput ? undefined : 2"
           class="rate-input"

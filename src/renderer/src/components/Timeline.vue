@@ -42,7 +42,7 @@ import {
   setNoteText,
   MAX_LOOP_CHILDREN,
 } from "../store";
-import { snapBeat, beatParts } from "../tempo";
+import { snapBeat, beatParts, clampBpm, BPM_MIN } from "../tempo";
 import { useProjectStore } from "../stores/project";
 import { useTransportStore } from "../stores/transport";
 import { useSelectionStore } from "../stores/selection";
@@ -691,15 +691,11 @@ function effectiveSegments(): Array<{
   for (const p of pts) {
     if (p.beat <= startBeat) continue;
     segs.push({ beatStart: startBeat, beatEnd: p.beat, bpm: curBpm });
-    curBpm = p.mode === "abs" ? clampNum(p.value) : curBpm * p.value;
+    curBpm = p.mode === "abs" ? clampBpm(p.value) : curBpm * p.value;
     startBeat = p.beat;
   }
   segs.push({ beatStart: startBeat, beatEnd: null, bpm: curBpm });
   return segs;
-}
-
-function clampNum(v: number): number {
-  return Math.min(999, Math.max(20, v));
 }
 
 function drawMarkerLanesContent(
@@ -936,6 +932,59 @@ watch(cardEl, (el) => {
   cardRo.observe(el);
   void nextTick(positionCard);
 });
+
+// ---- card dragging (grab the header to move the popup) ----
+
+let cardDragging = false;
+let cardDragOffset = { x: 0, y: 0 };
+
+function startCardDrag(e: PointerEvent): void {
+  if (e.button !== 0) return;
+  const el = cardEl.value;
+  const root = rootEl.value;
+  if (!el || !root) return;
+  if ((e.target as HTMLElement).closest(".pc-x")) return;
+  const rect = root.getBoundingClientRect();
+  cardDragging = true;
+  cardDragOffset = {
+    x: e.clientX - rect.left - cardPos.value.x,
+    y: e.clientY - rect.top - cardPos.value.y,
+  };
+  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+}
+
+function onCardDrag(e: PointerEvent): void {
+  if (!cardDragging) return;
+  const el = cardEl.value;
+  const root = rootEl.value;
+  if (!el || !root) return;
+  const rect = root.getBoundingClientRect();
+  const maxX = Math.max(
+    CARD_MARGIN,
+    root.clientWidth - el.offsetWidth - CARD_MARGIN,
+  );
+  const maxY = Math.max(
+    CARD_MARGIN,
+    root.clientHeight - el.offsetHeight - CARD_MARGIN,
+  );
+  const x = Math.min(
+    Math.max(CARD_MARGIN, e.clientX - rect.left - cardDragOffset.x),
+    maxX,
+  );
+  const y = Math.min(
+    Math.max(CARD_MARGIN, e.clientY - rect.top - cardDragOffset.y),
+    maxY,
+  );
+  cardPos.value = { x, y };
+  // keep the anchor in sync so positionCard() (resize/reflow) won't snap back
+  anchorPos.value = { x, y: y - CARD_Y_OFFSET };
+}
+
+function endCardDrag(e: PointerEvent): void {
+  if (!cardDragging) return;
+  cardDragging = false;
+  (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
+}
 
 // ---- quick place / erase brush ----
 
@@ -1395,7 +1444,12 @@ const freeInput = computed(() => settings.settings.devFreeInput);
 const markerBeat = computed({
   get: () => selMarker.value?.beat ?? 0,
   set: (v: number) => {
-    if (selMarker.value) moveMarker(selMarker.value.id, Math.max(0, v), true);
+    if (selMarker.value)
+      moveMarker(
+        selMarker.value.id,
+        freeInput.value ? v : Math.max(0, v),
+        true,
+      );
   },
 });
 function applyLoopPatch(patch: { interval?: number; count?: number }): void {
@@ -1432,7 +1486,9 @@ const loopCount = computed({
   get: () => selMarker.value?.loop?.count ?? 4,
   set: (v: number) =>
     applyLoopPatch({
-      count: Math.min(MAX_LOOP_CHILDREN, Math.max(1, Math.floor(v))),
+      count: freeInput.value
+        ? v
+        : Math.min(MAX_LOOP_CHILDREN, Math.max(1, Math.floor(v))),
     }),
 });
 const LOOP_INT_MIN = 0.0625;
@@ -1471,10 +1527,15 @@ function loopDraftCancel(): void {
   loopDraft.value = String(loopInterval.value);
 }
 
-const canHalve = computed(() => loopInterval.value > LOOP_INT_MIN);
-const canDouble = computed(() => loopInterval.value < LOOP_INT_MAX);
+const canHalve = computed(
+  () => freeInput.value || loopInterval.value > LOOP_INT_MIN,
+);
+const canDouble = computed(
+  () => freeInput.value || loopInterval.value < LOOP_INT_MAX,
+);
 
 function clampLoopInterval(v: number): number {
+  if (freeInput.value) return v;
   const c = Math.min(LOOP_INT_MAX, Math.max(LOOP_INT_MIN, v));
   return Math.round(c * 1e4) / 1e4;
 }
@@ -1489,13 +1550,20 @@ function onLoopCountWheel(e: WheelEvent): void {
   e.preventDefault();
   e.stopPropagation();
   const next = loopCount.value + (e.deltaY < 0 ? 1 : -1);
+  if (freeInput.value) {
+    loopCount.value = next;
+    return;
+  }
   const hi = MAX_LOOP_CHILDREN;
   if (next >= 1 && next <= hi) loopCount.value = next;
 }
 const bpmBeat = computed({
   get: () => selBpm.value?.beat ?? 0,
   set: (v: number) => {
-    if (selBpm.value) updateBpmPoint(selBpm.value.id, { beat: Math.max(0, v) });
+    if (selBpm.value)
+      updateBpmPoint(selBpm.value.id, {
+        beat: freeInput.value ? v : Math.max(0, v),
+      });
   },
 });
 const bpmValue = computed({
@@ -1504,8 +1572,16 @@ const bpmValue = computed({
     if (selBpm.value) updateBpmPoint(selBpm.value.id, { value: v });
   },
 });
-const bpmMin = computed(() => (bpmMode.value === "mult" ? 0.01 : 20));
-const bpmMax = computed(() => (bpmMode.value === "mult" ? 100 : 999));
+const bpmMin = computed(() =>
+  freeInput.value
+    ? Number.NEGATIVE_INFINITY
+    : bpmMode.value === "mult"
+      ? 0.01
+      : BPM_MIN,
+);
+const bpmMax = computed(() =>
+  bpmMode.value === "mult" && !freeInput.value ? 100 : Number.POSITIVE_INFINITY,
+);
 const bpmDecimals = computed(() => (bpmMode.value === "mult" ? 3 : 1));
 
 function roundValue(v: number, decimals: number): number {
@@ -1513,31 +1589,37 @@ function roundValue(v: number, decimals: number): number {
   return Math.round(v * p) / p;
 }
 
+/** Format a BPM value for the draft input (no rounding under free input). */
+function formatBpmDraft(v: number): string {
+  return String(freeInput.value ? v : roundValue(v, bpmDecimals.value));
+}
+
 const bpmDraft = ref("");
 
 function bpmDraftBegin(): void {
-  bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
+  bpmDraft.value = formatBpmDraft(bpmValue.value);
 }
 
 function bpmDraftCommit(): void {
   const raw = bpmDraft.value.trim();
   const v = Number(raw);
   if (raw === "" || !Number.isFinite(v)) {
-    bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
+    bpmDraft.value = formatBpmDraft(bpmValue.value);
     return;
   }
   bpmValue.value = clampValue(v);
-  bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
+  bpmDraft.value = formatBpmDraft(bpmValue.value);
 }
 
 function bpmDraftCancel(): void {
-  bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
+  bpmDraft.value = formatBpmDraft(bpmValue.value);
 }
 
 const canHalveBpm = computed(() => bpmValue.value > bpmMin.value + 1e-9);
 const canDoubleBpm = computed(() => bpmValue.value < bpmMax.value - 1e-9);
 
 function clampValue(v: number): number {
+  if (freeInput.value) return v;
   const c = Math.min(bpmMax.value, Math.max(bpmMin.value, v));
   return roundValue(c, bpmDecimals.value);
 }
@@ -1545,7 +1627,7 @@ function clampValue(v: number): number {
 /** +/- buttons multiply / divide the BPM value (or multiplier) by `factor`. */
 function scaleBpmValue(factor: number): void {
   bpmValue.value = clampValue(bpmValue.value * factor);
-  bpmDraft.value = String(roundValue(bpmValue.value, bpmDecimals.value));
+  bpmDraft.value = formatBpmDraft(bpmValue.value);
 }
 const effBpm = computed(() =>
   selBpm.value ? effectiveBpmFor(selBpm.value) : 0,
@@ -1831,7 +1913,13 @@ const selectionMs = computed<string | null>(() => {
       @contextmenu.stop
     >
       <template v-if="selMarker">
-        <div class="pc-head">
+        <div
+          class="pc-head"
+          @pointerdown.stop="startCardDrag"
+          @pointermove.stop="onCardDrag"
+          @pointerup.stop="endCardDrag"
+          @pointercancel.stop="endCardDrag"
+        >
           <span class="pc-dot" :style="{ background: markerColor }" />
           <b>{{ t("keys.marker") }}</b>
           <button class="pc-x" @click="closeCard()">✕</button>
@@ -1931,8 +2019,8 @@ const selectionMs = computed<string | null>(() => {
               <UiNumberInput
                 v-if="f.type === 'number'"
                 :model-value="Number(markerFieldValue(f) ?? 0)"
-                :min="f.min"
-                :max="f.max"
+                :min="freeInput ? undefined : f.min"
+                :max="freeInput ? undefined : f.max"
                 :step="f.step ?? 1"
                 class="w-full"
                 @update:model-value="(v: number) => onNumberField(f, v)"
@@ -1967,7 +2055,13 @@ const selectionMs = computed<string | null>(() => {
       </template>
 
       <template v-else-if="selBpm">
-        <div class="pc-head">
+        <div
+          class="pc-head"
+          @pointerdown.stop="startCardDrag"
+          @pointermove.stop="onCardDrag"
+          @pointerup.stop="endCardDrag"
+          @pointercancel.stop="endCardDrag"
+        >
           <span class="pc-dot bpm" />
           <b>{{ t("keys.bpmPoint") }}</b>
           <button class="pc-x" @click="closeCard()">✕</button>
@@ -2285,6 +2379,9 @@ const selectionMs = computed<string | null>(() => {
   align-items: center;
   gap: 7px;
   background: var(--bdg-menu);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
 }
 .pc-dot {
   width: 9px;
