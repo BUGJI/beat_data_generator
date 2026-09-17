@@ -90,7 +90,7 @@ export function pasteMarkerGroup(): boolean {
           MAX_LOOP_CHILDREN,
           Math.max(1, Math.floor(clip.loop.count)),
         ),
-        ...(clip.loop.exclude && clip.loop.exclude.length
+        ...(clip.loop.exclude?.length
           ? { exclude: [...clip.loop.exclude] }
           : {}),
       };

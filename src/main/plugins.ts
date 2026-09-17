@@ -6,8 +6,8 @@ import {
   readdirSync,
   statSync,
   writeFileSync,
-} from "fs";
-import { join } from "path";
+} from "node:fs";
+import { join } from "node:path";
 import log from "./logger";
 import type { PluginEntry, PluginManifest } from "../shared/plugin";
 
@@ -117,7 +117,7 @@ function resolveText(v: unknown): {
       }
     }
     if (!fallback) {
-      const zh = i18n["zh"];
+      const zh = i18n.zh;
       if (zh) fallback = zh;
     }
     return { fallback, i18n };
@@ -349,7 +349,7 @@ export function installPluginManager(): void {
   ipcMain.handle("plugins:renderer-source", (_e, id: string): string | null => {
     if (typeof id !== "string") return null;
     const entry = scanAll().find((e) => e.id === id);
-    if (!entry || !entry.renderer || !entry.enabled) return null;
+    if (!entry?.renderer || !entry.enabled) return null;
     const full = join(entry.dir, entry.renderer);
     try {
       return readFileSync(full, "utf-8");

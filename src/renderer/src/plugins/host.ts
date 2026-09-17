@@ -131,7 +131,7 @@ function disposeRenderer(id: string): void {
 function replaceEntries(list: PluginEntry[]): void {
   for (const id of [...actives.keys()]) {
     const next = list.find((e) => e.id === id);
-    if (!next || !next.enabled || !next.renderer) {
+    if (!next?.enabled || !next.renderer) {
       disposeRenderer(id);
     }
   }

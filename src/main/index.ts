@@ -8,10 +8,10 @@ import {
   shell,
 } from "electron";
 import { autoUpdater } from "electron-updater";
-import { createHash } from "crypto";
-import { readFile, writeFile } from "fs/promises";
-import { readFileSync, writeFileSync } from "fs";
-import { basename, join } from "path";
+import { createHash } from "node:crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import { readFileSync, writeFileSync } from "node:fs";
+import { basename, join } from "node:path";
 import { installPluginManager } from "./plugins";
 import log, { setFileLogging } from "./logger";
 import {
@@ -132,7 +132,7 @@ function joinDefaultDir(
   dirFromPath: string,
 ): string | undefined {
   const base = defaultPath.split(/[/]/).pop() || defaultPath;
-  if (dirFromPath && dirFromPath.length) return join(dirFromPath, base);
+  if (dirFromPath?.length) return join(dirFromPath, base);
   const dir = lastDirs[kind];
   return dir ? join(dir, base) : defaultPath;
 }
@@ -709,10 +709,8 @@ function createWelcomeWindow(): void {
   welcomeWindow.on("closed", () => {
     welcomeWindow = null;
   });
-  if (process.env["ELECTRON_RENDERER_URL"]) {
-    welcomeWindow.loadURL(
-      `${process.env["ELECTRON_RENDERER_URL"]}/welcome.html`,
-    );
+  if (process.env.ELECTRON_RENDERER_URL) {
+    welcomeWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/welcome.html`);
   } else {
     welcomeWindow.loadFile(join(__dirname, "../renderer/welcome.html"));
   }
@@ -785,8 +783,8 @@ function createWindow(): void {
     else if (!app.isPackaged) log.info(text);
   }) as (event: unknown, level: number, message: string) => void);
 
-  if (process.env["ELECTRON_RENDERER_URL"]) {
-    mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
+  if (process.env.ELECTRON_RENDERER_URL) {
+    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }

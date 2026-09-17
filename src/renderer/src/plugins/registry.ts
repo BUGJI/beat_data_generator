@@ -428,7 +428,7 @@ export function defaultAttrsFor(key: string): Record<string, unknown> {
   if (!def) return {};
   const out: Record<string, unknown> = {};
   for (const f of def.fields) {
-    if (!f || !f.key) continue;
+    if (!f?.key) continue;
     out[f.key] = defaultForField(f);
   }
   return out;

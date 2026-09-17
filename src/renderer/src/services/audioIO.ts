@@ -31,7 +31,7 @@ function isAbsolutePath(p: string): boolean {
 function joinDir(dir: string, name: string): string {
   if (!dir) return normSlashes(name);
   const d = normSlashes(dir).replace(/\/+$/, "");
-  return d + "/" + normSlashes(name).replace(/^\/+/, "");
+  return `${d}/${normSlashes(name).replace(/^\/+/, "")}`;
 }
 /** relative path from `dir` to `fp`, or null when not computable (different drive) */
 function relativeToDir(dir: string, fp: string): string | null {

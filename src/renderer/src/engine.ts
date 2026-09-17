@@ -216,7 +216,7 @@ export class PlaybackEngine {
 
   private schedule(fromMs: number): void {
     const cfg = this.active;
-    if (!cfg || !cfg.buf) return;
+    if (!cfg?.buf) return;
     const ctx = this.ensureCtx();
     const dur = this.durationMs();
     const start = Math.max(0, Math.min(fromMs, dur));

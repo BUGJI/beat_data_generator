@@ -462,7 +462,7 @@ export function removeMarker(id: string): void {
   pushHistory();
   if (m.parentId) {
     const parent = findMarker(m.parentId);
-    if (parent && parent.loop) {
+    if (parent?.loop) {
       const k = childIndexOf(parent, m);
       if (k >= 1) {
         parent.loop.exclude = [...new Set([...(parent.loop.exclude ?? []), k])];

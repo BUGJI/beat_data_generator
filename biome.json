@@ -35,6 +35,9 @@
       "preset": "recommended",
       "style": {
         "noNonNullAssertion": "off"
+      },
+      "suspicious": {
+        "noConfusingVoidType": "off"
       }
     }
   },
