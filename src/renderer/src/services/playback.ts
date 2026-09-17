@@ -58,7 +58,13 @@ async function playNow(rateOverride?: number): Promise<void> {
   t.followActive = t.followManual;
   t.followLocked = false;
   const rate = rateOverride ?? t.rate;
-  const orig = engine.sourceBuffer!;
+  const orig = engine.sourceBuffer;
+  // the transport can report audio before the buffer is swapped in (e.g. right
+  // after opening a project); never dereference a missing buffer
+  if (!orig) {
+    t.playing = false;
+    return;
+  }
   if (!needStretch(rate)) {
     engine.playFrom(t.positionMs, {
       buf: orig,

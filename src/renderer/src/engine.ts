@@ -153,7 +153,7 @@ export class PlaybackEngine {
 
   /** start from posMs (original clock) using the given playback configuration */
   playFrom(posMs: number, config: PlayConfig): void {
-    if (!this.original) return;
+    if (!this.original || !config.buf) return;
     this.ensureCtx();
     const dur = this.durationMs();
     let start = Math.max(0, Math.min(posMs, dur));
@@ -215,7 +215,8 @@ export class PlaybackEngine {
   }
 
   private schedule(fromMs: number): void {
-    const cfg = this.active!;
+    const cfg = this.active;
+    if (!cfg || !cfg.buf) return;
     const ctx = this.ensureCtx();
     const dur = this.durationMs();
     const start = Math.max(0, Math.min(fromMs, dur));
