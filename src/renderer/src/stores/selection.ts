@@ -102,9 +102,16 @@ export const useSelectionStore = defineStore("selection", () => {
 export function markerSelectionIds(): string[] {
   const sel = useSelectionStore();
   const out: string[] = [];
-  if (sel.selected.kind === "marker" && sel.selected.id)
+  const seen = new Set<string>();
+  if (sel.selected.kind === "marker" && sel.selected.id) {
     out.push(sel.selected.id);
-  for (const id of sel.multi) if (!out.includes(id)) out.push(id);
+    seen.add(sel.selected.id);
+  }
+  for (const id of sel.multi) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push(id);
+  }
   return out;
 }
 

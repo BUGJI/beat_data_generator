@@ -384,7 +384,7 @@ function draw(): void {
   drawLaneBacks(ctx, W, H);
   drawLaneGlow(ctx, W, H);
   drawGridLines(ctx, W, H, t0, t1, X, endMs);
-  drawBpmLaneContent(ctx, W, H, t0, t1, X);
+  drawBpmLaneContent(ctx, W, H, t0, X);
   drawMarkerLanesContent(ctx, W, H, t0, t1, X);
   drawGhost(ctx, W, H, X);
   drawSelectionBox(ctx);
@@ -626,7 +626,6 @@ function drawBpmLaneContent(
   W: number,
   H: number,
   t0: number,
-  t1: number,
   X: (t: number) => number,
 ): void {
   const rows = visibleRows(H);
@@ -637,29 +636,30 @@ function drawBpmLaneContent(
   const cy = (y0 + y1) / 2 + 6;
   const amp = row.h * 0.28;
 
-  // faint waveform
+  // faint waveform. The time->block mapping is linear in screen x, so the
+  // starting block and per-pixel step are hoisted out of the loop instead of
+  // reading the view store and dividing per pixel. Global alpha is set once.
   const wave = transport.wave;
   if (wave && wave.minMax.length) {
-    const sr = wave.sampleRate;
-    const block = wave.blockSamples;
+    const len = wave.minMax.length;
+    const blocksPerMs = wave.sampleRate / wave.blockSamples / 1000;
+    const msPerPx = 1000 / view.pxPerSec;
+    const tAt0 = screenToTime(0);
+    const bBase = tAt0 * blocksPerMs;
+    const bStep = msPerPx * blocksPerMs;
+    const px0 = tAt0 < 0 ? Math.max(0, Math.ceil(-bBase / bStep)) : 0;
     ctx.fillStyle = COLORS.waveform;
-    const xStart = Math.max(0, Math.floor(t0));
-    const xEnd = Math.ceil(t1);
-    for (let pxX = 0; pxX < W; pxX++) {
-      const tms = screenToTime(pxX);
-      if (tms < 0) continue;
-      const bIdx = Math.floor((tms / 1000) * (sr / block));
-      if (bIdx < 0 || bIdx * 2 >= wave.minMax.length) continue;
+    ctx.globalAlpha = 0.5;
+    for (let pxX = px0; pxX < W; pxX++) {
+      const bIdx = Math.floor(bBase + pxX * bStep);
+      if (bIdx < 0 || bIdx * 2 + 1 >= len) continue;
       const lo =
         Math.min(wave.minMax[bIdx * 2], wave.minMax[bIdx * 2 + 1]) * amp;
       const hi =
         Math.max(wave.minMax[bIdx * 2], wave.minMax[bIdx * 2 + 1]) * amp;
-      ctx.globalAlpha = 0.5;
       ctx.fillRect(pxX, cy + lo, 1, Math.max(1, hi - lo));
-      ctx.globalAlpha = 1;
     }
-    void xStart;
-    void xEnd;
+    ctx.globalAlpha = 1;
   }
 
   // tempo segment labels (effective map)
@@ -735,11 +735,16 @@ function drawMarkerLanesContent(
   X: (t: number) => number,
 ): void {
   const rows = visibleRows(H).filter((r) => !r.bpm);
-  // highlight set: every selected main marker lights up together with its children
-  const selGroup = new Set<string>();
-  for (const mid of markerSelectionIds()) {
-    selGroup.add(mid);
-    for (const c of project.markers) if (c.parentId === mid) selGroup.add(c.id);
+  // highlight set: every selected main marker lights up together with its
+  // children. Built in a single pass over markers (O(markers)) rather than
+  // scanning all markers once per selected id (O(selected x markers)).
+  const selIds = markerSelectionIds();
+  const selGroup = new Set<string>(selIds);
+  if (selIds.length) {
+    const wanted = new Set(selIds);
+    for (const c of project.markers) {
+      if (c.parentId && wanted.has(c.parentId)) selGroup.add(c.id);
+    }
   }
   for (const r of rows) {
     const track = trackAt(r.i);
@@ -1113,6 +1118,15 @@ function onPointerDown(e: PointerEvent): void {
     return;
   }
   if (e.button !== 0 && !(ui.quickPlace && e.button === 2)) return;
+  // A left press outside an open property card only dismisses it. Without this
+  // the click falls through to marker placement and leaves a stray marker when
+  // the user just meant to click away and close the popup. closeCard() also
+  // drops the selection so the marker stops being highlighted on exit.
+  if (selection.cardOpen && e.button === 0) {
+    closeCard();
+    ghostState.value = null;
+    return;
+  }
   // a fresh press dismisses the card; it reopens only on a clean click/release
   selection.cardOpen = false;
   const rect = rootEl.value!.getBoundingClientRect();
@@ -1435,7 +1449,18 @@ function startHBarDrag(e: PointerEvent): void {
   window.addEventListener("pointerup", up);
 }
 
+// The frame loop only exists for the two time-based cases that no reactive value
+// tracks: playback follow-scrolling and the 100ms lane glow. It stops itself when
+// neither is active (saving the per-frame wakeup while idle) and is restarted on
+// demand via `requestLoop`.
+let wasGlowing = false;
+
+function requestLoop(): void {
+  if (!raf) raf = requestAnimationFrame(loop);
+}
+
 function loop(): void {
+  raf = 0;
   if (transport.playing) {
     const tpx = (transport.positionMs / 1000) * view.pxPerSec;
     const W = view.vw;
@@ -1454,10 +1479,20 @@ function loop(): void {
     }
   }
   // lane glow decays over time, which no reactive value tracks, so drive those
-  // frames explicitly (the initial frame is painted by the paint effect).
-  if (hasActiveGlow()) paint();
-  raf = requestAnimationFrame(loop);
+  // frames explicitly (the initial frame is painted by the paint effect). One
+  // extra frame after it ends clears the residual glow.
+  const glowing = hasActiveGlow();
+  if (glowing || wasGlowing) paint();
+  wasGlowing = glowing;
+  if (transport.playing || glowing) raf = requestAnimationFrame(loop);
 }
+
+watch(
+  () => transport.playing,
+  (playing) => {
+    if (playing) requestLoop();
+  },
+);
 
 // ---- card object accessors ----
 
@@ -1815,7 +1850,7 @@ onMounted(() => {
   });
   if (rootEl.value) ro.observe(rootEl.value);
   window.addEventListener("keydown", onCardKey);
-  raf = requestAnimationFrame(loop);
+  requestLoop();
 });
 
 onBeforeUnmount(() => {

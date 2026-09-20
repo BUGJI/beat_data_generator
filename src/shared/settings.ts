@@ -76,6 +76,10 @@ export const SettingsSchema = z.object({
   alignRounding: AlignRoundingSchema.catch("round").default("round"),
   /** optional audio file played once each time a beat marker is passed (empty = disabled). */
   metronomePath: z.string().catch("").default(""),
+  /** when true the metronome tracks the master volume; when false it uses metronomeVolume. */
+  metronomeFollowMaster: bool(true),
+  /** independent metronome volume in percent (0–100). */
+  metronomeVolume: intInRange(85, 0, 100),
   settingsVersion: z.coerce.number().catch(0).default(0),
   /** On audio load, auto-detect BPM and apply to baseBpm (only when not locked). */
   audioAutoBpm: bool(true),

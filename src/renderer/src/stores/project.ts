@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import { ref } from "vue";
+import { computed, ref, type ComputedRef } from "vue";
 import { snapBeat, makeId, clampBpm, BPM_MIN } from "../tempo";
 import { isFreeInput } from "../../../shared/limits";
 import { nextColor } from "../metrics";
@@ -110,10 +110,31 @@ function clampBeat(b: number): number {
 
 export const sortedTracks = (): MarkerTrack[] => useProjectStore().tracks;
 
+const EMPTY_MARKERS: Marker[] = [];
+
+// Markers grouped and sorted per track. Rebuilt only when a marker's track or
+// beat changes, instead of filtering + sorting the whole array on every call —
+// the canvas draw path calls this once per visible lane per frame.
+let markersByTrackComputed: ComputedRef<Map<string, Marker[]>> | null = null;
+
+function markersByTrack(): Map<string, Marker[]> {
+  if (!markersByTrackComputed) {
+    markersByTrackComputed = computed(() => {
+      const map = new Map<string, Marker[]>();
+      for (const m of useProjectStore().markers) {
+        const arr = map.get(m.trackId);
+        if (arr) arr.push(m);
+        else map.set(m.trackId, [m]);
+      }
+      for (const arr of map.values()) arr.sort((a, b) => a.beat - b.beat);
+      return map;
+    });
+  }
+  return markersByTrackComputed.value;
+}
+
 export const markersInTrack = (trackId: string): Marker[] =>
-  useProjectStore()
-    .markers.filter((m) => m.trackId === trackId)
-    .sort((a, b) => a.beat - b.beat);
+  markersByTrack().get(trackId) ?? EMPTY_MARKERS;
 
 export const findMarker = (id: string): Marker | undefined =>
   useProjectStore().markers.find((m) => m.id === id);
@@ -312,13 +333,19 @@ export const isTrackHidden = (trackId: string): boolean =>
   !!useProjectStore().tracks.find((tr) => tr.id === trackId)?.hidden;
 
 /** markers on non-hidden tracks (these are the ones playback/export count) */
-export const visibleMarkers = (): Marker[] =>
-  useProjectStore().markers.filter((m) => {
-    if (isTrackHidden(m.trackId)) return false;
-    const t = useProjectStore().tracks.find((x) => x.id === m.trackId);
-    if (t?.type && t.type !== "beat") return false;
-    return true;
-  });
+export const visibleMarkers = (): Marker[] => {
+  const p = useProjectStore();
+  // one track lookup table instead of scanning the track list per marker
+  const byId = new Map(p.tracks.map((t) => [t.id, t]));
+  const out: Marker[] = [];
+  for (const m of p.markers) {
+    const t = byId.get(m.trackId);
+    if (t?.hidden) continue;
+    if (t?.type && t.type !== "beat") continue;
+    out.push(m);
+  }
+  return out;
+};
 
 /** Plugin-typed track whose type plugin is not currently installed. */
 export const isTypedTrackReadOnly = (trackId: string): boolean => {
@@ -390,18 +417,20 @@ export function refreshChildren(parent: Marker): void {
     p.markers = p.markers.filter((x) => x.parentId !== parent.id);
     return;
   }
-  // drop current children of this parent
-  p.markers = p.markers.filter((x) => x.parentId !== parent.id);
+  // Drop this parent's current children and, in the same pass, collect the
+  // beats already occupied on its track (used to avoid overlapping children).
+  const used = new Set<number>();
+  p.markers = p.markers.filter((x) => {
+    if (x.parentId === parent.id) return false;
+    if (x.trackId === parent.trackId) used.add(Math.round(x.beat * 1e6));
+    return true;
+  });
   const cfg = parent.loop;
   if (!isFreeInput() && (!(cfg.interval > 0) || cfg.count < 1)) return;
   const count = isFreeInput()
     ? Math.floor(cfg.count)
     : Math.min(cfg.count, MAX_LOOP_CHILDREN);
   const exclude = new Set(cfg.exclude ?? []);
-  const used = new Set<number>();
-  for (const m of p.markers) {
-    if (m.trackId === parent.trackId) used.add(Math.round(m.beat * 1e6));
-  }
   for (let k = 1; k <= count; k++) {
     if (exclude.has(k)) continue;
     const beat = parent.beat + k * cfg.interval;
@@ -516,11 +545,13 @@ function moveMarkerImpl(id: string, rawBeat: number, force = false): boolean {
   if (!m || m.parentId) return false;
   if (isTrackBlocked(m.trackId)) return false;
   const beat = clampBeat(force ? round(rawBeat) : snapped(rawBeat));
-  const ownGroup = new Set([m.id, ...childrenOf(m.id).map((c) => c.id)]);
+  // own group = this marker plus its loop children, so skip both by id/parentId
+  // in a single pass (no Set alloc and no separate childrenOf scan per frame).
   const blocked = p.markers.some(
     (x) =>
       x.trackId === m.trackId &&
-      !ownGroup.has(x.id) &&
+      x.id !== m.id &&
+      x.parentId !== m.id &&
       Math.abs(x.beat - beat) < 1 / 128,
   );
   if (blocked) return false;

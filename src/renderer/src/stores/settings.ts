@@ -40,6 +40,13 @@ export function applyUiPreferences(): void {
   document.documentElement.classList.toggle("no-blur", s.uiBlur !== true);
 }
 
+/** Push metronome volume / follow-master settings into the audio engine. */
+function applyMetronomeSettings(): void {
+  const s = useSettingsStore().settings;
+  engine.setMetronomeFollowsMaster(s.metronomeFollowMaster);
+  engine.setMetronomeVolume(s.metronomeVolume / 100);
+}
+
 export async function loadSettings(): Promise<void> {
   const store = useSettingsStore();
   try {
@@ -53,6 +60,7 @@ export async function loadSettings(): Promise<void> {
   }
   applyThemeFromSettings();
   applyUiPreferences();
+  applyMetronomeSettings();
 }
 
 let settingsTimer: number | undefined;
@@ -65,6 +73,8 @@ export function patchSettings(patch: Partial<SettingsData>): void {
     applyThemeFromSettings();
   if ("uiBlur" in patch) applyUiPreferences();
   if ("stretchEngine" in patch) engine.clearStretched();
+  if ("metronomeVolume" in patch || "metronomeFollowMaster" in patch)
+    applyMetronomeSettings();
   if (settingsTimer !== undefined) clearTimeout(settingsTimer);
   settingsTimer = window.setTimeout(() => {
     // IPC uses structured clone, which cannot serialize the reactive Proxies

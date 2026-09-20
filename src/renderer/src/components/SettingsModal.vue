@@ -7,6 +7,7 @@ import {
   patchSettings,
   openDevTools,
   loadMetronome,
+  previewMetronome,
   setThemePreset,
   setThemeToken,
   previewThemeToken,
@@ -33,7 +34,7 @@ import {
   refreshPlugins,
 } from "../plugins/host";
 import type { PluginEntry } from "../../../shared/plugin";
-import type { CloseMode } from "../../../shared/ipc";
+import type { CloseMode, MetronomeFile } from "../../../shared/ipc";
 import type { AlignRounding, StretchEngine } from "../../../shared/settings";
 import { useSettingsStore } from "../stores/settings";
 import UiButton from "./ui/UiButton.vue";
@@ -63,6 +64,7 @@ const cat = ref<
   | "shortcuts"
   | "plugins"
   | "advanced"
+  | "about"
 >("general");
 
 type CatKey =
@@ -73,7 +75,8 @@ type CatKey =
   | "theme"
   | "shortcuts"
   | "plugins"
-  | "advanced";
+  | "advanced"
+  | "about";
 
 const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "general", icon: "⚙" },
@@ -84,6 +87,7 @@ const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "shortcuts", icon: "⌨" },
   { key: "plugins", icon: "▤" },
   { key: "advanced", icon: "⬢" },
+  { key: "about", icon: "◈" },
 ];
 
 // ---- layout: docked drawer ↔ full screen (persisted) ----
@@ -176,6 +180,15 @@ const themeGroups: Array<{ key: string; tokens: (keyof ThemeSpec)[] }> = [
   },
 ];
 
+// Theme page sub-tabs (presets / custom colors, incl. share & import).
+const themeSub = ref<"preset" | "custom">("preset");
+const themeSubs = computed<Array<{ key: "preset" | "custom"; label: string }>>(
+  () => [
+    { key: "preset", label: t("settings.theme.subs.preset") },
+    { key: "custom", label: t("settings.theme.subs.custom") },
+  ],
+);
+
 const contrastIssues = computed(() => themeContrastIssues(themeSpec.value));
 
 function onThemeToken(token: keyof ThemeSpec, value: string | null): void {
@@ -227,7 +240,9 @@ async function onOpenPluginsFolder(): Promise<void> {
 watch(
   () => settings.settingsOpen,
   (open) => {
-    if (open) void refreshPlugins();
+    if (!open) return;
+    void refreshPlugins();
+    void refreshMetronomeFiles();
   },
 );
 
@@ -386,6 +401,14 @@ const alignRoundingOptions = computed<Array<{ value: string; label: string }>>(
 );
 
 const metronomePath = computed(() => settings.settings.metronomePath);
+const metronomeFollowMaster = computed({
+  get: () => settings.settings.metronomeFollowMaster,
+  set: (v: boolean) => void patchSettings({ metronomeFollowMaster: v }),
+});
+const metronomeVolume = computed({
+  get: () => settings.settings.metronomeVolume,
+  set: (v: number) => void patchSettings({ metronomeVolume: v }),
+});
 
 const audioAutoBpm = computed({
   get: () => settings.settings.audioAutoBpm,
@@ -529,121 +552,209 @@ const freeMin = (min: number) => (): number | undefined =>
 const freeMax = (max: number) => (): number | undefined =>
   devFreeInput.value ? undefined : max;
 
-const FIELD_ROWS: Partial<Record<CatKey, RowDef[]>> = {
+// Each category is split into sub-groups shown as a second-level tab row. A
+// category with a single group renders no tab row (e.g. General). Sub-head rows
+// were replaced by these groups so a page no longer needs one long scroll.
+type GroupDef = { key: string; rows: RowDef[] };
+
+const FIELD_GROUPS: Partial<Record<CatKey, GroupDef[]>> = {
   general: [
     {
-      kind: "field",
-      key: "language",
-      control: radio(language, () => languageOptions.value),
-    },
-    {
-      kind: "field",
-      key: "closeMode",
-      control: radio(closeMode, () => closeModeOptions.value),
+      key: "general",
+      rows: [
+        {
+          kind: "field",
+          key: "language",
+          control: radio(language, () => languageOptions.value),
+        },
+        {
+          kind: "field",
+          key: "closeMode",
+          control: radio(closeMode, () => closeModeOptions.value),
+        },
+      ],
     },
   ],
   edit: [
-    { kind: "field", key: "autoFollow", control: sw(followScroll) },
     {
-      kind: "field",
-      key: "followPercent",
-      col: true,
-      showIf: () => followScroll.value,
-      control: slider(followPercent, 0, 100, "%"),
-    },
-    { kind: "field", key: "ctrlSpeedPlay", control: sw(ctrlSpeedPlay) },
-    { kind: "subhead", key: "alignTitle" },
-    {
-      kind: "field",
-      key: "alignDecimals",
-      control: num(alignDecimals, {
-        min: freeMin(0),
-        max: freeMax(6),
-        step: 1,
-      }),
+      key: "follow",
+      rows: [
+        { kind: "field", key: "autoFollow", control: sw(followScroll) },
+        {
+          kind: "field",
+          key: "followPercent",
+          col: true,
+          showIf: () => followScroll.value,
+          control: slider(followPercent, 0, 100, "%"),
+        },
+      ],
     },
     {
-      kind: "field",
-      key: "alignRounding",
-      col: true,
-      control: radio(alignRounding, () => alignRoundingOptions.value),
+      key: "playback",
+      rows: [
+        { kind: "field", key: "ctrlSpeedPlay", control: sw(ctrlSpeedPlay) },
+      ],
     },
-    { kind: "field", key: "autoSave", control: sw(autoSave) },
     {
-      kind: "field",
-      key: "autoSaveMinutes",
-      col: true,
-      showIf: () => autoSave.value,
-      control: num(autoSaveMinutes, {
-        min: freeMin(1),
-        max: freeMax(60),
-        step: 1,
-        unitKey: "autoSaveMinutesUnit",
-      }),
+      key: "align",
+      rows: [
+        {
+          kind: "field",
+          key: "alignDecimals",
+          control: num(alignDecimals, {
+            min: freeMin(0),
+            max: freeMax(6),
+            step: 1,
+          }),
+        },
+        {
+          kind: "field",
+          key: "alignRounding",
+          col: true,
+          control: radio(alignRounding, () => alignRoundingOptions.value),
+        },
+      ],
+    },
+    {
+      key: "autosave",
+      rows: [
+        { kind: "field", key: "autoSave", control: sw(autoSave) },
+        {
+          kind: "field",
+          key: "autoSaveMinutes",
+          col: true,
+          showIf: () => autoSave.value,
+          control: num(autoSaveMinutes, {
+            min: freeMin(1),
+            max: freeMax(60),
+            step: 1,
+            unitKey: "autoSaveMinutesUnit",
+          }),
+        },
+      ],
     },
   ],
   audio: [
-    { kind: "custom", id: "audio.tagline" },
-    { kind: "field", key: "autoBpm", control: sw(audioAutoBpm) },
-    { kind: "field", key: "autoBeats", control: sw(audioAutoBeats) },
-    { kind: "field", key: "loopDetect", control: sw(audioLoopDetect) },
-    { kind: "field", key: "liveBpm", control: sw(audioLiveBpm) },
-    { kind: "field", key: "spectrum", control: sw(audioSpectrum) },
-    { kind: "field", key: "panel", control: sw(audioPanel) },
-    { kind: "subhead", key: "metronomeTitle" },
-    { kind: "custom", id: "audio.metronome", searchKey: "metronome" },
-    { kind: "subhead", key: "playbackTitle" },
     {
-      kind: "field",
-      key: "stretchEngine",
-      col: true,
-      control: radio(stretchEngine, () => stretchEngineOptions.value),
+      key: "analysis",
+      rows: [
+        { kind: "custom", id: "audio.tagline" },
+        { kind: "field", key: "autoBpm", control: sw(audioAutoBpm) },
+        { kind: "field", key: "autoBeats", control: sw(audioAutoBeats) },
+        { kind: "field", key: "loopDetect", control: sw(audioLoopDetect) },
+        { kind: "field", key: "liveBpm", control: sw(audioLiveBpm) },
+        { kind: "field", key: "spectrum", control: sw(audioSpectrum) },
+        { kind: "field", key: "panel", control: sw(audioPanel) },
+      ],
+    },
+    {
+      key: "metronome",
+      rows: [{ kind: "custom", id: "audio.metronome", searchKey: "metronome" }],
+    },
+    {
+      key: "playback",
+      rows: [
+        {
+          kind: "field",
+          key: "stretchEngine",
+          col: true,
+          control: radio(stretchEngine, () => stretchEngineOptions.value),
+        },
+      ],
     },
   ],
   display: [
-    { kind: "field", key: "autoHideGrid", control: sw(gridAutoHide) },
-    { kind: "field", key: "editor", control: sw(animEnabled) },
-    { kind: "field", key: "uiMotion", control: sw(uiMotion) },
-    { kind: "field", key: "uiBlur", control: sw(uiBlur) },
+    {
+      key: "grid",
+      rows: [{ kind: "field", key: "autoHideGrid", control: sw(gridAutoHide) }],
+    },
+    {
+      key: "motion",
+      rows: [
+        { kind: "field", key: "editor", control: sw(animEnabled) },
+        { kind: "field", key: "uiMotion", control: sw(uiMotion) },
+      ],
+    },
+    {
+      key: "appearance",
+      rows: [{ kind: "field", key: "uiBlur", control: sw(uiBlur) }],
+    },
   ],
   advanced: [
-    { kind: "subhead", key: "window" },
-    { kind: "field", key: "rememberWindow", control: sw(rememberWindow) },
-    { kind: "field", key: "checkUpdates", control: sw(checkUpdates) },
-    { kind: "subhead", key: "developer" },
-    { kind: "field", key: "master", control: sw(devEnabled) },
-    { kind: "field", key: "freeInput", control: sw(devFreeInput, devOnly) },
-    { kind: "field", key: "logToFile", control: sw(logToFile, devOnly) },
-    { kind: "custom", id: "advanced.devTools", searchKey: "openTools" },
-    { kind: "subhead", key: "about" },
-    { kind: "custom", id: "advanced.about" },
+    {
+      key: "window",
+      rows: [
+        { kind: "field", key: "rememberWindow", control: sw(rememberWindow) },
+        { kind: "field", key: "checkUpdates", control: sw(checkUpdates) },
+      ],
+    },
+    {
+      key: "developer",
+      rows: [
+        { kind: "field", key: "master", control: sw(devEnabled) },
+        { kind: "field", key: "freeInput", control: sw(devFreeInput, devOnly) },
+        { kind: "field", key: "logToFile", control: sw(logToFile, devOnly) },
+        { kind: "custom", id: "advanced.devTools", searchKey: "openTools" },
+      ],
+    },
+  ],
+  about: [
+    {
+      key: "about",
+      rows: [{ kind: "custom", id: "about.about" }],
+    },
   ],
 };
 
-/** Categories rendered from FIELD_ROWS. */
-const fieldCats = Object.keys(FIELD_ROWS) as CatKey[];
-function rowsOf(key: CatKey): RowDef[] {
-  return FIELD_ROWS[key] ?? [];
+/** Categories rendered from FIELD_GROUPS. */
+const fieldCats = Object.keys(FIELD_GROUPS) as CatKey[];
+
+function groupsOf(key: CatKey): GroupDef[] {
+  return FIELD_GROUPS[key] ?? [];
 }
 
-async function pickMetronome(): Promise<void> {
-  const path = await window.api.pickFile(
-    t("settings.audio.metronomePickTitle"),
-    [
-      {
-        name: t("settings.audio.metronomeAudioFilter"),
-        extensions: ["wav", "mp3", "ogg", "flac", "m4a", "aac", "webm"],
-      },
-    ],
-  );
-  if (!path) return;
-  await loadMetronome(path);
-  patchSettings({ metronomePath: path });
+// Selected sub-tab per category; falls back to the first group when unset.
+const subCat = ref<Partial<Record<CatKey, string>>>({});
+function activeGroup(key: CatKey): string {
+  const groups = groupsOf(key);
+  if (!groups.length) return "";
+  const cur = subCat.value[key];
+  if (cur && groups.some((g) => g.key === cur)) return cur;
+  return groups[0]!.key;
+}
+function setSubCat(key: CatKey, group: string): void {
+  subCat.value = { ...subCat.value, [key]: group };
+}
+function rowsInGroup(key: CatKey): RowDef[] {
+  const g = groupsOf(key).find((x) => x.key === activeGroup(key));
+  return g?.rows ?? [];
 }
 
-async function clearMetronome(): Promise<void> {
-  await loadMetronome("");
-  patchSettings({ metronomePath: "" });
+// ---- metronome folder picker ----
+const metronomeFiles = ref<MetronomeFile[]>([]);
+const metronomeLoading = ref(false);
+
+async function refreshMetronomeFiles(): Promise<void> {
+  metronomeLoading.value = true;
+  try {
+    metronomeFiles.value = await window.api.listMetronomes();
+  } catch {
+    metronomeFiles.value = [];
+  } finally {
+    metronomeLoading.value = false;
+  }
+}
+
+async function openMetronomeFolder(): Promise<void> {
+  await window.api.openMetronomeFolder();
+  await refreshMetronomeFiles();
+}
+
+async function selectMetronome(file: string): Promise<void> {
+  await loadMetronome(file);
+  patchSettings({ metronomePath: file });
+  // clicking a sound previews it once (the "none" option just clears)
+  if (file) previewMetronome();
 }
 
 const shortcutRows = computed(() => [
@@ -674,27 +785,52 @@ async function onOpenDevTools(): Promise<void> {
   }, 200);
 }
 
+const checkUpdateBusy = ref(false);
+async function onCheckUpdates(): Promise<void> {
+  checkUpdateBusy.value = true;
+  try {
+    const res = await window.api.checkForUpdates();
+    if (res.status === "update")
+      toast.success(
+        t("settings.about.updateAvailable", { version: res.version ?? "" }),
+      );
+    else if (res.status === "current") toast.info(t("settings.about.upToDate"));
+    else if (res.status === "unsupported")
+      toast.info(t("settings.about.updateUnsupported"));
+    else toast.error(t("settings.about.updateError"));
+  } finally {
+    checkUpdateBusy.value = false;
+  }
+}
+
 function catLabel(key: string): string {
   return t(`settings.cats.${key}`);
 }
 
 // ---- settings search ----
-// Index derived from FIELD_ROWS (plus theme colors), so a row only has to be
+// Index derived from FIELD_GROUPS (plus theme colors), so a row only has to be
 // declared once to be both rendered and searchable. Theme color tokens are
 // pulled from THEME_TOKEN_ORDER since they are rendered by their own loop.
-type SearchEntry = { cat: CatKey; key: string };
+type SearchEntry = { cat: CatKey; group?: string; key: string };
 const SEARCH_INDEX: SearchEntry[] = [];
-for (const [catKey, rows] of Object.entries(FIELD_ROWS) as Array<
-  [CatKey, RowDef[]]
+for (const [catKey, groups] of Object.entries(FIELD_GROUPS) as Array<
+  [CatKey, GroupDef[]]
 >) {
-  for (const row of rows) {
-    if (row.kind === "field") SEARCH_INDEX.push({ cat: catKey, key: row.key });
-    else if (row.kind === "custom" && row.searchKey)
-      SEARCH_INDEX.push({ cat: catKey, key: row.searchKey });
+  for (const group of groups) {
+    for (const row of group.rows) {
+      if (row.kind === "field")
+        SEARCH_INDEX.push({ cat: catKey, group: group.key, key: row.key });
+      else if (row.kind === "custom" && row.searchKey)
+        SEARCH_INDEX.push({
+          cat: catKey,
+          group: group.key,
+          key: row.searchKey,
+        });
+    }
   }
 }
 for (const token of THEME_TOKEN_ORDER) {
-  SEARCH_INDEX.push({ cat: "theme", key: `tokens.${token}` });
+  SEARCH_INDEX.push({ cat: "theme", group: "custom", key: `tokens.${token}` });
 }
 
 const search = ref("");
@@ -728,6 +864,8 @@ const searchResults = computed<
 
 function goToSetting(hit: SearchEntry & { label: string }): void {
   cat.value = hit.cat;
+  if (hit.cat === "theme") themeSub.value = "custom";
+  else if (hit.group) setSubCat(hit.cat, hit.group);
   search.value = "";
   void nextTick(() => {
     const rows = contentEl.value?.querySelectorAll(".field-row");
@@ -834,11 +972,22 @@ function onSearchEnter(): void {
             </nav>
 
             <main ref="contentEl" class="content">
-              <!-- 由 FIELD_ROWS 声明的分类 -->
+              <!-- 由 FIELD_GROUPS 声明的分类 -->
               <template v-for="key in fieldCats" :key="key">
                 <section v-if="cat === key">
                   <h3>{{ catLabel(key) }}</h3>
-                  <template v-for="(row, i) in rowsOf(key)" :key="i">
+                  <nav v-if="groupsOf(key).length > 1" class="subnav">
+                    <button
+                      v-for="g in groupsOf(key)"
+                      :key="g.key"
+                      class="subnav-item"
+                      :class="{ active: activeGroup(key) === g.key }"
+                      @click="setSubCat(key, g.key)"
+                    >
+                      {{ t(`settings.subcats.${key}.${g.key}`) }}
+                    </button>
+                  </nav>
+                  <template v-for="(row, i) in rowsInGroup(key)" :key="i">
                     <div v-if="row.kind === 'subhead'" class="sub-head">
                       {{ t(`settings.${key}.${row.key}`) }}
                     </div>
@@ -856,7 +1005,7 @@ function onSearchEnter(): void {
                       v-else-if="
                         row.kind === 'custom' && row.id === 'audio.metronome'
                       "
-                      class="field-row"
+                      class="metronome-block"
                     >
                       <div class="field-info">
                         <span class="field-name">{{
@@ -866,20 +1015,71 @@ function onSearchEnter(): void {
                           t("settings.audio.metronomeDesc")
                         }}</span>
                       </div>
-                      <div class="metronome-row">
-                        <span class="num metronome-path">{{
-                          metronomePath || t("settings.audio.metronomeNone")
-                        }}</span>
-                        <UiButton size="sm" @click="pickMetronome()">{{
-                          t("settings.audio.metronomePickBtn")
-                        }}</UiButton>
+                      <div class="metronome-actions">
+                        <UiButton size="sm" @click="openMetronomeFolder()">
+                          {{ t("settings.audio.metronomeOpenFolder") }}
+                        </UiButton>
                         <UiButton
-                          v-if="metronomePath"
                           size="sm"
-                          variant="danger"
-                          @click="clearMetronome()"
-                          >{{ t("settings.audio.metronomeClear") }}</UiButton
+                          variant="soft"
+                          :loading="metronomeLoading"
+                          @click="refreshMetronomeFiles()"
                         >
+                          {{ t("settings.audio.metronomeRefresh") }}
+                        </UiButton>
+                      </div>
+                      <div class="metronome-list">
+                        <button
+                          type="button"
+                          class="metronome-item"
+                          :class="{ active: !metronomePath }"
+                          @click="selectMetronome('')"
+                        >
+                          {{ t("settings.audio.metronomeNone") }}
+                        </button>
+                        <button
+                          v-for="f in metronomeFiles"
+                          :key="f.file"
+                          type="button"
+                          class="metronome-item"
+                          :class="{ active: metronomePath === f.file }"
+                          @click="selectMetronome(f.file)"
+                        >
+                          {{ f.name }}
+                        </button>
+                        <p
+                          v-if="metronomeFiles.length === 0"
+                          class="muted metronome-empty"
+                        >
+                          {{ t("settings.audio.metronomeEmpty") }}
+                        </p>
+                      </div>
+                      <div class="metronome-volume">
+                        <label class="metronome-follow">
+                          <UiSwitch
+                            :model-value="metronomeFollowMaster"
+                            @update:model-value="
+                              (v: boolean) => (metronomeFollowMaster = v)
+                            "
+                          />
+                          <span>{{
+                            t("settings.audio.metronomeFollowMaster")
+                          }}</span>
+                        </label>
+                        <div v-if="!metronomeFollowMaster" class="pct-row">
+                          <UiSlider
+                            :model-value="metronomeVolume"
+                            :min="0"
+                            :max="100"
+                            class="pct-slider"
+                            @update:model-value="
+                              (v: number) => (metronomeVolume = v)
+                            "
+                          />
+                          <span class="num pct-value"
+                            >{{ metronomeVolume }}%</span
+                          >
+                        </div>
                       </div>
                     </div>
 
@@ -905,7 +1105,7 @@ function onSearchEnter(): void {
 
                     <template
                       v-else-if="
-                        row.kind === 'custom' && row.id === 'advanced.about'
+                        row.kind === 'custom' && row.id === 'about.about'
                       "
                     >
                       <div class="about-card">
@@ -915,19 +1115,32 @@ function onSearchEnter(): void {
                           <div class="muted">{{ t("app.hint") }}</div>
                         </div>
                       </div>
+                      <div class="about-update">
+                        <UiButton
+                          variant="solid"
+                          size="sm"
+                          :loading="checkUpdateBusy"
+                          @click="onCheckUpdates()"
+                        >
+                          {{ t("settings.about.checkUpdates") }}
+                        </UiButton>
+                        <p class="muted">
+                          {{ t("settings.about.checkUpdatesDesc") }}
+                        </p>
+                      </div>
                       <dl class="about-meta">
-                        <dt>{{ t("settings.advanced.version") }}</dt>
+                        <dt>{{ t("settings.about.version") }}</dt>
                         <dd>v{{ appVersion }}</dd>
-                        <dt>{{ t("settings.advanced.author") }}</dt>
+                        <dt>{{ t("settings.about.author") }}</dt>
                         <dd>BUGJI</dd>
-                        <dt>{{ t("settings.advanced.tech") }}</dt>
+                        <dt>{{ t("settings.about.tech") }}</dt>
                         <dd>
                           Electron · Vue 3 · TypeScript · Vite · Pinia ·
                           Tailwind CSS · Reka UI
                         </dd>
-                        <dt>{{ t("settings.advanced.license") }}</dt>
+                        <dt>{{ t("settings.about.license") }}</dt>
                         <dd>GNU GPL v3</dd>
-                        <dt>{{ t("settings.advanced.runtime") }}</dt>
+                        <dt>{{ t("settings.about.runtime") }}</dt>
                         <dd>
                           Node.js {{ runtime.node }} · Chromium
                           {{ runtime.chrome }} · Electron {{ runtime.electron }}
@@ -1026,110 +1239,131 @@ function onSearchEnter(): void {
               <!-- 主题 -->
               <section v-if="cat === 'theme'">
                 <h3>{{ t("settings.cats.theme") }}</h3>
-
-                <div class="sub-head">{{ t("settings.theme.preset") }}</div>
-                <div class="theme-presets">
+                <nav class="subnav">
                   <button
-                    v-for="p in THEME_PRESETS"
-                    :key="p.id"
-                    class="theme-preset"
-                    :class="{ active: settings.settings.themePreset === p.id }"
-                    @click="setThemePreset(p.id)"
+                    v-for="s in themeSubs"
+                    :key="s.key"
+                    class="subnav-item"
+                    :class="{ active: themeSub === s.key }"
+                    @click="themeSub = s.key"
                   >
-                    <span class="swatches">
-                      <i :style="{ background: p.spec.bg }" />
-                      <i :style="{ background: p.spec.panel }" />
-                      <i :style="{ background: p.spec.accent }" />
-                      <i :style="{ background: p.spec.accent2 }" />
-                    </span>
-                    {{ t(`settings.theme.presets.${p.name}`) }}
+                    {{ s.label }}
                   </button>
-                </div>
+                </nav>
 
-                <div class="sub-head">{{ t("settings.theme.share") }}</div>
-                <div class="theme-share">
-                  <UiButton size="sm" @click="onExportTheme()">
-                    {{ t("settings.theme.export") }}
-                  </UiButton>
-                  <div class="theme-code-wrap">
-                    <UiInput
-                      v-model="themeCode"
-                      size="sm"
-                      :placeholder="t('settings.theme.importPlaceholder')"
-                    />
+                <template v-if="themeSub === 'preset'">
+                  <div class="sub-head">{{ t("settings.theme.preset") }}</div>
+                  <div class="theme-presets">
+                    <button
+                      v-for="p in THEME_PRESETS"
+                      :key="p.id"
+                      class="theme-preset"
+                      :class="{
+                        active: settings.settings.themePreset === p.id,
+                      }"
+                      @click="setThemePreset(p.id)"
+                    >
+                      <span class="swatches">
+                        <i :style="{ background: p.spec.bg }" />
+                        <i :style="{ background: p.spec.panel }" />
+                        <i :style="{ background: p.spec.accent }" />
+                        <i :style="{ background: p.spec.accent2 }" />
+                      </span>
+                      {{ t(`settings.theme.presets.${p.name}`) }}
+                    </button>
                   </div>
-                  <UiButton
-                    size="sm"
-                    variant="soft"
-                    :disabled="!themeCode.trim()"
-                    @click="onImportTheme()"
-                  >
-                    {{ t("settings.theme.importBtn") }}
-                  </UiButton>
-                </div>
+                </template>
 
-                <div class="sub-head theme-custom-head">
-                  <span>{{ t("settings.theme.custom") }}</span>
-                  <UiButton
-                    size="sm"
-                    :disabled="Object.keys(themeOverrides).length === 0"
-                    @click="resetThemeTokens()"
-                  >
-                    {{ t("settings.theme.reset") }}
-                  </UiButton>
-                </div>
-                <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
-
-                <div v-if="contrastIssues.length" class="contrast-warn">
-                  <div class="contrast-warn-title">
-                    {{ t("settings.theme.contrastTitle") }}
-                  </div>
-                  <ul class="contrast-warn-list">
-                    <li v-for="(i, idx) in contrastIssues" :key="idx">
-                      {{
-                        t("settings.theme.contrastIssue", {
-                          fg: t(`settings.theme.tokens.${i.fg}`),
-                          bg: t(`settings.theme.tokens.${i.bg}`),
-                          ratio: i.ratio.toFixed(2),
-                        })
-                      }}
-                    </li>
-                  </ul>
-                </div>
-
-                <div v-for="g in themeGroups" :key="g.key" class="theme-group">
-                  <div class="theme-group-title">
-                    {{ t(`settings.theme.groups.${g.key}`) }}
-                  </div>
-                  <div
-                    v-for="token in g.tokens"
-                    :key="token"
-                    class="field-row theme-row"
-                  >
-                    <div class="field-info">
-                      <span class="field-name">{{
-                        t(`settings.theme.tokens.${token}`)
-                      }}</span>
-                    </div>
-                    <div class="theme-token-ctrl">
-                      <UiColorField
-                        :model-value="themeSpec[token]"
-                        @update:model-value="
-                          (v: string) => previewThemeToken(token, v)
-                        "
-                        @commit="(v: string) => setThemeToken(token, v)"
+                <template v-else-if="themeSub === 'custom'">
+                  <div class="sub-head">{{ t("settings.theme.share") }}</div>
+                  <div class="theme-share">
+                    <UiButton size="sm" @click="onExportTheme()">
+                      {{ t("settings.theme.export") }}
+                    </UiButton>
+                    <div class="theme-code-wrap">
+                      <UiInput
+                        v-model="themeCode"
+                        size="sm"
+                        :placeholder="t('settings.theme.importPlaceholder')"
                       />
-                      <button
-                        class="theme-token-reset"
-                        :class="{ on: tokenOverridden(token) }"
-                        :title="t('settings.theme.reset')"
-                        @click="onThemeToken(token, null)"
-                      >
-                        ↺
-                      </button>
+                    </div>
+                    <UiButton
+                      size="sm"
+                      variant="soft"
+                      :disabled="!themeCode.trim()"
+                      @click="onImportTheme()"
+                    >
+                      {{ t("settings.theme.importBtn") }}
+                    </UiButton>
+                  </div>
+
+                  <div class="sub-head theme-custom-head">
+                    <span>{{ t("settings.theme.custom") }}</span>
+                    <UiButton
+                      size="sm"
+                      :disabled="Object.keys(themeOverrides).length === 0"
+                      @click="resetThemeTokens()"
+                    >
+                      {{ t("settings.theme.reset") }}
+                    </UiButton>
+                  </div>
+                  <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
+
+                  <div v-if="contrastIssues.length" class="contrast-warn">
+                    <div class="contrast-warn-title">
+                      {{ t("settings.theme.contrastTitle") }}
+                    </div>
+                    <ul class="contrast-warn-list">
+                      <li v-for="(i, idx) in contrastIssues" :key="idx">
+                        {{
+                          t("settings.theme.contrastIssue", {
+                            fg: t(`settings.theme.tokens.${i.fg}`),
+                            bg: t(`settings.theme.tokens.${i.bg}`),
+                            ratio: i.ratio.toFixed(2),
+                          })
+                        }}
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div
+                    v-for="g in themeGroups"
+                    :key="g.key"
+                    class="theme-group"
+                  >
+                    <div class="theme-group-title">
+                      {{ t(`settings.theme.groups.${g.key}`) }}
+                    </div>
+                    <div
+                      v-for="token in g.tokens"
+                      :key="token"
+                      class="field-row theme-row"
+                    >
+                      <div class="field-info">
+                        <span class="field-name">{{
+                          t(`settings.theme.tokens.${token}`)
+                        }}</span>
+                      </div>
+                      <div class="theme-token-ctrl">
+                        <UiColorField
+                          :model-value="themeSpec[token]"
+                          @update:model-value="
+                            (v: string) => previewThemeToken(token, v)
+                          "
+                          @commit="(v: string) => setThemeToken(token, v)"
+                        />
+                        <button
+                          class="theme-token-reset"
+                          :class="{ on: tokenOverridden(token) }"
+                          :title="t('settings.theme.reset')"
+                          @click="onThemeToken(token, null)"
+                        >
+                          ↺
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
+                </template>
               </section>
 
               <!-- 快捷键 -->
@@ -1561,6 +1795,34 @@ function onSearchEnter(): void {
 .sub-head:first-of-type {
   border-top: none;
 }
+/* Second-level category tabs (chips) above the grouped rows. */
+.subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 16px;
+}
+.subnav-item {
+  border: 1px solid var(--bdg-border);
+  background: transparent;
+  color: var(--bdg-text-dim);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.subnav-item:hover {
+  background: rgb(var(--bdg-neutral) / 0.1);
+  color: var(--bdg-text);
+}
+.subnav-item.active {
+  background: rgb(var(--bdg-accent-rgb) / 0.16);
+  border-color: transparent;
+  color: var(--bdg-accent);
+  font-weight: 600;
+}
 .field-row {
   display: flex;
   align-items: center;
@@ -1625,6 +1887,17 @@ function onSearchEnter(): void {
   background: rgb(var(--bdg-accent-rgb) / 0.07);
   border: 1px solid rgb(var(--bdg-accent-rgb) / 0.18);
   border-radius: 10px;
+}
+.about-update {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.about-update p {
+  margin: 0;
+  font-size: 12px;
 }
 .about-logo {
   font-size: 34px;
@@ -1759,20 +2032,60 @@ function onSearchEnter(): void {
   width: 84px;
   flex: none;
 }
-.metronome-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  max-width: 55%;
+.metronome-block {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--bdg-border);
 }
-.metronome-path {
-  font-size: 11px;
-  color: var(--bdg-text-dim);
+.metronome-actions {
+  display: flex;
+  gap: 8px;
+  margin: 10px 0;
+}
+.metronome-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.metronome-item {
+  border: 1px solid var(--bdg-border);
+  background: transparent;
+  color: var(--bdg-text);
+  padding: 5px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  flex: 1 1 auto;
-  min-width: 0;
+}
+.metronome-item:hover {
+  background: rgb(var(--bdg-neutral) / 0.1);
+}
+.metronome-item.active {
+  background: rgb(var(--bdg-accent-rgb) / 0.16);
+  border-color: transparent;
+  color: var(--bdg-accent);
+  font-weight: 600;
+}
+.metronome-empty {
+  margin: 4px 0 0;
+  font-size: 12px;
+}
+.metronome-volume {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.metronome-follow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--bdg-text-dim);
+  cursor: pointer;
 }
 .theme-presets {
   display: flex;

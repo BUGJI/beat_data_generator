@@ -69,6 +69,10 @@ export class PlaybackEngine {
   stretchedFor = 0;
 
   private metronome: AudioBuffer | null = null;
+  /** Own gain so the metronome can bypass the master volume. */
+  private metronomeGain: GainNode | null = null;
+  private metronomeVolume = 0.85;
+  private metronomeFollowsMaster = true;
 
   onTick: (() => void) | null = null;
 
@@ -78,9 +82,16 @@ export class PlaybackEngine {
       this.gain = this.ctx.createGain();
       this.gain.gain.value = this.volume;
       this.gain.connect(this.ctx.destination);
+      this.metronomeGain = this.ctx.createGain();
+      this.metronomeGain.gain.value = this.effectiveMetronomeVolume();
+      this.metronomeGain.connect(this.ctx.destination);
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
     return this.ctx;
+  }
+
+  private effectiveMetronomeVolume(): number {
+    return this.metronomeFollowsMaster ? this.volume : this.metronomeVolume;
   }
 
   get hasBuffer(): boolean {
@@ -110,21 +121,44 @@ export class PlaybackEngine {
     if (this.gain && this.ctx) {
       this.gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.02);
     }
+    if (this.metronomeGain && this.ctx && this.metronomeFollowsMaster) {
+      this.metronomeGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.02);
+    }
   }
 
   setMetronome(buffer: AudioBuffer | null): void {
     this.metronome = buffer;
   }
 
+  /** Independent metronome volume (0–1), used when not following the master. */
+  setMetronomeVolume(v: number): void {
+    this.metronomeVolume = v;
+    if (this.metronomeGain && this.ctx && !this.metronomeFollowsMaster) {
+      this.metronomeGain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.02);
+    }
+  }
+
+  /** When true the metronome tracks the master volume; otherwise its own. */
+  setMetronomeFollowsMaster(follow: boolean): void {
+    this.metronomeFollowsMaster = follow;
+    if (this.metronomeGain && this.ctx) {
+      this.metronomeGain.gain.setTargetAtTime(
+        this.effectiveMetronomeVolume(),
+        this.ctx.currentTime,
+        0.02,
+      );
+    }
+  }
+
   /** play the metronome click `count` times simultaneously (overlapping markers). */
   playMetronome(count: number): void {
     if (!this.metronome || count < 1) return;
     const ctx = this.ensureCtx();
-    if (!ctx || !this.gain) return;
+    if (!ctx || !this.metronomeGain) return;
     for (let i = 0; i < count; i++) {
       const src = ctx.createBufferSource();
       src.buffer = this.metronome;
-      src.connect(this.gain);
+      src.connect(this.metronomeGain);
       src.start();
     }
   }

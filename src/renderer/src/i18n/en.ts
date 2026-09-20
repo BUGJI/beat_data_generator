@@ -164,8 +164,29 @@ export default {
       shortcuts: "Shortcuts",
       plugins: "Plugins",
       advanced: "Advanced",
+      about: "About",
+    },
+    subcats: {
+      general: { general: "General" },
+      edit: {
+        follow: "Follow",
+        playback: "Playback",
+        align: "Align",
+        autosave: "Auto-save",
+      },
+      audio: {
+        analysis: "Analysis",
+        metronome: "Metronome",
+        playback: "Playback",
+      },
+      display: { grid: "Grid", motion: "Motion", appearance: "Appearance" },
+      advanced: {
+        window: "Window & Startup",
+        developer: "Developer",
+      },
     },
     theme: {
+      subs: { preset: "Presets", custom: "Custom" },
       preset: "Preset themes",
       custom: "Custom colors",
       hint: "Tweak any color on top of the preset; changes are kept when you switch presets. Click ↺ to restore a color.",
@@ -272,12 +293,14 @@ export default {
       metronomeTitle: "Metronome",
       metronome: "Metronome click",
       metronomeDesc:
-        "Optional audio file (empty = disabled). A click plays each time a marker is passed; when several markers coincide, several clicks play at once.",
-      metronomeNone: "Not set",
-      metronomePickBtn: "Choose audio file…",
-      metronomeClear: "Clear",
-      metronomePickTitle: "Choose metronome file",
-      metronomeAudioFilter: "Audio files",
+        "Drop sounds into the metronome folder, then pick one here (none = disabled). A click plays each time a marker is passed; when several markers coincide, several clicks play at once.",
+      metronomeOpenFolder: "Open metronome folder",
+      metronomeRefresh: "Refresh list",
+      metronomeNone: "No metronome",
+      metronomeEmpty:
+        "Folder is empty — open the metronome folder to add audio files.",
+      metronomeFollowMaster: "Follow master volume",
+      metronomeVolume: "Metronome volume",
       reanalyze: "Re-analyze",
       applyBpm: "Apply BPM",
       genBeats: "Generate Auto Beat track",
@@ -347,7 +370,16 @@ export default {
       openToolsDesc: "Closes first, then reopens the DevTools window.",
       disabledNote:
         "Developer options are off. Enable the switch to use DevTools.",
-      about: "About",
+    },
+    about: {
+      checkUpdates: "Check for updates",
+      checkUpdatesDesc:
+        "Check for a new version now. The silent startup check can be turned off under Advanced → Window & Startup.",
+      upToDate: "You are on the latest version",
+      updateAvailable:
+        "New version v{version} is available — download it from GitHub Releases.",
+      updateUnsupported: "Update checks are unavailable in development",
+      updateError: "Update check failed. Please try again later.",
       version: "Version",
       author: "Author",
       tech: "Stack",

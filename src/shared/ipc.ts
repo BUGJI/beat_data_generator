@@ -16,6 +16,14 @@ export interface TextFileResult {
   content?: string;
 }
 
+/** A metronome sound inside the app's metronome folder. */
+export interface MetronomeFile {
+  /** Display label: the file name without its extension. */
+  name: string;
+  /** Actual file name (with extension) within the metronome folder. */
+  file: string;
+}
+
 export interface SaveResult {
   canceled: boolean;
   filePath?: string;
@@ -40,6 +48,13 @@ export interface RecentProject {
   title: string;
 }
 
+/** Outcome of a user-triggered update check. */
+export interface UpdateCheckResult {
+  /** update = newer version found; current = up to date; unsupported = dev/unpackaged. */
+  status: "update" | "current" | "unsupported" | "error";
+  version?: string;
+}
+
 export interface IpcApi {
   openAudio: () => Promise<AudioFileResult | null>;
   readAudioFile: (filePath: string) => Promise<AudioFileResult | null>;
@@ -53,10 +68,18 @@ export interface IpcApi {
   getFilePath: (title: string) => Promise<string | null>;
   getSettings: () => Promise<SettingsData>;
   updateSettings: (patch: Partial<SettingsData>) => Promise<SettingsData>;
+  /** Manually check for app updates (About page); resolves with the outcome. */
+  checkForUpdates: () => Promise<UpdateCheckResult>;
   toggleDevTools: () => Promise<void>;
   writeProjectFile: (filePath: string, content: string) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<TextFileResult>;
   computeMd5: (filePath: string) => Promise<string | null>;
+  /** List the metronome sounds in the app's metronome folder. */
+  listMetronomes: () => Promise<MetronomeFile[]>;
+  /** Reveal (creating if needed) the metronome folder in the OS file manager. */
+  openMetronomeFolder: () => Promise<void>;
+  /** Read a metronome sound by file name; resolves null when missing. */
+  readMetronome: (file: string) => Promise<AudioFileResult | null>;
   notifyAppReady: () => Promise<void>;
   recordRecent: (filePath: string, title?: string) => Promise<void>;
   getRecents: () => Promise<RecentProject[]>;

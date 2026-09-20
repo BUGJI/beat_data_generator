@@ -135,14 +135,16 @@ export async function relinkAudio(): Promise<void> {
   await loadAudioResult(res);
 }
 
-/** Load and cache the metronome click audio (empty path clears it). */
-export async function loadMetronome(path: string): Promise<void> {
-  if (!path) {
+/** Load and cache the metronome sound (empty value clears it).
+ *  `file` is a file name inside the app's metronome folder, or an absolute
+ *  path from older settings. */
+export async function loadMetronome(file: string): Promise<void> {
+  if (!file) {
     engine.setMetronome(null);
     return;
   }
   try {
-    const res = await window.api.readAudioFile(path);
+    const res = await window.api.readMetronome(file);
     if (!res?.data) {
       engine.setMetronome(null);
       return;
@@ -152,4 +154,9 @@ export async function loadMetronome(path: string): Promise<void> {
   } catch {
     engine.setMetronome(null);
   }
+}
+
+/** Play the currently-loaded metronome sound once (used as a picker preview). */
+export function previewMetronome(): void {
+  engine.playMetronome(1);
 }

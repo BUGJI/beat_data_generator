@@ -27,10 +27,14 @@ const api: IpcApi = {
   getFilePath: (title: string) => ipcRenderer.invoke("file:path", title),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
+  checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   toggleDevTools: () => ipcRenderer.invoke("dev:tools"),
   writeProjectFile: (filePath: string, content: string) =>
     ipcRenderer.invoke("text:write", filePath, content),
   computeMd5: (filePath: string) => ipcRenderer.invoke("audio:md5", filePath),
+  listMetronomes: () => ipcRenderer.invoke("metronome:list"),
+  openMetronomeFolder: () => ipcRenderer.invoke("metronome:open-folder"),
+  readMetronome: (file: string) => ipcRenderer.invoke("metronome:read", file),
   notifyAppReady: () => ipcRenderer.invoke("app:ready"),
   readTextFile: (filePath: string) => ipcRenderer.invoke("text:read", filePath),
   recordRecent: (filePath: string, title?: string) =>
