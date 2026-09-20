@@ -838,6 +838,10 @@ function createWindow(): void {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
       contextIsolation: true,
+      // Keep rAF/timers alive while minimized so playback-driven work (metronome
+      // clicks, follow scroll, beat flashes) keeps running instead of pausing
+      // and then firing everything at once on restore.
+      backgroundThrottling: false,
     },
   });
 

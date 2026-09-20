@@ -17,6 +17,13 @@ interface FlashEvent {
 let flashEvents: FlashEvent[] = [];
 let flashIdx = 0;
 let flashReady = false;
+// Last observed playhead position, used to detect a suspended tick loop.
+let lastPosMs = 0;
+// A forward jump larger than this means frames were suspended (the window was
+// hidden without background throttling disabled, or the machine slept). The
+// events we blew past are dropped instead of all firing at once as a burst of
+// overlapping metronome clicks (which clips / pops).
+const SUSPEND_GAP_MS = 500;
 
 function firstEventAtOrAfter(arr: FlashEvent[], pos: number): number {
   let lo = 0;
@@ -50,6 +57,7 @@ export function refreshBeatFlash(posMs: number): void {
     .sort((a, b) => a.t - b.t);
   flashIdx = firstEventAtOrAfter(flashEvents, posMs);
   flashReady = flashIdx < flashEvents.length;
+  lastPosMs = posMs;
 }
 
 export function tickBeatFlash(): void {
@@ -57,12 +65,17 @@ export function tickBeatFlash(): void {
   if (!t.playing || !flashReady) return;
   const ui = useUiStore();
   const pos = t.positionMs;
+  // Drop the events we jumped past after a stall rather than firing them all
+  // together (that is what produced the overlapping-click burst / clipping).
+  const suspended = pos - lastPosMs > SUSPEND_GAP_MS;
+  lastPosMs = pos;
   while (
     flashIdx < flashEvents.length &&
     pos >= (flashEvents[flashIdx] as FlashEvent).t
   ) {
     const ev = flashEvents[flashIdx] as FlashEvent;
     flashIdx++;
+    if (suspended) continue;
     ui.beatPulse++;
     engine.playMetronome(ev.n);
     if (ev.n >= 2) {
