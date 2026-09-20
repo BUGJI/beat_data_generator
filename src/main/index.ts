@@ -1,6 +1,7 @@
 import {
   app,
   BrowserWindow,
+  clipboard,
   ipcMain,
   dialog,
   Menu,
@@ -578,6 +579,10 @@ function registerIpc(): void {
     const wc = w.webContents;
     wc.closeDevTools();
     wc.openDevTools({ mode: "detach" });
+  });
+
+  ipcMain.handle("clipboard:write", (_e, text: string): void => {
+    clipboard.writeText(typeof text === "string" ? text : "");
   });
 
   function sanitizeFilters(filters: unknown): Electron.FileFilter[] {

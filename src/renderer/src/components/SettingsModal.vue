@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, nextTick, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { Maximize, Minimize, Search, X } from "@lucide/vue";
 import {
   setSettingsOpen,
   patchSettings,
@@ -8,12 +9,18 @@ import {
   loadMetronome,
   setThemePreset,
   setThemeToken,
+  previewThemeToken,
   resetThemeTokens,
+  exportThemeCode,
+  importThemeCode,
 } from "../store";
 import { setLocale, LOCALES } from "../i18n";
+import { toast } from "../ui/toast";
 import {
   THEME_PRESETS,
+  THEME_TOKEN_ORDER,
   resolveTheme,
+  themeContrastIssues,
   type ThemeOverrides,
   type ThemeSpec,
 } from "../theme";
@@ -30,14 +37,15 @@ import type { CloseMode } from "../../../shared/ipc";
 import type { AlignRounding, StretchEngine } from "../../../shared/settings";
 import { useSettingsStore } from "../stores/settings";
 import UiButton from "./ui/UiButton.vue";
-import UiColorPicker from "./ui/UiColorPicker.vue";
+import UiColorField from "./ui/UiColorField.vue";
+import UiInput from "./ui/UiInput.vue";
 import UiNumberInput from "./ui/UiNumberInput.vue";
 import UiRadioGroup from "./ui/UiRadioGroup.vue";
 import UiSlider from "./ui/UiSlider.vue";
 import UiSwitch from "./ui/UiSwitch.vue";
 
 const settings = useSettingsStore();
-const { t, locale } = useI18n();
+const { t, te, locale } = useI18n();
 const pv =
   typeof process !== "undefined" && process.versions ? process.versions : null;
 const runtime = Object.freeze({
@@ -78,6 +86,70 @@ const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "advanced", icon: "⬢" },
 ];
 
+// ---- layout: docked drawer ↔ full screen (persisted) ----
+const layout = computed<"drawer" | "full">({
+  get: () => settings.settings.settingsLayout,
+  set: (v) => void patchSettings({ settingsLayout: v }),
+});
+
+const DRAWER_MIN = 440;
+/** Default drawer = 40% of the window; resizing is capped at 90%. */
+const DRAWER_AUTO_RATIO = 0.4;
+const DRAWER_MAX_RATIO = 0.9;
+function maxDrawerWidth(): number {
+  return window.innerWidth * DRAWER_MAX_RATIO;
+}
+function autoDrawerWidth(): number {
+  return Math.max(
+    DRAWER_MIN,
+    Math.round(window.innerWidth * DRAWER_AUTO_RATIO),
+  );
+}
+
+// While dragging we use a local pixel width; otherwise a stored 0 means "auto"
+// (40% of the window, resolved by CSS). Local width avoids a full settings
+// sanitize + persist on every pointermove; committed once on release.
+const dragging = ref(false);
+const dragWidth = ref(0);
+const panelStyle = computed<Record<string, string> | undefined>(() => {
+  if (layout.value !== "drawer") return undefined;
+  if (dragging.value) return { width: `${dragWidth.value}px` };
+  const stored = settings.settings.settingsDrawerWidth;
+  return { width: stored > 0 ? `${stored}px` : "40%" };
+});
+
+// Interface motion (Settings → Display). Off = panels appear/disappear instantly.
+const transitionName = computed(() =>
+  layout.value === "drawer" ? "settings-drawer" : "settings-full",
+);
+
+function toggleLayout(): void {
+  layout.value = layout.value === "drawer" ? "full" : "drawer";
+}
+
+function startResize(e: PointerEvent): void {
+  if (layout.value !== "drawer") return;
+  e.preventDefault();
+  const startX = e.clientX;
+  const startW =
+    (e.currentTarget as HTMLElement).parentElement?.offsetWidth ??
+    autoDrawerWidth();
+  dragging.value = true;
+  dragWidth.value = startW;
+  const move = (ev: PointerEvent): void => {
+    const next = startW - (ev.clientX - startX);
+    dragWidth.value = Math.max(DRAWER_MIN, Math.min(next, maxDrawerWidth()));
+  };
+  const up = (): void => {
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    dragging.value = false;
+    void patchSettings({ settingsDrawerWidth: Math.round(dragWidth.value) });
+  };
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+}
+
 // ---- theme editor ----
 const themeSpec = computed<ThemeSpec>(() =>
   resolveTheme(
@@ -104,11 +176,33 @@ const themeGroups: Array<{ key: string; tokens: (keyof ThemeSpec)[] }> = [
   },
 ];
 
+const contrastIssues = computed(() => themeContrastIssues(themeSpec.value));
+
 function onThemeToken(token: keyof ThemeSpec, value: string | null): void {
   setThemeToken(token, value ?? "");
 }
 function tokenOverridden(token: keyof ThemeSpec): boolean {
   return themeOverrides.value[token] != null;
+}
+
+// ---- shareable theme code (export / import) ----
+const themeCode = ref("");
+
+async function onExportTheme(): Promise<void> {
+  const code = exportThemeCode();
+  themeCode.value = code;
+  try {
+    await window.api.writeClipboard(code);
+    toast.success(t("settings.theme.exportOk"));
+  } catch {
+    toast.error(t("settings.theme.exportFail"));
+  }
+}
+
+function onImportTheme(): void {
+  if (importThemeCode(themeCode.value))
+    toast.success(t("settings.theme.importOk"));
+  else toast.error(t("settings.theme.importFail"));
 }
 
 const pluginBusy = ref<string | null>(null);
@@ -211,6 +305,20 @@ const gridAutoHide = computed({
   },
 });
 
+const uiMotion = computed({
+  get: () => settings.settings.uiMotion,
+  set: (v: boolean) => {
+    void patchSettings({ uiMotion: v });
+  },
+});
+
+const uiBlur = computed({
+  get: () => settings.settings.uiBlur,
+  set: (v: boolean) => {
+    void patchSettings({ uiBlur: v });
+  },
+});
+
 const followScroll = computed({
   get: () => settings.settings.followScroll,
   set: (v: boolean) => {
@@ -304,6 +412,220 @@ const audioPanel = computed({
   set: (v: boolean) => void patchSettings({ audioPanel: v }),
 });
 
+// ---- declarative setting rows ----
+// Each category's rows are described once here. The template renders them and
+// the search index is derived from the same list, so the two cannot drift:
+// adding a row here is all it takes to both render and make it searchable.
+type ColOption = { value: string; label: string };
+type RefLike<T> = { value: T };
+type FieldControl =
+  | {
+      type: "switch";
+      get: () => boolean;
+      set: (v: boolean) => void;
+      disabled?: () => boolean;
+    }
+  | {
+      type: "radio";
+      get: () => string;
+      set: (v: string) => void;
+      options: () => ColOption[];
+    }
+  | {
+      type: "number";
+      get: () => number;
+      set: (v: number) => void;
+      min?: () => number | undefined;
+      max?: () => number | undefined;
+      step?: number;
+      unitKey?: string;
+    }
+  | {
+      type: "slider";
+      get: () => number;
+      set: (v: number) => void;
+      min: number;
+      max: number;
+      suffix?: string;
+    };
+type RowDef =
+  | { kind: "subhead"; key: string }
+  | { kind: "custom"; id: string; searchKey?: string }
+  | {
+      kind: "field";
+      key: string;
+      col?: boolean;
+      showIf?: () => boolean;
+      control: FieldControl;
+    };
+
+const sw = (m: RefLike<boolean>, disabled?: () => boolean): FieldControl => ({
+  type: "switch",
+  get: () => m.value,
+  set: (v) => {
+    m.value = v;
+  },
+  disabled,
+});
+const radio = (
+  m: RefLike<string>,
+  options: () => ColOption[],
+): FieldControl => ({
+  type: "radio",
+  get: () => m.value,
+  set: (v) => {
+    m.value = v;
+  },
+  options,
+});
+const num = (
+  m: RefLike<number>,
+  opts: {
+    min?: () => number | undefined;
+    max?: () => number | undefined;
+    step?: number;
+    unitKey?: string;
+  } = {},
+): FieldControl => ({
+  type: "number",
+  get: () => m.value,
+  set: (v) => {
+    m.value = v;
+  },
+  ...opts,
+});
+const slider = (
+  m: RefLike<number>,
+  min: number,
+  max: number,
+  suffix?: string,
+): FieldControl => ({
+  type: "slider",
+  get: () => m.value,
+  set: (v) => {
+    m.value = v;
+  },
+  min,
+  max,
+  suffix,
+});
+
+// Typed setters: the discriminated union can't be narrowed inside a template
+// event handler, so dispatch through these helpers.
+function setSwitch(c: FieldControl, v: boolean): void {
+  if (c.type === "switch") c.set(v);
+}
+function setRadio(c: FieldControl, v: string): void {
+  if (c.type === "radio") c.set(v);
+}
+function setNumber(c: FieldControl, v: number): void {
+  if (c.type === "number" || c.type === "slider") c.set(v);
+}
+
+/** Dev options gate: fields that only make sense when dev mode is on. */
+const devOnly = (): boolean => !devEnabled.value;
+const freeMin = (min: number) => (): number | undefined =>
+  devFreeInput.value ? undefined : min;
+const freeMax = (max: number) => (): number | undefined =>
+  devFreeInput.value ? undefined : max;
+
+const FIELD_ROWS: Partial<Record<CatKey, RowDef[]>> = {
+  general: [
+    {
+      kind: "field",
+      key: "language",
+      control: radio(language, () => languageOptions.value),
+    },
+    {
+      kind: "field",
+      key: "closeMode",
+      control: radio(closeMode, () => closeModeOptions.value),
+    },
+  ],
+  edit: [
+    { kind: "field", key: "autoFollow", control: sw(followScroll) },
+    {
+      kind: "field",
+      key: "followPercent",
+      col: true,
+      showIf: () => followScroll.value,
+      control: slider(followPercent, 0, 100, "%"),
+    },
+    { kind: "field", key: "ctrlSpeedPlay", control: sw(ctrlSpeedPlay) },
+    { kind: "subhead", key: "alignTitle" },
+    {
+      kind: "field",
+      key: "alignDecimals",
+      control: num(alignDecimals, {
+        min: freeMin(0),
+        max: freeMax(6),
+        step: 1,
+      }),
+    },
+    {
+      kind: "field",
+      key: "alignRounding",
+      col: true,
+      control: radio(alignRounding, () => alignRoundingOptions.value),
+    },
+    { kind: "field", key: "autoSave", control: sw(autoSave) },
+    {
+      kind: "field",
+      key: "autoSaveMinutes",
+      col: true,
+      showIf: () => autoSave.value,
+      control: num(autoSaveMinutes, {
+        min: freeMin(1),
+        max: freeMax(60),
+        step: 1,
+        unitKey: "autoSaveMinutesUnit",
+      }),
+    },
+  ],
+  audio: [
+    { kind: "custom", id: "audio.tagline" },
+    { kind: "field", key: "autoBpm", control: sw(audioAutoBpm) },
+    { kind: "field", key: "autoBeats", control: sw(audioAutoBeats) },
+    { kind: "field", key: "loopDetect", control: sw(audioLoopDetect) },
+    { kind: "field", key: "liveBpm", control: sw(audioLiveBpm) },
+    { kind: "field", key: "spectrum", control: sw(audioSpectrum) },
+    { kind: "field", key: "panel", control: sw(audioPanel) },
+    { kind: "subhead", key: "metronomeTitle" },
+    { kind: "custom", id: "audio.metronome", searchKey: "metronome" },
+    { kind: "subhead", key: "playbackTitle" },
+    {
+      kind: "field",
+      key: "stretchEngine",
+      col: true,
+      control: radio(stretchEngine, () => stretchEngineOptions.value),
+    },
+  ],
+  display: [
+    { kind: "field", key: "autoHideGrid", control: sw(gridAutoHide) },
+    { kind: "field", key: "editor", control: sw(animEnabled) },
+    { kind: "field", key: "uiMotion", control: sw(uiMotion) },
+    { kind: "field", key: "uiBlur", control: sw(uiBlur) },
+  ],
+  advanced: [
+    { kind: "subhead", key: "window" },
+    { kind: "field", key: "rememberWindow", control: sw(rememberWindow) },
+    { kind: "field", key: "checkUpdates", control: sw(checkUpdates) },
+    { kind: "subhead", key: "developer" },
+    { kind: "field", key: "master", control: sw(devEnabled) },
+    { kind: "field", key: "freeInput", control: sw(devFreeInput, devOnly) },
+    { kind: "field", key: "logToFile", control: sw(logToFile, devOnly) },
+    { kind: "custom", id: "advanced.devTools", searchKey: "openTools" },
+    { kind: "subhead", key: "about" },
+    { kind: "custom", id: "advanced.about" },
+  ],
+};
+
+/** Categories rendered from FIELD_ROWS. */
+const fieldCats = Object.keys(FIELD_ROWS) as CatKey[];
+function rowsOf(key: CatKey): RowDef[] {
+  return FIELD_ROWS[key] ?? [];
+}
+
 async function pickMetronome(): Promise<void> {
   const path = await window.api.pickFile(
     t("settings.audio.metronomePickTitle"),
@@ -355,603 +677,543 @@ async function onOpenDevTools(): Promise<void> {
 function catLabel(key: string): string {
   return t(`settings.cats.${key}`);
 }
+
+// ---- settings search ----
+// Index derived from FIELD_ROWS (plus theme colors), so a row only has to be
+// declared once to be both rendered and searchable. Theme color tokens are
+// pulled from THEME_TOKEN_ORDER since they are rendered by their own loop.
+type SearchEntry = { cat: CatKey; key: string };
+const SEARCH_INDEX: SearchEntry[] = [];
+for (const [catKey, rows] of Object.entries(FIELD_ROWS) as Array<
+  [CatKey, RowDef[]]
+>) {
+  for (const row of rows) {
+    if (row.kind === "field") SEARCH_INDEX.push({ cat: catKey, key: row.key });
+    else if (row.kind === "custom" && row.searchKey)
+      SEARCH_INDEX.push({ cat: catKey, key: row.searchKey });
+  }
+}
+for (const token of THEME_TOKEN_ORDER) {
+  SEARCH_INDEX.push({ cat: "theme", key: `tokens.${token}` });
+}
+
+const search = ref("");
+const contentEl = ref<HTMLElement | null>(null);
+
+function labelKeyOf(entry: SearchEntry): string {
+  return `settings.${entry.cat}.${entry.key}`;
+}
+
+const searchResults = computed<
+  Array<SearchEntry & { label: string; desc: string }>
+>(() => {
+  const q = search.value.trim().toLowerCase();
+  if (!q) return [];
+  const hits: Array<SearchEntry & { label: string; desc: string }> = [];
+  for (const entry of SEARCH_INDEX) {
+    const key = labelKeyOf(entry);
+    const label = t(key);
+    const descKey = `${key}Desc`;
+    const desc = te(descKey) ? t(descKey) : "";
+    if (
+      label.toLowerCase().includes(q) ||
+      desc.toLowerCase().includes(q) ||
+      catLabel(entry.cat).toLowerCase().includes(q)
+    ) {
+      hits.push({ ...entry, label, desc });
+    }
+  }
+  return hits;
+});
+
+function goToSetting(hit: SearchEntry & { label: string }): void {
+  cat.value = hit.cat;
+  search.value = "";
+  void nextTick(() => {
+    const rows = contentEl.value?.querySelectorAll(".field-row");
+    if (!rows) return;
+    for (const row of rows) {
+      if (row.textContent?.includes(hit.label)) {
+        row.scrollIntoView({
+          block: "center",
+          behavior: uiMotion.value ? "smooth" : "auto",
+        });
+        row.classList.add("search-hit");
+        window.setTimeout(() => row.classList.remove("search-hit"), 1600);
+        break;
+      }
+    }
+  });
+}
+
+function onSearchEnter(): void {
+  const first = searchResults.value[0];
+  if (first) goToSetting(first);
+}
 </script>
 
 <template>
   <teleport to="body">
-    <div
-      v-if="settings.settingsOpen"
-      class="mask"
-      @click.self="setSettingsOpen(false)"
-    >
-      <div class="panel">
-        <header class="head">
-          <span class="title">{{ t("settings.title") }}</span>
-          <button class="close-x" @click="setSettingsOpen(false)">✕</button>
-        </header>
-
-        <div class="body">
-          <nav class="nav">
-            <button
-              v-for="c in cats"
-              :key="c.key"
-              class="nav-item"
-              :class="{ active: cat === c.key }"
-              @click="cat = c.key"
-            >
-              <span class="nav-icon">{{ c.icon }}</span>
-              {{ catLabel(c.key) }}
-            </button>
-          </nav>
-
-          <main class="content">
-            <!-- 常规 -->
-            <section v-if="cat === 'general'">
-              <h3>{{ t("settings.cats.general") }}</h3>
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.general.language")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.general.languageDesc")
-                  }}</span>
-                </div>
-                <UiRadioGroup v-model="language" :options="languageOptions" />
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.general.closeMode")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.general.closeModeDesc")
-                  }}</span>
-                </div>
-                <UiRadioGroup
-                  class="mode-group"
-                  :model-value="closeMode"
-                  :options="closeModeOptions"
-                  @update:model-value="
-                    (v: string) => (closeMode = v as CloseMode)
-                  "
-                />
-              </div>
-            </section>
-
-            <!-- 编辑 -->
-            <section v-if="cat === 'edit'">
-              <h3>{{ t("settings.cats.edit") }}</h3>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.edit.autoFollow")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.edit.autoFollowDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="followScroll" />
-              </div>
-
-              <div v-if="followScroll" class="field-row col">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.edit.followPercent")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.edit.followPercentDesc")
-                  }}</span>
-                </div>
-                <div class="pct-row">
-                  <UiSlider
-                    v-model="followPercent"
-                    :min="0"
-                    :max="100"
-                    class="pct-slider"
-                  />
-                  <span class="num pct-value">{{ followPercent }}%</span>
-                </div>
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.edit.ctrlSpeedPlay")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.edit.ctrlSpeedPlayDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="ctrlSpeedPlay" />
-              </div>
-
-              <div class="sub-head">{{ t("settings.edit.alignTitle") }}</div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.edit.alignDecimals")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.edit.alignDecimalsDesc")
-                  }}</span>
-                </div>
-                <UiNumberInput
-                  v-model="alignDecimals"
-                  :min="devFreeInput ? undefined : 0"
-                  :max="devFreeInput ? undefined : 6"
-                  :step="1"
-                  class="decimals-input"
-                />
-              </div>
-
-              <div class="field-row col">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.edit.alignRounding")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.edit.alignRoundingDesc")
-                  }}</span>
-                </div>
-                <UiRadioGroup
-                  v-model="alignRounding"
-                  :options="alignRoundingOptions"
-                />
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.edit.autoSave")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.edit.autoSaveDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="autoSave" />
-              </div>
-
-              <div v-if="autoSave" class="field-row col">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.edit.autoSaveMinutes")
-                  }}</span>
-                </div>
-                <div class="pct-row">
-                  <UiNumberInput
-                    v-model="autoSaveMinutes"
-                    :min="devFreeInput ? undefined : 1"
-                    :max="devFreeInput ? undefined : 60"
-                    :step="1"
-                    class="minutes-input"
-                  />
-                  <span class="muted">{{
-                    t("settings.edit.autoSaveMinutesUnit")
-                  }}</span>
-                </div>
-              </div>
-            </section>
-
-            <!-- 音频 -->
-            <section v-if="cat === 'audio'">
-              <h3>{{ t("settings.cats.audio") }}</h3>
-              <p class="muted audio-tagline">
-                {{ t("settings.audio.tagline") }}
-              </p>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.audio.autoBpm")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.audio.autoBpmDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="audioAutoBpm" />
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.audio.autoBeats")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.audio.autoBeatsDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="audioAutoBeats" />
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.audio.loopDetect")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.audio.loopDetectDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="audioLoopDetect" />
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.audio.liveBpm")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.audio.liveBpmDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="audioLiveBpm" />
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.audio.spectrum")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.audio.spectrumDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="audioSpectrum" />
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.audio.panel")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.audio.panelDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="audioPanel" />
-              </div>
-
-              <div class="sub-head">
-                {{ t("settings.audio.metronomeTitle") }}
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.audio.metronome")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.audio.metronomeDesc")
-                  }}</span>
-                </div>
-                <div class="metronome-row">
-                  <span class="num metronome-path">{{
-                    metronomePath || t("settings.audio.metronomeNone")
-                  }}</span>
-                  <UiButton size="sm" @click="pickMetronome()">{{
-                    t("settings.audio.metronomePickBtn")
-                  }}</UiButton>
-                  <UiButton
-                    v-if="metronomePath"
-                    size="sm"
-                    variant="danger"
-                    @click="clearMetronome()"
-                    >{{ t("settings.audio.metronomeClear") }}</UiButton
-                  >
-                </div>
-              </div>
-
-              <div class="sub-head">
-                {{ t("settings.audio.playbackTitle") }}
-              </div>
-
-              <div class="field-row col">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.audio.stretchEngine")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.audio.stretchEngineDesc")
-                  }}</span>
-                </div>
-                <UiRadioGroup
-                  v-model="stretchEngine"
-                  :options="stretchEngineOptions"
-                />
-              </div>
-            </section>
-
-            <!-- 显示 -->
-            <section v-if="cat === 'display'">
-              <h3>{{ t("settings.cats.display") }}</h3>
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.display.autoHideGrid")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.display.autoHideGridDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="gridAutoHide" />
-              </div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.display.editor")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.display.editorDesc")
-                  }}</span>
-                </div>
-                <UiSwitch v-model="animEnabled" />
-              </div>
-            </section>
-
-            <!-- 主题 -->
-            <section v-if="cat === 'theme'">
-              <h3>{{ t("settings.cats.theme") }}</h3>
-
-              <div class="sub-head">{{ t("settings.theme.preset") }}</div>
-              <div class="theme-presets">
-                <button
-                  v-for="p in THEME_PRESETS"
-                  :key="p.id"
-                  class="theme-preset"
-                  :class="{ active: settings.settings.themePreset === p.id }"
-                  @click="setThemePreset(p.id)"
-                >
-                  <span class="swatches">
-                    <i :style="{ background: p.spec.bg }" />
-                    <i :style="{ background: p.spec.panel }" />
-                    <i :style="{ background: p.spec.accent }" />
-                    <i :style="{ background: p.spec.accent2 }" />
-                  </span>
-                  {{ t(`settings.theme.presets.${p.name}`) }}
-                </button>
-              </div>
-
-              <div class="sub-head theme-custom-head">
-                <span>{{ t("settings.theme.custom") }}</span>
-                <UiButton
-                  size="sm"
-                  :disabled="Object.keys(themeOverrides).length === 0"
-                  @click="resetThemeTokens()"
-                >
-                  {{ t("settings.theme.reset") }}
-                </UiButton>
-              </div>
-              <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
-
-              <div v-for="g in themeGroups" :key="g.key" class="theme-group">
-                <div class="theme-group-title">
-                  {{ t(`settings.theme.groups.${g.key}`) }}
-                </div>
-                <div
-                  v-for="token in g.tokens"
-                  :key="token"
-                  class="field-row theme-row"
-                >
-                  <div class="field-info">
-                    <span class="field-name">{{
-                      t(`settings.theme.tokens.${token}`)
-                    }}</span>
-                  </div>
-                  <div class="theme-token-ctrl">
-                    <UiColorPicker
-                      :model-value="themeSpec[token]"
-                      @update:model-value="
-                        (v: string) => onThemeToken(token, v)
-                      "
-                    />
-                    <button
-                      class="theme-token-reset"
-                      :class="{ on: tokenOverridden(token) }"
-                      :title="t('settings.theme.reset')"
-                      @click="onThemeToken(token, null)"
-                    >
-                      ↺
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </section>
-
-            <!-- 快捷键 -->
-            <section v-if="cat === 'shortcuts'">
-              <h3>{{ t("settings.cats.shortcuts") }}</h3>
-              <p class="muted">{{ t("settings.shortcuts.note") }}</p>
-              <table class="keys-table">
-                <tbody>
-                  <tr v-for="(row, i) in shortcutRows" :key="i">
-                    <td class="act">{{ row.label }}</td>
-                    <td class="keys">
-                      <span v-for="(k, j) in row.keys" :key="j" class="kbd">{{
-                        k
-                      }}</span>
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </section>
-
-            <!-- 插件 -->
-            <section v-if="cat === 'plugins'">
-              <h3>{{ t("settings.plugins.title") }}</h3>
-              <div class="plugin-tools">
-                <UiButton
-                  size="sm"
-                  :loading="pluginsLoading"
-                  @click="onReloadPlugins()"
-                >
-                  {{ t("settings.plugins.reload") }}
-                </UiButton>
-                <UiButton size="sm" @click="onOpenPluginsFolder()">
-                  {{ t("settings.plugins.openFolder") }}
-                </UiButton>
-              </div>
-
-              <div v-if="pluginEntries.length === 0" class="plugin-empty">
-                <p>{{ t("settings.plugins.none") }}</p>
-                <p class="muted">{{ t("settings.plugins.noneHint") }}</p>
-              </div>
-
-              <div
-                v-for="entry in pluginEntries"
-                :key="entry.id"
-                class="plugin-card"
+    <Transition :name="transitionName" :css="uiMotion">
+      <div
+        v-if="settings.settingsOpen"
+        class="mask"
+        :class="layout"
+        @click.self="setSettingsOpen(false)"
+      >
+        <div class="panel" :class="layout" :style="panelStyle">
+          <div
+            v-if="layout === 'drawer'"
+            class="resize-handle"
+            @pointerdown="startResize"
+          />
+          <header class="head">
+            <span class="title">{{ t("settings.title") }}</span>
+            <div class="search">
+              <Search class="search-icon size-3.5" />
+              <input
+                v-model="search"
+                class="search-input"
+                :placeholder="t('settings.searchPlaceholder')"
+                @keydown.enter.prevent="onSearchEnter()"
+                @keydown.esc="search = ''"
+              />
+              <button
+                v-if="search"
+                class="search-clear"
+                :title="t('settings.searchClear')"
+                @click="search = ''"
               >
-                <div class="plugin-main">
-                  <div class="plugin-titles">
-                    <span class="plugin-name">
-                      {{ pluginName(entry) }}
-                      <span class="plugin-ver num">v{{ entry.version }}</span>
+                <X class="size-3.5" />
+              </button>
+            </div>
+            <div class="head-actions">
+              <button
+                class="icon-btn"
+                :title="
+                  layout === 'drawer'
+                    ? t('settings.expand')
+                    : t('settings.collapse')
+                "
+                @click="toggleLayout()"
+              >
+                <Minimize v-if="layout === 'full'" class="size-3.5" />
+                <Maximize v-else class="size-3.5" />
+              </button>
+              <button class="close-x" @click="setSettingsOpen(false)">✕</button>
+            </div>
+          </header>
+
+          <div class="body">
+            <div v-if="search.trim()" class="search-results">
+              <button
+                v-for="hit in searchResults"
+                :key="`${hit.cat}.${hit.key}`"
+                class="search-result"
+                @click="goToSetting(hit)"
+              >
+                <span class="sr-label">{{ hit.label }}</span>
+                <span class="sr-cat">{{ catLabel(hit.cat) }}</span>
+              </button>
+              <div v-if="searchResults.length === 0" class="search-empty">
+                {{ t("settings.searchNoResults") }}
+              </div>
+            </div>
+
+            <nav class="nav">
+              <button
+                v-for="c in cats"
+                :key="c.key"
+                class="nav-item"
+                :class="{ active: cat === c.key }"
+                @click="cat = c.key"
+              >
+                <span class="nav-icon">{{ c.icon }}</span>
+                <span class="nav-label">{{ catLabel(c.key) }}</span>
+              </button>
+            </nav>
+
+            <main ref="contentEl" class="content">
+              <!-- 由 FIELD_ROWS 声明的分类 -->
+              <template v-for="key in fieldCats" :key="key">
+                <section v-if="cat === key">
+                  <h3>{{ catLabel(key) }}</h3>
+                  <template v-for="(row, i) in rowsOf(key)" :key="i">
+                    <div v-if="row.kind === 'subhead'" class="sub-head">
+                      {{ t(`settings.${key}.${row.key}`) }}
+                    </div>
+
+                    <p
+                      v-else-if="
+                        row.kind === 'custom' && row.id === 'audio.tagline'
+                      "
+                      class="muted audio-tagline"
+                    >
+                      {{ t("settings.audio.tagline") }}
+                    </p>
+
+                    <div
+                      v-else-if="
+                        row.kind === 'custom' && row.id === 'audio.metronome'
+                      "
+                      class="field-row"
+                    >
+                      <div class="field-info">
+                        <span class="field-name">{{
+                          t("settings.audio.metronome")
+                        }}</span>
+                        <span class="field-desc">{{
+                          t("settings.audio.metronomeDesc")
+                        }}</span>
+                      </div>
+                      <div class="metronome-row">
+                        <span class="num metronome-path">{{
+                          metronomePath || t("settings.audio.metronomeNone")
+                        }}</span>
+                        <UiButton size="sm" @click="pickMetronome()">{{
+                          t("settings.audio.metronomePickBtn")
+                        }}</UiButton>
+                        <UiButton
+                          v-if="metronomePath"
+                          size="sm"
+                          variant="danger"
+                          @click="clearMetronome()"
+                          >{{ t("settings.audio.metronomeClear") }}</UiButton
+                        >
+                      </div>
+                    </div>
+
+                    <div
+                      v-else-if="
+                        row.kind === 'custom' && row.id === 'advanced.devTools'
+                      "
+                      class="dev-block"
+                      :class="{ off: !devEnabled }"
+                    >
+                      <UiButton
+                        variant="solid"
+                        :disabled="!devEnabled"
+                        :loading="devOpenBusy"
+                        @click="onOpenDevTools()"
+                      >
+                        {{ t("settings.advanced.openTools") }}
+                      </UiButton>
+                      <p class="muted">
+                        {{ t("settings.advanced.openToolsDesc") }}
+                      </p>
+                    </div>
+
+                    <template
+                      v-else-if="
+                        row.kind === 'custom' && row.id === 'advanced.about'
+                      "
+                    >
+                      <div class="about-card">
+                        <div class="about-logo">◈</div>
+                        <div>
+                          <div class="about-name">{{ t("app.name") }}</div>
+                          <div class="muted">{{ t("app.hint") }}</div>
+                        </div>
+                      </div>
+                      <dl class="about-meta">
+                        <dt>{{ t("settings.advanced.version") }}</dt>
+                        <dd>v{{ appVersion }}</dd>
+                        <dt>{{ t("settings.advanced.author") }}</dt>
+                        <dd>BUGJI</dd>
+                        <dt>{{ t("settings.advanced.tech") }}</dt>
+                        <dd>
+                          Electron · Vue 3 · TypeScript · Vite · Pinia ·
+                          Tailwind CSS · Reka UI
+                        </dd>
+                        <dt>{{ t("settings.advanced.license") }}</dt>
+                        <dd>GNU GPL v3</dd>
+                        <dt>{{ t("settings.advanced.runtime") }}</dt>
+                        <dd>
+                          Node.js {{ runtime.node }} · Chromium
+                          {{ runtime.chrome }} · Electron {{ runtime.electron }}
+                        </dd>
+                      </dl>
+                    </template>
+
+                    <template v-else-if="row.kind === 'field'">
+                      <div
+                        v-if="!row.showIf || row.showIf()"
+                        class="field-row"
+                        :class="{ col: row.col }"
+                      >
+                        <div class="field-info">
+                          <span class="field-name">{{
+                            t(`settings.${key}.${row.key}`)
+                          }}</span>
+                          <span
+                            v-if="te(`settings.${key}.${row.key}Desc`)"
+                            class="field-desc"
+                            >{{ t(`settings.${key}.${row.key}Desc`) }}</span
+                          >
+                        </div>
+
+                        <UiSwitch
+                          v-if="row.control.type === 'switch'"
+                          :model-value="row.control.get()"
+                          :disabled="row.control.disabled?.() ?? false"
+                          @update:model-value="
+                            (v: boolean) => setSwitch(row.control, v)
+                          "
+                        />
+                        <UiRadioGroup
+                          v-else-if="row.control.type === 'radio'"
+                          :model-value="row.control.get()"
+                          :options="row.control.options()"
+                          @update:model-value="
+                            (v: string) => setRadio(row.control, v)
+                          "
+                        />
+                        <UiNumberInput
+                          v-else-if="
+                            row.control.type === 'number' &&
+                            !row.control.unitKey
+                          "
+                          :model-value="row.control.get()"
+                          :min="row.control.min?.()"
+                          :max="row.control.max?.()"
+                          :step="row.control.step"
+                          class="decimals-input"
+                          @update:model-value="
+                            (v: number) => setNumber(row.control, v)
+                          "
+                        />
+                        <div
+                          v-else-if="row.control.type === 'number'"
+                          class="pct-row"
+                        >
+                          <UiNumberInput
+                            :model-value="row.control.get()"
+                            :min="row.control.min?.()"
+                            :max="row.control.max?.()"
+                            :step="row.control.step"
+                            @update:model-value="
+                              (v: number) => setNumber(row.control, v)
+                            "
+                          />
+                          <span class="muted">{{
+                            t(`settings.${key}.${row.control.unitKey}`)
+                          }}</span>
+                        </div>
+                        <div
+                          v-else-if="row.control.type === 'slider'"
+                          class="pct-row"
+                        >
+                          <UiSlider
+                            :model-value="row.control.get()"
+                            :min="row.control.min"
+                            :max="row.control.max"
+                            class="pct-slider"
+                            @update:model-value="
+                              (v: number) => setNumber(row.control, v)
+                            "
+                          />
+                          <span class="num pct-value"
+                            >{{ row.control.get()
+                            }}{{ row.control.suffix }}</span
+                          >
+                        </div>
+                      </div>
+                    </template>
+                  </template>
+                </section>
+              </template>
+
+              <!-- 主题 -->
+              <section v-if="cat === 'theme'">
+                <h3>{{ t("settings.cats.theme") }}</h3>
+
+                <div class="sub-head">{{ t("settings.theme.preset") }}</div>
+                <div class="theme-presets">
+                  <button
+                    v-for="p in THEME_PRESETS"
+                    :key="p.id"
+                    class="theme-preset"
+                    :class="{ active: settings.settings.themePreset === p.id }"
+                    @click="setThemePreset(p.id)"
+                  >
+                    <span class="swatches">
+                      <i :style="{ background: p.spec.bg }" />
+                      <i :style="{ background: p.spec.panel }" />
+                      <i :style="{ background: p.spec.accent }" />
+                      <i :style="{ background: p.spec.accent2 }" />
                     </span>
-                    <span class="plugin-desc">
-                      {{ pluginDescription(entry) || entry.id }}
-                    </span>
-                    <span v-if="entry.error" class="plugin-err">
-                      {{ entry.error }}
-                    </span>
-                  </div>
-                  <div class="plugin-meta">
-                    <span v-if="entry.main" class="badge">main</span>
-                    <span v-if="entry.renderer" class="badge">renderer</span>
-                    <UiSwitch
-                      :model-value="entry.enabled"
-                      :disabled="pluginBusy === entry.id"
-                      @update:model-value="() => void onTogglePlugin(entry)"
+                    {{ t(`settings.theme.presets.${p.name}`) }}
+                  </button>
+                </div>
+
+                <div class="sub-head">{{ t("settings.theme.share") }}</div>
+                <div class="theme-share">
+                  <UiButton size="sm" @click="onExportTheme()">
+                    {{ t("settings.theme.export") }}
+                  </UiButton>
+                  <div class="theme-code-wrap">
+                    <UiInput
+                      v-model="themeCode"
+                      size="sm"
+                      :placeholder="t('settings.theme.importPlaceholder')"
                     />
                   </div>
+                  <UiButton
+                    size="sm"
+                    variant="soft"
+                    :disabled="!themeCode.trim()"
+                    @click="onImportTheme()"
+                  >
+                    {{ t("settings.theme.importBtn") }}
+                  </UiButton>
                 </div>
-                <div class="plugin-dir num">{{ entry.dir }}</div>
-              </div>
-            </section>
 
-            <!-- 高级 -->
-            <section v-if="cat === 'advanced'">
-              <h3>{{ t("settings.cats.advanced") }}</h3>
-
-              <div class="sub-head">{{ t("settings.advanced.window") }}</div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.advanced.rememberWindow")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.advanced.rememberWindowDesc")
-                  }}</span>
+                <div class="sub-head theme-custom-head">
+                  <span>{{ t("settings.theme.custom") }}</span>
+                  <UiButton
+                    size="sm"
+                    :disabled="Object.keys(themeOverrides).length === 0"
+                    @click="resetThemeTokens()"
+                  >
+                    {{ t("settings.theme.reset") }}
+                  </UiButton>
                 </div>
-                <UiSwitch v-model="rememberWindow" />
-              </div>
+                <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
 
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.advanced.checkUpdates")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.advanced.checkUpdatesDesc")
-                  }}</span>
+                <div v-if="contrastIssues.length" class="contrast-warn">
+                  <div class="contrast-warn-title">
+                    {{ t("settings.theme.contrastTitle") }}
+                  </div>
+                  <ul class="contrast-warn-list">
+                    <li v-for="(i, idx) in contrastIssues" :key="idx">
+                      {{
+                        t("settings.theme.contrastIssue", {
+                          fg: t(`settings.theme.tokens.${i.fg}`),
+                          bg: t(`settings.theme.tokens.${i.bg}`),
+                          ratio: i.ratio.toFixed(2),
+                        })
+                      }}
+                    </li>
+                  </ul>
                 </div>
-                <UiSwitch v-model="checkUpdates" />
-              </div>
 
-              <div class="sub-head">{{ t("settings.advanced.developer") }}</div>
-
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.advanced.master")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.advanced.masterDesc")
-                  }}</span>
+                <div v-for="g in themeGroups" :key="g.key" class="theme-group">
+                  <div class="theme-group-title">
+                    {{ t(`settings.theme.groups.${g.key}`) }}
+                  </div>
+                  <div
+                    v-for="token in g.tokens"
+                    :key="token"
+                    class="field-row theme-row"
+                  >
+                    <div class="field-info">
+                      <span class="field-name">{{
+                        t(`settings.theme.tokens.${token}`)
+                      }}</span>
+                    </div>
+                    <div class="theme-token-ctrl">
+                      <UiColorField
+                        :model-value="themeSpec[token]"
+                        @update:model-value="
+                          (v: string) => previewThemeToken(token, v)
+                        "
+                        @commit="(v: string) => setThemeToken(token, v)"
+                      />
+                      <button
+                        class="theme-token-reset"
+                        :class="{ on: tokenOverridden(token) }"
+                        :title="t('settings.theme.reset')"
+                        @click="onThemeToken(token, null)"
+                      >
+                        ↺
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <UiSwitch v-model="devEnabled" />
-              </div>
+              </section>
 
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.advanced.freeInput")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.advanced.freeInputDesc")
-                  }}</span>
+              <!-- 快捷键 -->
+              <section v-if="cat === 'shortcuts'">
+                <h3>{{ t("settings.cats.shortcuts") }}</h3>
+                <p class="muted">{{ t("settings.shortcuts.note") }}</p>
+                <table class="keys-table">
+                  <tbody>
+                    <tr v-for="(row, i) in shortcutRows" :key="i">
+                      <td class="act">{{ row.label }}</td>
+                      <td class="keys">
+                        <span v-for="(k, j) in row.keys" :key="j" class="kbd">{{
+                          k
+                        }}</span>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </section>
+
+              <!-- 插件 -->
+              <section v-if="cat === 'plugins'">
+                <h3>{{ t("settings.plugins.title") }}</h3>
+                <div class="plugin-tools">
+                  <UiButton
+                    size="sm"
+                    :loading="pluginsLoading"
+                    @click="onReloadPlugins()"
+                  >
+                    {{ t("settings.plugins.reload") }}
+                  </UiButton>
+                  <UiButton size="sm" @click="onOpenPluginsFolder()">
+                    {{ t("settings.plugins.openFolder") }}
+                  </UiButton>
                 </div>
-                <UiSwitch v-model="devFreeInput" :disabled="!devEnabled" />
-              </div>
 
-              <div class="field-row">
-                <div class="field-info">
-                  <span class="field-name">{{
-                    t("settings.advanced.logToFile")
-                  }}</span>
-                  <span class="field-desc">{{
-                    t("settings.advanced.logToFileDesc")
-                  }}</span>
+                <div v-if="pluginEntries.length === 0" class="plugin-empty">
+                  <p>{{ t("settings.plugins.none") }}</p>
+                  <p class="muted">{{ t("settings.plugins.noneHint") }}</p>
                 </div>
-                <UiSwitch v-model="logToFile" :disabled="!devEnabled" />
-              </div>
 
-              <div class="dev-block" :class="{ off: !devEnabled }">
-                <UiButton
-                  variant="solid"
-                  :disabled="!devEnabled"
-                  :loading="devOpenBusy"
-                  @click="onOpenDevTools()"
+                <div
+                  v-for="entry in pluginEntries"
+                  :key="entry.id"
+                  class="plugin-card"
                 >
-                  {{ t("settings.advanced.openTools") }}
-                </UiButton>
-                <p class="muted">{{ t("settings.advanced.openToolsDesc") }}</p>
-              </div>
-
-              <div class="sub-head">{{ t("settings.advanced.about") }}</div>
-
-              <div class="about-card">
-                <div class="about-logo">◈</div>
-                <div>
-                  <div class="about-name">{{ t("app.name") }}</div>
-                  <div class="muted">{{ t("app.hint") }}</div>
+                  <div class="plugin-main">
+                    <div class="plugin-titles">
+                      <span class="plugin-name">
+                        {{ pluginName(entry) }}
+                        <span class="plugin-ver num">v{{ entry.version }}</span>
+                      </span>
+                      <span class="plugin-desc">
+                        {{ pluginDescription(entry) || entry.id }}
+                      </span>
+                      <span v-if="entry.error" class="plugin-err">
+                        {{ entry.error }}
+                      </span>
+                    </div>
+                    <div class="plugin-meta">
+                      <span v-if="entry.main" class="badge">main</span>
+                      <span v-if="entry.renderer" class="badge">renderer</span>
+                      <UiSwitch
+                        :model-value="entry.enabled"
+                        :disabled="pluginBusy === entry.id"
+                        @update:model-value="() => void onTogglePlugin(entry)"
+                      />
+                    </div>
+                  </div>
+                  <div class="plugin-dir num">{{ entry.dir }}</div>
                 </div>
-              </div>
-              <dl class="about-meta">
-                <dt>{{ t("settings.advanced.version") }}</dt>
-                <dd>v{{ appVersion }}</dd>
-                <dt>{{ t("settings.advanced.author") }}</dt>
-                <dd>BUGJI</dd>
-                <dt>{{ t("settings.advanced.tech") }}</dt>
-                <dd>
-                  Electron · Vue 3 · TypeScript · Vite · Pinia · Tailwind CSS ·
-                  Reka UI
-                </dd>
-                <dt>{{ t("settings.advanced.license") }}</dt>
-                <dd>GNU GPL v3</dd>
-                <dt>{{ t("settings.advanced.runtime") }}</dt>
-                <dd>
-                  Node.js {{ runtime.node }} · Chromium {{ runtime.chrome }} ·
-                  Electron {{ runtime.electron }}
-                </dd>
-              </dl>
-            </section>
-          </main>
-        </div>
+              </section>
+            </main>
+          </div>
 
-        <footer class="foot">
-          <span class="autosave">{{ t("settings.autoSave") }}</span>
-          <UiButton variant="solid" size="sm" @click="setSettingsOpen(false)">
-            {{ t("settings.done") }}
-          </UiButton>
-        </footer>
+          <footer class="foot">
+            <span class="autosave">{{ t("settings.autoSave") }}</span>
+            <UiButton variant="solid" size="sm" @click="setSettingsOpen(false)">
+              {{ t("settings.done") }}
+            </UiButton>
+          </footer>
+        </div>
       </div>
-    </div>
+    </Transition>
   </teleport>
 </template>
 
@@ -960,24 +1222,115 @@ function catLabel(key: string): string {
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: var(--bdg-mask);
-  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
 }
+/* Dim + blur live on a pseudo-element so both can animate on their own without
+   fading the panel along with them. */
+.mask::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bdg-mask);
+  backdrop-filter: var(--bdg-blur);
+}
+.mask.drawer {
+  align-items: stretch;
+  justify-content: flex-end;
+}
+
+/* enter/exit: mask opacity+blur fade while the panel slides/scales.
+   The root itself carries a (visually inert) transition so <Transition> can read
+   the duration from the root element and wait for the child/pseudo animations. */
+.settings-drawer-enter-active,
+.settings-drawer-leave-active {
+  transition: opacity 0.28s ease;
+}
+.settings-drawer-enter-active::before,
+.settings-drawer-leave-active::before {
+  transition:
+    opacity 0.24s ease,
+    backdrop-filter 0.24s ease;
+}
+.settings-drawer-enter-active .panel,
+.settings-drawer-leave-active .panel {
+  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.settings-drawer-enter-from::before,
+.settings-drawer-leave-to::before {
+  opacity: 0;
+  backdrop-filter: blur(0);
+}
+.settings-drawer-enter-from .panel,
+.settings-drawer-leave-to .panel {
+  transform: translateX(100%);
+}
+
+.settings-full-enter-active,
+.settings-full-leave-active {
+  transition: opacity 0.22s ease;
+}
+.settings-full-enter-active::before,
+.settings-full-leave-active::before {
+  transition:
+    opacity 0.2s ease,
+    backdrop-filter 0.2s ease;
+}
+.settings-full-enter-active .panel,
+.settings-full-leave-active .panel {
+  transition:
+    transform 0.22s ease,
+    opacity 0.22s ease;
+}
+.settings-full-enter-from::before,
+.settings-full-leave-to::before {
+  opacity: 0;
+  backdrop-filter: blur(0);
+}
+.settings-full-enter-from .panel,
+.settings-full-leave-to .panel {
+  transform: scale(0.97);
+  opacity: 0;
+}
 .panel {
-  width: min(680px, 92vw);
-  height: min(520px, 86vh);
+  position: relative;
+  z-index: 1;
   background: var(--bdg-bg-panel);
-  border: 1px solid var(--bdg-border-strong);
-  border-radius: 12px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 18px 60px var(--bdg-shadow);
   overflow: hidden;
 }
+.panel.full {
+  width: min(1200px, 96vw);
+  height: min(860px, 94vh);
+  border: 1px solid var(--bdg-border-strong);
+  border-radius: 12px;
+  box-shadow: 0 18px 60px var(--bdg-shadow);
+}
+.panel.drawer {
+  position: relative;
+  height: 100%;
+  min-width: 440px;
+  max-width: 90vw;
+  border-left: 1px solid var(--bdg-border-strong);
+  box-shadow: -18px 0 60px var(--bdg-shadow);
+}
+.resize-handle {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  cursor: col-resize;
+  z-index: 1;
+}
+.resize-handle:hover {
+  background: rgb(var(--bdg-accent-rgb) / 0.25);
+}
 .head {
+  position: relative;
+  z-index: 3;
   flex: none;
   display: flex;
   align-items: center;
@@ -986,9 +1339,139 @@ function catLabel(key: string): string {
 }
 .title {
   font-weight: 700;
+  flex: none;
+}
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  max-width: 340px;
+  margin: 0 12px;
+}
+.search-icon {
+  position: absolute;
+  left: 9px;
+  color: var(--bdg-text-dim);
+  pointer-events: none;
+}
+.search-input {
+  width: 100%;
+  height: 30px;
+  padding: 0 28px 0 30px;
+  border-radius: 8px;
+  border: 1px solid var(--bdg-border);
+  background: var(--bdg-bg-sunken);
+  color: var(--bdg-text);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.search-input:focus {
+  border-color: var(--bdg-border-strong);
+}
+.search-input::placeholder {
+  color: var(--bdg-text-faint);
+}
+.search-clear {
+  position: absolute;
+  right: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border: none;
+  background: none;
+  color: var(--bdg-text-dim);
+  border-radius: 5px;
+  cursor: pointer;
+}
+.search-clear:hover {
+  background: rgb(var(--bdg-neutral) / 0.15);
+  color: var(--bdg-text);
+}
+.search-results {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  /* above the nav and content inside .body so the results are never covered */
+  z-index: 20;
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--bdg-bg-raised);
+  border-bottom: 1px solid var(--bdg-border-strong);
+  box-shadow: 0 16px 40px var(--bdg-shadow);
+}
+.search-result {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 18px;
+  border: none;
+  background: none;
+  color: var(--bdg-text);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+}
+.search-result:hover {
+  background: rgb(var(--bdg-accent-rgb) / 0.12);
+}
+.sr-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sr-cat {
+  flex: none;
+  font-size: 11px;
+  color: var(--bdg-text-dim);
+}
+.search-empty {
+  padding: 16px 18px;
+  font-size: 12px;
+  color: var(--bdg-text-dim);
+}
+.search-hit {
+  animation: searchHit 1.6s ease;
+}
+@keyframes searchHit {
+  0% {
+    background: rgb(var(--bdg-accent-rgb) / 0.28);
+  }
+  100% {
+    background: transparent;
+  }
+}
+.head-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: none;
+  color: var(--bdg-text-dim);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.icon-btn:hover {
+  background: rgb(var(--bdg-neutral) / 0.12);
+  color: var(--bdg-text);
 }
 .close-x {
-  margin-left: auto;
   background: none;
   border: none;
   color: var(--bdg-text-dim);
@@ -999,6 +1482,8 @@ function catLabel(key: string): string {
   color: var(--bdg-text);
 }
 .body {
+  position: relative;
+  z-index: 0;
   flex: 1;
   display: flex;
   min-height: 0;
@@ -1011,6 +1496,11 @@ function catLabel(key: string): string {
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.nav-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .nav-item {
   display: flex;
@@ -1047,6 +1537,14 @@ function catLabel(key: string): string {
 .content h3 {
   margin: 0 0 14px;
   font-size: 15px;
+}
+.content section {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 0 10px;
+}
+.panel.drawer .content {
+  padding: 14px 16px;
 }
 .audio-tagline {
   margin: -6px 0 4px;
@@ -1313,6 +1811,15 @@ function catLabel(key: string): string {
   height: 11px;
   display: block;
 }
+.theme-share {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.theme-code-wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .theme-custom-head {
   display: flex;
   align-items: center;
@@ -1320,6 +1827,27 @@ function catLabel(key: string): string {
 }
 .theme-hint {
   margin: 0 0 8px;
+}
+.contrast-warn {
+  background: rgb(var(--bdg-amber-rgb) / 0.1);
+  border: 1px solid rgb(var(--bdg-amber-rgb) / 0.32);
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin: 0 0 10px;
+  font-size: 12px;
+}
+.contrast-warn-title {
+  font-weight: 700;
+  color: var(--bdg-amber);
+  margin-bottom: 4px;
+}
+.contrast-warn-list {
+  margin: 0;
+  padding-left: 16px;
+  color: var(--bdg-text-dim);
+}
+.contrast-warn-list li {
+  margin: 2px 0;
 }
 .theme-group {
   margin-bottom: 6px;

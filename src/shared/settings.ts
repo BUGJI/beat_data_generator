@@ -50,6 +50,10 @@ export const SettingsSchema = z.object({
   /** time-stretch backend used when playing off-speed with pitch preserved. */
   stretchEngine: StretchEngineSchema,
   animEnabled: bool(true),
+  /** animate UI surfaces (settings drawer/overlay, toasts, etc.). */
+  uiMotion: bool(true),
+  /** global backdrop blur; off removes every blur effect in the UI. */
+  uiBlur: bool(true),
   /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
   gridAutoHide: bool(true),
   /** silently check for updates on startup and notify when one is available. */
@@ -57,6 +61,10 @@ export const SettingsSchema = z.object({
   followScroll: bool(true),
   followPercent: intInRange(90, 0, 100),
   followPreset: bool(false),
+  /** Settings panel layout: docked right drawer or full-screen overlay. */
+  settingsLayout: z.enum(["drawer", "full"]).catch("drawer").default("drawer"),
+  /** Drawer width in px; 0 = auto (40% of the window). Clamped to 90vw at runtime. */
+  settingsDrawerWidth: intInRange(0, 0, 4000),
   rememberWindow: bool(true),
   autoSave: bool(true),
   autoSaveMinutes: intInRange(5, 1, 60),

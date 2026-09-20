@@ -55,6 +55,7 @@ const api: IpcApi = {
   writeTextFile: (filePath, content) =>
     ipcRenderer.invoke("text:write", filePath, content),
   openWindow: (opts) => ipcRenderer.invoke("win:open", opts),
+  writeClipboard: (text) => ipcRenderer.invoke("clipboard:write", text),
 };
 
 contextBridge.exposeInMainWorld("api", api);

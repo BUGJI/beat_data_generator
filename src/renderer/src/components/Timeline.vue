@@ -6,6 +6,7 @@ import {
   onMounted,
   ref,
   watch,
+  watchEffect,
 } from "vue";
 import { useI18n } from "vue-i18n";
 import {
@@ -111,6 +112,33 @@ const hthumbEl = ref<HTMLElement | null>(null);
 
 let raf = 0;
 let ro: ResizeObserver | null = null;
+let stopPaint: (() => void) | null = null;
+
+/**
+ * Painting is dependency-driven instead of a constant 60fps redraw: the
+ * `paint` effect below re-runs only when reactive state the canvas reads
+ * changes, and `loop` keeps a frame loop alive solely for the two time-based
+ * cases (playback follow + the 100ms lane glow). `markDirty` is the escape
+ * hatch for render inputs that aren't reactive (the box-selection rect).
+ */
+const renderNonce = ref(0);
+function markDirty(): void {
+  renderNonce.value++;
+}
+
+function paint(): void {
+  draw();
+  drawScrollbars();
+}
+
+function hasActiveGlow(): boolean {
+  if (!ui.glowEnabled) return false;
+  const now = performance.now();
+  for (const id in glowEndAt) {
+    if ((glowEndAt[id] ?? 0) > now) return true;
+  }
+  return false;
+}
 
 let mode:
   | "idle"
@@ -1026,6 +1054,7 @@ function setBox(x: number, y: number): void {
     x1: Math.max(downX, x),
     y1: Math.max(downY, y),
   };
+  markDirty();
 }
 
 function applyBoxSelection(): void {
@@ -1092,6 +1121,7 @@ function onPointerDown(e: PointerEvent): void {
   downX = x;
   downY = y;
   boxRect = null;
+  markDirty();
   moved = false;
   activePointer = e.pointerId;
   rootEl.value!.setPointerCapture(activePointer);
@@ -1269,6 +1299,7 @@ function onPointerUp(e: PointerEvent): void {
   brushLastKey = "";
   activePointer = -1;
   boxRect = null;
+  markDirty();
   ghostState.value = null;
 }
 
@@ -1286,6 +1317,7 @@ function onPointerCancel(): void {
   brushLastKey = "";
   activePointer = -1;
   boxRect = null;
+  markDirty();
   ghostState.value = null;
 }
 
@@ -1404,8 +1436,6 @@ function startHBarDrag(e: PointerEvent): void {
 }
 
 function loop(): void {
-  draw();
-  drawScrollbars();
   if (transport.playing) {
     const tpx = (transport.positionMs / 1000) * view.pxPerSec;
     const W = view.vw;
@@ -1423,6 +1453,9 @@ function loop(): void {
       if (tpx > view.x + W * f) transport.followActive = true;
     }
   }
+  // lane glow decays over time, which no reactive value tracks, so drive those
+  // frames explicitly (the initial frame is painted by the paint effect).
+  if (hasActiveGlow()) paint();
   raf = requestAnimationFrame(loop);
 }
 
@@ -1768,6 +1801,13 @@ function deleteSelected(): void {
 
 onMounted(() => {
   setupCanvas();
+  // Repaint whenever reactive state read by draw()/drawScrollbars() changes.
+  // Registered after setupCanvas so the first run has a live canvas to track
+  // against and paint into.
+  stopPaint = watchEffect(() => {
+    void renderNonce.value;
+    paint();
+  });
   ro = new ResizeObserver(() => {
     setupCanvas();
     draw();
@@ -1780,6 +1820,8 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   cancelAnimationFrame(raf);
+  stopPaint?.();
+  stopPaint = null;
   ro?.disconnect();
   cardRo?.disconnect();
   window.removeEventListener("keydown", onCardKey);

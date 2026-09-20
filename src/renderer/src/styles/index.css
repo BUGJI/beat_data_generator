@@ -29,8 +29,9 @@
   --bdg-danger-rgb: 244 63 94;
   --bdg-amber-rgb: 251 191 36;
   --bdg-bpm-rgb: 245 158 11;
-  --bdg-mask: rgba(14, 17, 22, 0.7);
+  --bdg-mask: rgba(14, 17, 22, 0.9);
   --bdg-shadow: rgba(0, 0, 0, 0.5);
+  --bdg-blur: blur(3px);
   /* Layout */
   --bdg-toolbar-h: 46px;
   --bdg-transport-h: 52px;
@@ -99,4 +100,10 @@ body {
 .num {
   font-variant-numeric: tabular-nums;
   font-family: "Cascadia Mono", "Consolas", monospace;
+}
+
+/* Global blur value; the "Interface blur" setting toggles html.no-blur, which
+   collapses every backdrop blur that reads this variable. */
+html.no-blur {
+  --bdg-blur: none;
 }

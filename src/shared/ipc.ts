@@ -92,6 +92,8 @@ export interface IpcApi {
   writeTextFile: (filePath: string, content: string) => Promise<boolean>;
   /** Open an extra window loading an arbitrary page (plugin service). */
   openWindow: (opts: IpcOpenWindowOptions) => Promise<void>;
+  /** Copy plain text to the system clipboard. */
+  writeClipboard: (text: string) => Promise<void>;
 }
 
 export type WelcomeAction =

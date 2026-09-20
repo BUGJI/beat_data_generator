@@ -256,6 +256,149 @@ export function presetById(id: string): ThemePreset | undefined {
   return THEME_PRESETS.find((p) => p.id === id);
 }
 
+/** WCAG relative luminance of a hex color, 0 (black) → 1 (white). */
+function relativeLuminance(hex: string): number {
+  const h = normalizeHex(hex);
+  if (!h) return 0;
+  const n = parseInt(h.slice(1), 16);
+  const channel = (c: number): number => {
+    const x = c / 255;
+    return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+  };
+  return (
+    0.2126 * channel((n >> 16) & 255) +
+    0.7152 * channel((n >> 8) & 255) +
+    0.0722 * channel(n & 255)
+  );
+}
+
+/** WCAG contrast ratio between two hex colors (1 → 21). */
+export function contrastRatio(a: string, b: string): number {
+  const la = relativeLuminance(a);
+  const lb = relativeLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/** Below this ratio, text starts to be hard to read (WCAG AA normal text). */
+export const CONTRAST_WARN = 4.5;
+
+export interface ContrastIssue {
+  fg: keyof ThemeSpec;
+  bg: keyof ThemeSpec;
+  ratio: number;
+}
+
+/** Token pairs whose contrast matters for readability. */
+const CONTRAST_PAIRS: Array<[keyof ThemeSpec, keyof ThemeSpec]> = [
+  ["text", "bg"],
+  ["text", "panel"],
+  ["textDim", "panel"],
+  ["textDim", "bg"],
+  ["accent", "panel"],
+  ["accent2", "panel"],
+  ["danger", "panel"],
+  ["amber", "panel"],
+  ["bpm", "panel"],
+  ["bpmPointSelected", "laneBpmBg"],
+];
+
+/** Foreground/background pairs in `spec` that fall below `CONTRAST_WARN`. */
+export function themeContrastIssues(spec: ThemeSpec): ContrastIssue[] {
+  const issues: ContrastIssue[] = [];
+  for (const [fg, bg] of CONTRAST_PAIRS) {
+    const ratio = contrastRatio(spec[fg], spec[bg]);
+    if (ratio < CONTRAST_WARN) issues.push({ fg, bg, ratio });
+  }
+  return issues;
+}
+
+// ---- shareable theme codes ----
+//
+// A theme is encoded as a tiny binary blob — version, preset index and a list
+// of (token index, RGB) — then base64url'd. That keeps a full custom theme to
+// a short, copy-pasteable string instead of dumping JSON.
+
+const THEME_CODE_PREFIX = "BDG1-";
+const THEME_CODE_VERSION = 1;
+/** Sentinel preset index meaning "unknown preset, fall back to the default". */
+const THEME_PRESET_UNKNOWN = 255;
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64UrlToBytes(text: string): Uint8Array | null {
+  try {
+    const b64 = text.replace(/-/g, "+").replace(/_/g, "/");
+    const pad = b64.length % 4 === 0 ? "" : "=".repeat(4 - (b64.length % 4));
+    const bin = atob(b64 + pad);
+    const out = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+export interface DecodedTheme {
+  presetId: string;
+  overrides: ThemeOverrides;
+}
+
+/** Serialize a preset + overrides into a compact, copy-pasteable code. */
+export function encodeTheme(
+  presetId: string,
+  overrides: ThemeOverrides | undefined,
+): string {
+  const presetIdx = THEME_PRESETS.findIndex((p) => p.id === presetId);
+  const bytes: number[] = [
+    THEME_CODE_VERSION,
+    presetIdx < 0 ? THEME_PRESET_UNKNOWN : presetIdx,
+  ];
+  const entries: Array<[number, string]> = [];
+  if (overrides) {
+    THEME_TOKEN_ORDER.forEach((token, idx) => {
+      const raw = overrides[token];
+      const hex = typeof raw === "string" ? normalizeHex(raw) : null;
+      if (hex) entries.push([idx, hex]);
+    });
+  }
+  bytes.push(Math.min(entries.length, 255));
+  for (const [idx, hex] of entries.slice(0, 255)) {
+    const n = parseInt(hex.slice(1), 16);
+    bytes.push(idx, (n >> 16) & 255, (n >> 8) & 255, n & 255);
+  }
+  return THEME_CODE_PREFIX + bytesToBase64Url(Uint8Array.from(bytes));
+}
+
+/** Parse a theme code back into a preset id and overrides; null if invalid. */
+export function decodeTheme(code: string): DecodedTheme | null {
+  const trimmed = code.replace(/\s+/g, "");
+  if (!trimmed.startsWith(THEME_CODE_PREFIX)) return null;
+  const bytes = base64UrlToBytes(trimmed.slice(THEME_CODE_PREFIX.length));
+  if (!bytes || bytes.length < 3 || bytes[0] !== THEME_CODE_VERSION) {
+    return null;
+  }
+  const presetIdx = bytes[1]!;
+  const presetId =
+    presetIdx < THEME_PRESETS.length ? THEME_PRESETS[presetIdx]!.id : "default";
+  const count = bytes[2]!;
+  if (bytes.length < 3 + count * 4) return null;
+  const overrides: ThemeOverrides = {};
+  for (let i = 0; i < count; i++) {
+    const at = 3 + i * 4;
+    const token = THEME_TOKEN_ORDER[bytes[at]!];
+    if (!token) continue;
+    const hex = `#${[bytes[at + 1]!, bytes[at + 2]!, bytes[at + 3]!]
+      .map((c) => c.toString(16).padStart(2, "0"))
+      .join("")}`;
+    overrides[token] = hex;
+  }
+  return { presetId, overrides };
+}
+
 /** Resolve a preset + user overrides into a complete spec (overrides win). */
 export function resolveTheme(
   presetId: string,
@@ -333,7 +476,7 @@ export function buildCssVars(spec: ThemeSpec): Record<string, string> {
     "--bdg-danger-rgb": rgbTriple(spec.danger),
     "--bdg-amber-rgb": rgbTriple(spec.amber),
     "--bdg-bpm-rgb": rgbTriple(spec.bpm),
-    "--bdg-mask": rgba(spec.bg, 0.7),
+    "--bdg-mask": rgba(spec.bg, 0.9),
     "--bdg-shadow": "rgba(0, 0, 0, 0.5)",
   };
 }

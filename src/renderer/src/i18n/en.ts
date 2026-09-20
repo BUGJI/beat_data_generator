@@ -24,6 +24,10 @@ export default {
     name: "Beat Data Generator",
     hint: "Beat markers · Grid aligned",
   },
+  color: {
+    pick: "Pick a color from the screen",
+    palette: "Quick colors",
+  },
   menu: {
     file: "File",
     new: "New Project",
@@ -146,6 +150,11 @@ export default {
     title: "Settings",
     done: "Done",
     autoSave: "Changes are saved immediately",
+    expand: "Expand to full screen",
+    collapse: "Collapse to side panel",
+    searchPlaceholder: "Search settings…",
+    searchNoResults: "No matching settings",
+    searchClear: "Clear search",
     cats: {
       general: "General",
       edit: "Editing",
@@ -161,6 +170,16 @@ export default {
       custom: "Custom colors",
       hint: "Tweak any color on top of the preset; changes are kept when you switch presets. Click ↺ to restore a color.",
       reset: "Reset preset",
+      share: "Share / import",
+      export: "Copy code",
+      importBtn: "Apply",
+      importPlaceholder: "Paste a theme code…",
+      exportOk: "Theme code copied to clipboard",
+      exportFail: "Could not copy the theme code",
+      importOk: "Theme applied",
+      importFail: "Invalid theme code",
+      contrastTitle: "Contrast warnings",
+      contrastIssue: "{fg} on {bg} is only {ratio}:1 — aim for 4.5:1 or higher",
       presets: {
         default: "Deep Sky",
         midnight: "Midnight",
@@ -285,6 +304,12 @@ export default {
         "Caps the drawn subdivision detail by zoom to keep rendering fast: at most 1/16 below 500 px/s, 1/8 below 250 px/s, and 1/4 below 100 px/s. Your snap setting is unchanged \u2014 only the display is affected; beat and bar lines always show.",
       editor: "Editor animations",
       editorDesc: "Zoom/pan the timeline with an interruptible 0.1s ease-out",
+      uiMotion: "Interface motion",
+      uiMotionDesc:
+        "Animate the settings panel (slide / fade) and other UI transitions",
+      uiBlur: "Interface blur",
+      uiBlurDesc:
+        "Backdrop blur behind overlays. Turn off to remove all blur effects",
     },
     shortcuts: {
       note: "Shortcuts are read-only for now; rebinding will come later.",
