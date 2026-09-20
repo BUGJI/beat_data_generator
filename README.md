@@ -1,8 +1,9 @@
-# Beat Data Generator
 
-> 作者：**BUGJI** · 协议：**GNU GPL v3**
+# <img width="24" alt="logo" src="./build/icon.png"> Beat Data Generator
 
-基于 **Electron + Vue 3 + TypeScript + Tailwind CSS** 的音乐节拍踩点编辑器。在波形图上对齐歌曲节拍轴，放置踩点（beat marker）与 BPM 变速点，用于生成节奏类应用的节拍数据。
+音乐节拍踩点编辑器。在波形图上对齐歌曲节拍轴，放置踩点（beat marker）与 BPM 变速点，用于生成节奏类应用的节拍数据。
+
+<img width="800" height="550" alt="image" src="https://github.com/user-attachments/assets/79314d83-6f06-4afc-9e28-ccdd6d2c1f36" />
 
 ## 功能特性
 
@@ -24,8 +25,6 @@
 - **自动保存**：可配置间隔（1–60 分钟）后台自动保存当前工程。
 - **主题系统**：6 套预设（default / midnight / forest / amber / graphite / light），并支持按 token 自定义配色，实时生效。
 - **其他**：多语言界面（中文 / English）、欢迎页与最近工程、记住窗口位置、退出模式设置。
-
-<img width="1000" height="650" alt="image" src="https://github.com/user-attachments/assets/79314d83-6f06-4afc-9e28-ccdd6d2c1f36" />
 
 ## 技术栈
 
