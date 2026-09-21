@@ -43,6 +43,12 @@ export type StretchEngine = z.infer<typeof StretchEngineSchema>;
 
 export const SettingsSchema = z.object({
   closeMode: CloseModeSchema.catch("ask").default("ask"),
+  /** custom application name; empty string uses the built-in default. */
+  appName: z
+    .string()
+    .catch("")
+    .default("")
+    .transform((s) => s.slice(0, 48)),
   devEnabled: bool(false),
   devFreeInput: bool(false),
   /** write runtime logs to <userData>/logs/main.log (off by default). */

@@ -43,3 +43,11 @@ document.getElementById("btn-open")!.addEventListener("click", () => {
 });
 
 void window.api.getRecents().then(render);
+
+const DEFAULT_APP_NAME = "Beat Data Generator";
+void window.api.getSettings().then((s) => {
+  const name = (s.appName || "").trim() || DEFAULT_APP_NAME;
+  const el = document.querySelector<HTMLElement>(".brand .name");
+  if (el) el.textContent = name;
+  document.title = name;
+});

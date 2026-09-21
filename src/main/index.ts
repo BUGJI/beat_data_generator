@@ -70,6 +70,12 @@ const lastDirsPath = (): string =>
   join(app.getPath("userData"), "last-dirs.json");
 const recentsPath = (): string => join(app.getPath("userData"), "recents.json");
 
+/** Effective application name: the user's custom name, else the built-in one. */
+function appTitle(): string {
+  const custom = settings.appName.trim();
+  return custom || "Beat Data Generator";
+}
+
 // ---- metronome sounds folder ----
 const METRONOME_EXTS = new Set([
   "mp3",
@@ -372,8 +378,8 @@ function requestQuit(w: BrowserWindow): void {
   void dialog
     .showMessageBox(w, {
       type: "question",
-      title: "Beat Data Generator",
-      message: "Exit Beat Data Generator?",
+      title: appTitle(),
+      message: `Exit ${appTitle()}?`,
       detail: "",
       buttons: ["Quit", "Cancel"],
       defaultId: 1,
@@ -654,8 +660,15 @@ function registerIpc(): void {
     "settings:update",
     (_e, patch: Partial<SettingsData>): SettingsData => {
       const wasLogging = settings.logToFile === true;
+      const wasName = settings.appName;
       settings = sanitizeSettings({ ...settings, ...patch });
       persistSettings();
+      if (settings.appName !== wasName) {
+        if (mainWindow && !mainWindow.isDestroyed())
+          mainWindow.setTitle(appTitle());
+        if (welcomeWindow && !welcomeWindow.isDestroyed())
+          welcomeWindow.setTitle(appTitle());
+      }
       const isLogging = settings.logToFile === true;
       if (isLogging !== wasLogging) {
         setFileLogging(isLogging);
@@ -804,7 +817,7 @@ function createWelcomeWindow(): void {
     fullscreenable: false,
     autoHideMenuBar: true,
     backgroundColor: "#101318",
-    title: "Beat Data Generator",
+    title: appTitle(),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
@@ -833,7 +846,7 @@ function createWindow(): void {
     show: false,
     autoHideMenuBar: true,
     backgroundColor: "#15181c",
-    title: "Beat Data Generator",
+    title: appTitle(),
     webPreferences: {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
@@ -913,7 +926,7 @@ function setupUpdater(): void {
     if (notified || !Notification.isSupported()) return;
     notified = true;
     const n = new Notification({
-      title: "Beat Data Generator 更新可用",
+      title: `${appTitle()} 更新可用`,
       body: `发现新版本 v${info.version}，点击打开下载页面。`,
       silent: false,
     });

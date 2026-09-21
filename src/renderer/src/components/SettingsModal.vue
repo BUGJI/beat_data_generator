@@ -14,6 +14,7 @@ import {
   resetThemeTokens,
   exportThemeCode,
   importThemeCode,
+  applyAppName,
 } from "../store";
 import { setLocale, LOCALES } from "../i18n";
 import { toast } from "../ui/toast";
@@ -292,7 +293,14 @@ const language = computed<string>({
   get: () => locale.value,
   set: (v: string) => {
     setLocale(v === "en" ? "en" : "zh");
+    applyAppName();
   },
+});
+
+const DEFAULT_APP_NAME = "Beat Data Generator";
+const appName = computed<string>({
+  get: () => settings.settings.appName.trim() || DEFAULT_APP_NAME,
+  set: (v) => patchSettings({ appName: v.trim() ? v : DEFAULT_APP_NAME }),
 });
 
 const languageOptions = computed(() =>
@@ -1110,8 +1118,12 @@ function onSearchEnter(): void {
                     >
                       <div class="about-card">
                         <div class="about-logo">◈</div>
-                        <div>
-                          <div class="about-name">{{ t("app.name") }}</div>
+                        <div class="about-info">
+                          <UiInput
+                            v-model="appName"
+                            size="sm"
+                            class="about-name-input"
+                          />
                           <div class="muted">{{ t("app.hint") }}</div>
                         </div>
                       </div>
@@ -1903,9 +1915,27 @@ function onSearchEnter(): void {
   font-size: 34px;
   color: var(--bdg-accent);
 }
-.about-name {
+.about-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+.about-name-input {
   font-size: 16px;
   font-weight: 800;
+  height: auto;
+  padding-left: 0px;
+  padding-right: 2px;
+  border-color: transparent;
+  background: transparent;
+  border-radius: 4px;
+  cursor: text;
+}
+.about-name-input:focus {
+  border-color: var(--bdg-accent);
+  background: rgb(var(--bdg-accent-rgb) / 0.08);
 }
 .about-meta {
   display: grid;

@@ -8,6 +8,7 @@ import {
   type ThemeOverrides,
 } from "../theme";
 import { engine } from "../engine";
+import { i18n } from "../i18n";
 import { loadMetronome } from "../services/audioIO";
 import { useTransportStore } from "./transport";
 import {
@@ -40,6 +41,17 @@ export function applyUiPreferences(): void {
   document.documentElement.classList.toggle("no-blur", s.uiBlur !== true);
 }
 
+/** Effective application name: the user's override, else the localized default. */
+export function appDisplayName(): string {
+  const custom = useSettingsStore().settings.appName.trim();
+  return custom || i18n.global.t("app.name");
+}
+
+/** Mirror the effective name onto the document (drives the Electron window title). */
+export function applyAppName(): void {
+  document.title = appDisplayName();
+}
+
 /** Push metronome volume / follow-master settings into the audio engine. */
 function applyMetronomeSettings(): void {
   const s = useSettingsStore().settings;
@@ -61,6 +73,7 @@ export async function loadSettings(): Promise<void> {
   applyThemeFromSettings();
   applyUiPreferences();
   applyMetronomeSettings();
+  applyAppName();
 }
 
 let settingsTimer: number | undefined;
@@ -72,6 +85,7 @@ export function patchSettings(patch: Partial<SettingsData>): void {
   if ("themePreset" in patch || "themeOverrides" in patch)
     applyThemeFromSettings();
   if ("uiBlur" in patch) applyUiPreferences();
+  if ("appName" in patch) applyAppName();
   if ("stretchEngine" in patch) engine.clearStretched();
   if ("metronomeVolume" in patch || "metronomeFollowMaster" in patch)
     applyMetronomeSettings();
