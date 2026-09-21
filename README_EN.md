@@ -1,7 +1,5 @@
 # Beat Data Generator
 
-> Author: **BUGJI** · License: **GNU GPL v3**
-
 A music beat-marker editor built with **Electron + Vue 3 + TypeScript + Tailwind CSS**. Align a beat grid over an audio waveform, place beat markers and BPM change points, and generate beat data for rhythm-based applications.
 
 ## Features
@@ -132,4 +130,4 @@ Pitch-preserving off-speed playback uses `signalsmith-stretch` by default (WASM 
 
 ## License
 
-This project is released under the **GNU GPL v3** license (see `LICENSE`). Author: **BUGJI**.
+This project is released under the **GNU GPL v3** license (see `LICENSE`).
