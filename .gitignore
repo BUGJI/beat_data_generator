@@ -11,3 +11,11 @@ coverage/
 plugins/*
 !plugins/example-basic
 !plugins/plugin-api.d.ts
+
+# local debug / temp artefacts
+errs.txt
+*.tsbuildinfo
+
+# editors
+.idea/
+.vscode/
