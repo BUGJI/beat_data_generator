@@ -75,11 +75,9 @@
 
 ## 界面
 
-<img width="820" alt="音频智能分析面板：BPM / 节拍 / 最佳循环段落 / 梅尔频谱" src="docs/images/analysis-panel.png" />
+<img width="820" alt="界面运行/播放" src="https://github.com/user-attachments/assets/3adcdc2b-4c97-46b8-b394-1a5803385a90" />
 
-<img width="820" alt="插件导出：以 ADOFAI / Phira 为例" src="docs/images/plugin-export.png" />
-
-<img width="820" alt="操作演示：载入音频 → 对齐节拍 → 放置踩点 → 导出" src="docs/images/demo.gif" />
+<img width="820" alt="主题设置" src="https://github.com/user-attachments/assets/20f7b578-20bd-4206-b7d4-45ea80c4e7b4" />
 
 ## 使用入门
 
