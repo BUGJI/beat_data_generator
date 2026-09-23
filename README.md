@@ -23,8 +23,6 @@
 
 各版本的变更记录见 [`CHANGELOG.md`](CHANGELOG.md)。
 
-<!-- 待补充：若安装包未签名，建议在此说明 Windows SmartScreen 的提示与处理方式 -->
-
 ## 功能特性
 
 ### 编辑
@@ -232,4 +230,4 @@ npm run format:check
 
 以上为各依赖在 npm 上声明的许可标识；打包分发前请以各组件仓库中的 `LICENSE` 原文为准。内置打拍音素材位于 `resources/metronomes/`。
 
-<!-- 待补充：打拍音素材（Kick / Shaker / VehiclePositive）的来源与授权说明 -->
+打拍音素材（Kick / Shaker / VehiclePositive）来自 7th Beat Games 的《A Dance Of Fire And Ice》，版权归原作者所有，此处仅作来源标注。
