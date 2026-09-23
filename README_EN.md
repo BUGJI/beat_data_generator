@@ -75,11 +75,10 @@ One project can feed several targets: generic formats ship with the editor, ever
 
 ## Screenshots
 
-<img width="820" alt="Audio intelligence panel: BPM / beats / best loop / mel spectrogram" src="docs/images/analysis-panel.png" />
+<img width="820" alt="Demo Run/Play" src="https://github.com/user-attachments/assets/3adcdc2b-4c97-46b8-b394-1a5803385a90" />
 
-<img width="820" alt="Plugin export: ADOFAI / Phira" src="docs/images/plugin-export.png" />
+<img width="820" alt="Custom" src="https://github.com/user-attachments/assets/20f7b578-20bd-4206-b7d4-45ea80c4e7b4" />
 
-<img width="820" alt="Demo: load audio → align the grid → place markers → export" src="docs/images/demo.gif" />
 
 ## Quick Start
 
