@@ -69,7 +69,6 @@ One project can feed several targets: generic formats ship with the editor, ever
 | CMX3600 EDL | `.edl`: 25 fps, Non-Drop Frame; each marker produces a 1-frame event with a `FROM CLIP NAME` | Built-in |
 | A Dance of Fire and Ice | `.adofai` level, with double-press, BPM speed track and pause compensation | Plugin [bdg_plugin_adofai](https://github.com/beat-data-generator/bdg_plugin_adofai) |
 | Phira / RPE | `.pez` chart, optional single-judge-line merge, packed together with the audio | Plugin [bdg_plugin_phira](https://github.com/beat-data-generator/bdg_plugin_phira) |
-| DG-LAB 4 | Connect devices via WebSocket Relay and drive strength / pulse on beat points during playback (live sync, not a file export) | Plugin [bdg_plugin_dglab_v3](https://github.com/beat-data-generator/bdg_plugin_dglab_v3) |
 | Text timestamps / MIDI (import) | Import markers from text timestamps or MIDI files: integers are milliseconds, decimals are seconds; MIDI note times create new tracks | Plugin [bdg_plugin_import](https://github.com/beat-data-generator/bdg_plugin_import) |
 
 **Installing a plugin**: download the plugin repository folder → drop it into the plugin directory (**Settings → Plugins → Open plugin folder**, i.e. `<userData>/plugins`) → hit "Rescan and load" in Settings. In development mode the project's `plugins/` folder is scanned as well.
