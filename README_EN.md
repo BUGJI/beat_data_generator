@@ -231,4 +231,4 @@ This project is released under the **GNU GPL v3** license (see [`LICENSE`](LICEN
 | electron-log / electron-updater | MIT |
 | soundtouchjs (SoundTouch) | LGPL-2.1 |
 
-The identifiers above are the licenses declared by each package on npm; check the `LICENSE` file in each upstream repository before redistributing. The built-in metronome samples live in `resources/metronomes/`.
+The identifiers above are the licenses declared by each package on npm; check the `LICENSE` file in each upstream repository before redistributing. The built-in metronome samples live in `resources/metronomes/`. The click samples (Kick / Shaker / VehiclePositive) come from *A Dance Of Fire And Ice* by 7th Beat Games; all rights remain with the original authors, credited here as the source.
