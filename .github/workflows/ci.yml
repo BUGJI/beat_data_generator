@@ -35,7 +35,8 @@ jobs:
       - name: Test
         run: npm test
 
-      # 备注：`npm run lint`（biome check）与 `npm run format:check` 暂未纳入 CI，
-      # 请先在本机确认全绿，再把下面两行取消注释：
-      # - run: npm run lint
-      # - run: npm run format:check
+      - name: Lint
+        run: npm run lint
+
+      - name: Format check
+        run: npm run format:check
