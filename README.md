@@ -6,6 +6,7 @@
 
 [![license](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![release](https://img.shields.io/github/v/release/BUGJI/beat_data_generator?include_prereleases&label=release&color=green)](https://github.com/BUGJI/beat_data_generator/releases/latest)
+[![CI](https://github.com/BUGJI/beat_data_generator/actions/workflows/ci.yml/badge.svg)](https://github.com/BUGJI/beat_data_generator/actions/workflows/ci.yml)
 ![node](https://img.shields.io/badge/node-%E2%89%A5%2020.19-brightgreen)
 
 <img width="820" alt="主界面" src="https://github.com/user-attachments/assets/79314d83-6f06-4afc-9e28-ccdd6d2c1f36" />
