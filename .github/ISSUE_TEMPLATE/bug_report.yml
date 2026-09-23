@@ -1,0 +1,77 @@
+name: Bug 报告
+description: 报告一个可复现的问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量填全下面的信息，尤其是**版本**和**日志**，能省掉很多来回确认。
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本
+      description: 安装包文件名或「设置 → 关于」里的版本号
+      placeholder: "0.2.14"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: 平台
+      options:
+        - Windows 10 / 11
+        - macOS
+        - Linux
+        - 源码运行（npm run dev / start）
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      description: 尽量写出每一步操作；如果是音频相关问题，能提供音频或最小工程的格式信息会很有帮助
+      placeholder: |
+        1. 打开音频 xxx（mp3，44100Hz）
+        2. 在 BPM 轨第 3 拍放一个 BPM 点
+        3. 播放到第 8 拍……
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望行为 / 实际行为
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: repro
+    attributes:
+      label: 复现情况
+      options:
+        - label: 每次都能复现
+        - label: 偶发（大概几成概率，可在上面补充）
+        - label: 只在这个特定工程 / 音频上出现
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: |
+        在 **设置 → 开发者选项** 打开「记录运行日志到文件」，复现一次后把 `<userData>/logs/main.log` 拖进来
+        （Windows 通常为 `%APPDATA%\Beat Data Generator\logs\main.log`）
+      render: text
+    validations:
+      required: false
+
+  - type: input
+    id: project
+    attributes:
+      label: 工程 / 音频信息（可选）
+      description: 无法附文件的话，说明音频格式、采样率、是否含 BPM 变速即可
+    validations:
+      required: false
