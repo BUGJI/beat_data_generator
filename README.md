@@ -21,6 +21,8 @@
 
 **自动更新**：应用启动时会静默检查新版本（可在 **设置 → 高级 → 窗口与启动** 关闭），也可在 **设置 → 关于 → 检查更新** 手动检查；新版本从 GitHub Releases 获取。
 
+各版本的变更记录见 [`CHANGELOG.md`](CHANGELOG.md)。
+
 <!-- 待补充：若安装包未签名，建议在此说明 Windows SmartScreen 的提示与处理方式 -->
 
 ## 功能特性
@@ -207,8 +209,27 @@ npm run format:check
 - **macOS / Linux 能用吗？** 目前只在 Windows 上发布安装包；其他平台的适配在计划中，欢迎先在源码模式下试用并反馈。
 - **EDL 为什么只有 25 fps？** 当前固定 25 fps Non-Drop Frame；需要其他帧率或导出格式，欢迎到 [Issues](https://github.com/BUGJI/beat_data_generator/issues) 提需求，或参考[导出与对接目标](#导出与对接目标)用插件自行实现。
 
+## 参与贡献
+
+开发环境、代码风格、提交与发布流程见 [`CONTRIBUTING.md`](CONTRIBUTING.md)；报 BUG / 提需求请用 [issue 模板](https://github.com/BUGJI/beat_data_generator/issues/new/choose)；插件欢迎提交到[官方插件组织](https://github.com/beat-data-generator)。
+
 ## 许可
 
 本项目以 **GNU GPL v3** 协议发布（详见 [`LICENSE`](LICENSE)）。作者：**BUGJI**。
 
-第三方依赖（signalsmith-stretch、soundtouchjs、pleco-xa、Electron 等）遵循各自的许可协议；内置打拍音素材位于 `resources/metronomes/`。
+### 第三方组件
+
+| 组件 | 许可 |
+| --- | --- |
+| Electron | MIT |
+| Vue / Pinia / vue-i18n / reka-ui / zod | MIT |
+| @lucide/vue | ISC |
+| signalsmith-stretch | MIT |
+| pleco-xa | MIT |
+| slimdown-js | MIT |
+| electron-log / electron-updater | MIT |
+| soundtouchjs（SoundTouch） | LGPL-2.1 |
+
+以上为各依赖在 npm 上声明的许可标识；打包分发前请以各组件仓库中的 `LICENSE` 原文为准。内置打拍音素材位于 `resources/metronomes/`。
+
+<!-- 待补充：打拍音素材（Kick / Shaker / VehiclePositive）的来源与授权说明 -->

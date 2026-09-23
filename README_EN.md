@@ -21,6 +21,8 @@ The current release is a **public beta**. macOS and Linux support is on the road
 
 **Auto-update**: the app checks for new versions silently on startup (turn it off under **Settings → Advanced → Window & startup**), or check manually via **Settings → About → Check for updates**. Updates come from GitHub Releases.
 
+See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
+
 <!-- TODO: if the installer is unsigned, document the Windows SmartScreen prompt here -->
 
 ## Features
@@ -208,8 +210,25 @@ Pitch-preserving off-speed playback uses `signalsmith-stretch` by default (WASM 
 - **Does it run on macOS / Linux?** Only Windows installers are published today; other platforms are on the roadmap — meanwhile you can try the source build and report back.
 - **Why is the EDL fixed at 25 fps?** That is the current fixed output (25 fps, non-drop); for other frame rates or formats, open an [issue](https://github.com/BUGJI/beat_data_generator/issues) or write a plugin as described in [Export & Integration Targets](#export--integration-targets).
 
+## Contributing
+
+Setup, code style, commit and release process: see [`CONTRIBUTING.md`](CONTRIBUTING.md) (Chinese; issues and PRs in English are welcome). Bug reports and feature requests: use the [issue templates](https://github.com/BUGJI/beat_data_generator/issues/new/choose). Plugins belong in the [official plugin organisation](https://github.com/beat-data-generator).
+
 ## License
 
 This project is released under the **GNU GPL v3** license (see [`LICENSE`](LICENSE)). Author: **BUGJI**.
 
-Third-party dependencies (signalsmith-stretch, soundtouchjs, pleco-xa, Electron, …) are licensed under their respective terms; the built-in metronome samples live in `resources/metronomes/`.
+### Third-party components
+
+| Component | License |
+| --- | --- |
+| Electron | MIT |
+| Vue / Pinia / vue-i18n / reka-ui / zod | MIT |
+| @lucide/vue | ISC |
+| signalsmith-stretch | MIT |
+| pleco-xa | MIT |
+| slimdown-js | MIT |
+| electron-log / electron-updater | MIT |
+| soundtouchjs (SoundTouch) | LGPL-2.1 |
+
+The identifiers above are the licenses declared by each package on npm; check the `LICENSE` file in each upstream repository before redistributing. The built-in metronome samples live in `resources/metronomes/`.

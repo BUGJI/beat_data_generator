@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 官方插件与插件模板
+    url: https://github.com/beat-data-generator
+    about: 导出 / 导入格式基本都能用插件解决，先看看这里有没有现成的
+  - name: 插件开发文档
+    url: https://github.com/BUGJI/beat_data_generator/blob/main/docs/plugin-system.md
+    about: 想自己写插件（导入 / 导出、侧栏面板、快捷键、类型化轨道）请看这份文档
+  - name: 下载最新版本
+    url: https://github.com/BUGJI/beat_data_generator/releases/latest
+    about: 安装包与历史版本都在 Releases
