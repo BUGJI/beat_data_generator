@@ -67,7 +67,6 @@
 | CMX3600 EDL | `.edl`：25 fps、Non-Drop Frame，每个踩点生成一个 1 帧事件并带 `FROM CLIP NAME` | 内置 |
 | A Dance of Fire and Ice | `.adofai` 关卡，支持双押、BPM 变速轨道与暂停补偿 | 插件 [bdg_plugin_adofai](https://github.com/beat-data-generator/bdg_plugin_adofai) |
 | Phira / RPE | `.pez` 谱面，可选合并成单判定线模式，并连同音频一起打包 | 插件 [bdg_plugin_phira](https://github.com/beat-data-generator/bdg_plugin_phira) |
-| DG-LAB 4 | 通过 WebSocket Relay 连接设备，播放到踩点时联动输出强度 / 脉冲（实时联动，非文件导出） | 插件 [bdg_plugin_dglab_v3](https://github.com/beat-data-generator/bdg_plugin_dglab_v3) |
 | 文本时间戳 / MIDI（导入） | 从文本时间戳或 MIDI 导入踩点：整数按毫秒、含小数按秒；MIDI 按音符时间新建轨道 | 插件 [bdg_plugin_import](https://github.com/beat-data-generator/bdg_plugin_import) |
 
 **安装插件**：下载插件仓库文件夹 → 放入插件目录（**设置 → 插件 → 打开插件目录**，即 `<userData>/plugins`）→ 在设置里点“重新扫描并加载”。开发模式下也会扫描项目根目录的 `plugins/`。
