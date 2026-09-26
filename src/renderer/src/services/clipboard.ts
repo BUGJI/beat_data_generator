@@ -25,6 +25,7 @@ interface ClipMarker {
   trackId: string;
   beat: number;
   loop: NonNullable<Marker["loop"]> | null;
+  attrs: Record<string, unknown> | null;
 }
 
 let clipMarkers: ClipMarker[] = [];
@@ -45,6 +46,7 @@ export function copyMarkerGroup(): boolean {
           ...(m.loop.exclude ? { exclude: [...m.loop.exclude] } : {}),
         }
       : null,
+    attrs: m.attrs ? { ...m.attrs } : null,
   }));
   return true;
 }
@@ -79,9 +81,13 @@ export function pasteMarkerGroup(): boolean {
     if (trackHasBeat(clip.trackId, beat)) continue;
     const m = addMarkerToStore(clip.trackId, beat);
     if (!m) continue;
-    const clipTrack = p.tracks.find((x) => x.id === clip.trackId);
-    if (clipTrack?.type && clipTrack.type !== "beat") {
-      m.attrs = defaultAttrsFor(clipTrack.type);
+    if (clip.attrs) {
+      m.attrs = { ...clip.attrs };
+    } else {
+      const clipTrack = p.tracks.find((x) => x.id === clip.trackId);
+      if (clipTrack?.type && clipTrack.type !== "beat") {
+        m.attrs = defaultAttrsFor(clipTrack.type);
+      }
     }
     if (clip.loop) {
       m.loop = {

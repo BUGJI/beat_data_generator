@@ -93,6 +93,7 @@ export const useProjectStore = defineStore("project", () => {
     addMarker: addMarkerImpl,
     removeMarkerAt: removeMarkerAtImpl,
     updateMarkerLoop: updateMarkerLoopImpl,
+    updateMarkerAttrs: updateMarkerAttrsImpl,
     updateBpmPoint: updateBpmPointImpl,
     updateNote: updateNoteImpl,
     setBaseBpm: setBaseBpmImpl,
@@ -487,7 +488,7 @@ function addMarkerImpl(trackId: string, rawBeat: number): Marker | null {
 }
 
 /** Merge changes into a marker's plugin attributes (undo aware). */
-export function updateMarkerAttrs(
+function updateMarkerAttrsImpl(
   id: string,
   patch: Record<string, unknown>,
 ): void {
@@ -842,6 +843,13 @@ export function updateMarkerLoop(
   cfg: { interval: number; count: number; exclude?: number[] } | null,
 ): void {
   useProjectStore().updateMarkerLoop(id, cfg);
+}
+
+export function updateMarkerAttrs(
+  id: string,
+  patch: Record<string, unknown>,
+): void {
+  useProjectStore().updateMarkerAttrs(id, patch);
 }
 
 export function addMarker(trackId: string, rawBeat: number): Marker | null {

@@ -80,6 +80,12 @@ export const useSelectionStore = defineStore("selection", () => {
   }
 
   function closeCardImpl(): void {
+    // Commit any focused edit field before the card unmounts. A click outside
+    // clears the selection during pointerdown, which removes the input before
+    // its blur handler can run, so the typed value would be silently lost.
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== document.body)
+      active.blur();
     selected.value = { kind: null, id: null };
     multi.value = [];
     cardOpen.value = false;
