@@ -2,7 +2,7 @@
 
 [English](README_EN.md) | **中文**
 
-音乐节拍踩点编辑器：在波形图上对齐歌曲节拍轴，放置踩点（beat marker）与 BPM 变速点，为节奏类应用生成节拍数据。**一次踩点，可导出到多个目标软件**（见[导出与对接目标](#导出与对接目标)）。
+音乐节拍踩点编辑器：在波形图上对齐歌曲节拍轴，放置踩点（beat marker）与 BPM 变速点，为节奏类应用生成节拍数据。**一次踩点，可导出到多个目标软件**（见[导出与对接目标](#导出与对接目标)）。软件交流群 [556896494](https://qm.qq.com/q/CfV8lKXsNc)
 
 [![license](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 [![release](https://img.shields.io/github/v/release/BUGJI/beat_data_generator?include_prereleases&label=release&color=green)](https://github.com/BUGJI/beat_data_generator/releases/latest)
