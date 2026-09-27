@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from "vue";
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  watch,
+} from "vue";
 import { useI18n } from "vue-i18n";
 import { Maximize, Minimize, Search, X } from "@lucide/vue";
 import {
@@ -35,8 +42,15 @@ import {
   refreshPlugins,
 } from "../plugins/host";
 import type { PluginEntry } from "../../../shared/plugin";
+import type { MarketPluginView, MarketProgress } from "../../../shared/market";
 import type { CloseMode, MetronomeFile } from "../../../shared/ipc";
-import type { AlignRounding, StretchEngine } from "../../../shared/settings";
+import type {
+  AlignRounding,
+  MarketCacheTtl,
+  ProxyMode,
+  StretchEngine,
+} from "../../../shared/settings";
+import { GH_PROXY_PRESETS, type PingResult } from "../../../shared/network";
 import { useSettingsStore } from "../stores/settings";
 import UiButton from "./ui/UiButton.vue";
 import UiColorField from "./ui/UiColorField.vue";
@@ -64,6 +78,7 @@ const cat = ref<
   | "theme"
   | "shortcuts"
   | "plugins"
+  | "network"
   | "advanced"
   | "about"
 >("general");
@@ -76,6 +91,7 @@ type CatKey =
   | "theme"
   | "shortcuts"
   | "plugins"
+  | "network"
   | "advanced"
   | "about";
 
@@ -87,6 +103,7 @@ const cats: Array<{ key: CatKey; icon: string }> = [
   { key: "theme", icon: "◐" },
   { key: "shortcuts", icon: "⌨" },
   { key: "plugins", icon: "▤" },
+  { key: "network", icon: "⇅" },
   { key: "advanced", icon: "⬢" },
   { key: "about", icon: "◈" },
 ];
@@ -238,12 +255,262 @@ async function onOpenPluginsFolder(): Promise<void> {
   await window.api.openPluginsFolder();
 }
 
+// ---- plugin marketplace ----
+const pluginsTab = ref<"installed" | "market">("installed");
+const market = ref<MarketPluginView[]>([]);
+const marketLoading = ref(false);
+const marketError = ref("");
+const marketQuery = ref("");
+const marketCategory = ref("");
+const marketBusy = ref<string | null>(null);
+const trustFor = ref<string | null>(null);
+const marketProgress = ref<Record<string, MarketProgress>>({});
+
+const marketCacheTtl = computed<string>({
+  get: () => settings.settings.marketCacheTtl,
+  set: (v) => void patchSettings({ marketCacheTtl: v as MarketCacheTtl }),
+});
+const ttlOptions = computed(() =>
+  (["1d", "3d", "7d", "30d"] as const).map((v) => ({
+    value: v,
+    label: t(`settings.plugins.ttl.${v}`),
+  })),
+);
+
+async function onInstallZip(): Promise<void> {
+  try {
+    const res = await window.api.installPluginZip();
+    if (!res) return; // canceled
+    if (res.ok) toast.success(t("settings.plugins.zipOk", { name: res.id }));
+    else
+      toast.error(
+        t("settings.plugins.installFail", { error: res.error ?? "" }),
+      );
+  } catch (err) {
+    toast.error(t("settings.plugins.installFail", { error: String(err) }));
+  } finally {
+    await loadMarket(false);
+  }
+}
+
+// ---- network settings ----
+const proxyOptions = computed(() => [
+  { value: "system", label: t("settings.network.proxySystem") },
+  { value: "env", label: t("settings.network.proxyEnv") },
+  { value: "off", label: t("settings.network.proxyOff") },
+]);
+
+function onProxyMode(v: string): void {
+  void patchSettings({ proxyMode: v as ProxyMode });
+}
+function onGithubProxy(v: boolean): void {
+  void patchSettings({ githubProxy: v });
+}
+function onGithubProxyHost(v: string): void {
+  void patchSettings({ githubProxyHost: v });
+}
+
+const proxyLatency = ref<Record<string, PingResult | "testing">>({});
+const pinging = ref(false);
+
+function hostOf(u: string): string {
+  try {
+    return new URL(u).host;
+  } catch {
+    return u;
+  }
+}
+
+function ghProxyLatencyText(u: string): string {
+  const r = proxyLatency.value[u];
+  if (r === "testing") return t("settings.network.pingTesting");
+  if (r?.ok) return `${r.ms} ms`;
+  if (r && !r.ok) return t("settings.network.pingFail");
+  return "";
+}
+
+const isCustomProxy = computed(
+  () =>
+    !(GH_PROXY_PRESETS as readonly string[]).includes(
+      settings.settings.githubProxyHost,
+    ),
+);
+
+function useCustomProxy(): void {
+  if (!isCustomProxy.value) onGithubProxyHost("");
+}
+
+async function testProxies(): Promise<void> {
+  if (pinging.value) return;
+  pinging.value = true;
+  const targets = new Set<string>(GH_PROXY_PRESETS);
+  const custom = settings.settings.githubProxyHost.trim();
+  if (custom) targets.add(custom);
+  const next: Record<string, PingResult | "testing"> = {
+    ...proxyLatency.value,
+  };
+  for (const u of targets) next[u] = "testing";
+  proxyLatency.value = next;
+  try {
+    await Promise.all(
+      [...targets].map(async (u) => {
+        const r = await window.api.pingHost(u);
+        proxyLatency.value = { ...proxyLatency.value, [u]: r };
+      }),
+    );
+  } finally {
+    pinging.value = false;
+  }
+}
+
+function marketName(v: MarketPluginView): string {
+  return v.names[locale.value] || v.displayName || v.id;
+}
+
+function marketDesc(v: MarketPluginView): string {
+  return v.descriptions[locale.value] || v.description || v.id;
+}
+
+const marketCategories = computed<string[]>(() => {
+  const set = new Set<string>();
+  for (const p of market.value) for (const c of p.categories) set.add(c);
+  return [...set].sort();
+});
+
+const marketFiltered = computed<MarketPluginView[]>(() => {
+  const q = marketQuery.value.trim().toLowerCase();
+  const cat = marketCategory.value;
+  return market.value.filter((p) => {
+    if (cat && !p.categories.includes(cat)) return false;
+    if (!q) return true;
+    const hay = [
+      marketName(p),
+      marketDesc(p),
+      p.id,
+      p.author ?? "",
+      ...p.tags,
+      ...p.categories,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
+  });
+});
+
+function categoryLabel(c: string): string {
+  const key = `settings.plugins.cats.${c}`;
+  return te(key) ? t(key) : c;
+}
+
+type MarketAction = "install" | "update" | "installed" | "incompatible";
+
+function marketAction(v: MarketPluginView): MarketAction {
+  if (!v.compatible) return "incompatible";
+  if (v.installedVersion && v.updateAvailable) return "update";
+  if (v.installedVersion) return "installed";
+  return "install";
+}
+
+function progressPhase(p: MarketProgress | undefined): string {
+  switch (p?.phase) {
+    case "queued":
+      return t("settings.plugins.phaseQueued");
+    case "download":
+      return t("settings.plugins.phaseDownload");
+    case "verify":
+      return t("settings.plugins.phaseVerify");
+    case "extract":
+      return t("settings.plugins.phaseExtract");
+    default:
+      return t("settings.plugins.installing");
+  }
+}
+
+function progressPercent(p: MarketProgress | undefined): number | null {
+  if (!p || p.phase !== "download" || !p.total || p.total <= 0) return null;
+  return Math.min(100, Math.round(((p.received ?? 0) / p.total) * 100));
+}
+
+async function loadMarket(force: boolean): Promise<void> {
+  marketLoading.value = true;
+  marketError.value = "";
+  try {
+    market.value = force
+      ? await window.api.marketRefresh()
+      : await window.api.marketList();
+  } catch (err) {
+    marketError.value = String(err instanceof Error ? err.message : err);
+  } finally {
+    marketLoading.value = false;
+  }
+}
+
+async function runInstall(v: MarketPluginView): Promise<void> {
+  trustFor.value = null;
+  marketBusy.value = v.id;
+  marketProgress.value = {
+    ...marketProgress.value,
+    [v.id]: { id: v.id, version: v.latest, phase: "queued" },
+  };
+  try {
+    const res = await window.api.marketInstall(v.id, v.latest);
+    if (res.ok) {
+      toast.success(t("settings.plugins.installOk", { name: marketName(v) }));
+    } else {
+      toast.error(
+        t("settings.plugins.installFail", { error: res.error ?? "" }),
+      );
+    }
+  } catch (err) {
+    toast.error(t("settings.plugins.installFail", { error: String(err) }));
+  } finally {
+    marketBusy.value = null;
+    await loadMarket(false);
+  }
+}
+
+async function onUninstall(v: MarketPluginView): Promise<void> {
+  marketBusy.value = v.id;
+  try {
+    const ok = await window.api.marketUninstall(v.id);
+    if (ok)
+      toast.success(t("settings.plugins.uninstallOk", { name: marketName(v) }));
+    else toast.error(t("settings.plugins.uninstallFail"));
+  } catch {
+    toast.error(t("settings.plugins.uninstallFail"));
+  } finally {
+    marketBusy.value = null;
+    await loadMarket(false);
+  }
+}
+
+let offMarketProgress: (() => void) | null = null;
+onMounted(() => {
+  offMarketProgress = window.api.onMarketProgress((p) => {
+    marketProgress.value = { ...marketProgress.value, [p.id]: p };
+    if (p.phase === "error" && p.error) {
+      marketError.value = t("settings.plugins.installFail", { error: p.error });
+    }
+  });
+});
+onBeforeUnmount(() => {
+  offMarketProgress?.();
+  offMarketProgress = null;
+});
+
+watch(pluginsTab, (tab) => {
+  if (tab === "market" && market.value.length === 0 && !marketLoading.value) {
+    void loadMarket(false);
+  }
+});
+
 watch(
   () => settings.settingsOpen,
   (open) => {
     if (!open) return;
     void refreshPlugins();
     void refreshMetronomeFiles();
+    if (pluginsTab.value === "market") void loadMarket(false);
   },
 );
 
@@ -1399,53 +1666,355 @@ function onSearchEnter(): void {
               <!-- 插件 -->
               <section v-if="cat === 'plugins'">
                 <h3>{{ t("settings.plugins.title") }}</h3>
-                <div class="plugin-tools">
-                  <UiButton
-                    size="sm"
-                    :loading="pluginsLoading"
-                    @click="onReloadPlugins()"
+                <nav class="subnav">
+                  <button
+                    class="subnav-item"
+                    :class="{ active: pluginsTab === 'installed' }"
+                    @click="pluginsTab = 'installed'"
                   >
-                    {{ t("settings.plugins.reload") }}
-                  </UiButton>
-                  <UiButton size="sm" @click="onOpenPluginsFolder()">
-                    {{ t("settings.plugins.openFolder") }}
-                  </UiButton>
-                </div>
+                    {{ t("settings.plugins.subInstalled") }}
+                  </button>
+                  <button
+                    class="subnav-item"
+                    :class="{ active: pluginsTab === 'market' }"
+                    @click="pluginsTab = 'market'"
+                  >
+                    {{ t("settings.plugins.subMarket") }}
+                  </button>
+                </nav>
 
-                <div v-if="pluginEntries.length === 0" class="plugin-empty">
-                  <p>{{ t("settings.plugins.none") }}</p>
-                  <p class="muted">{{ t("settings.plugins.noneHint") }}</p>
-                </div>
-
-                <div
-                  v-for="entry in pluginEntries"
-                  :key="entry.id"
-                  class="plugin-card"
-                >
-                  <div class="plugin-main">
-                    <div class="plugin-titles">
-                      <span class="plugin-name">
-                        {{ pluginName(entry) }}
-                        <span class="plugin-ver num">v{{ entry.version }}</span>
-                      </span>
-                      <span class="plugin-desc">
-                        {{ pluginDescription(entry) || entry.id }}
-                      </span>
-                      <span v-if="entry.error" class="plugin-err">
-                        {{ entry.error }}
-                      </span>
-                    </div>
-                    <div class="plugin-meta">
-                      <span v-if="entry.main" class="badge">main</span>
-                      <span v-if="entry.renderer" class="badge">renderer</span>
-                      <UiSwitch
-                        :model-value="entry.enabled"
-                        :disabled="pluginBusy === entry.id"
-                        @update:model-value="() => void onTogglePlugin(entry)"
-                      />
-                    </div>
+                <div v-show="pluginsTab === 'installed'">
+                  <div class="plugin-tools">
+                    <UiButton
+                      size="sm"
+                      :loading="pluginsLoading"
+                      @click="onReloadPlugins()"
+                    >
+                      {{ t("settings.plugins.reload") }}
+                    </UiButton>
+                    <UiButton size="sm" @click="onOpenPluginsFolder()">
+                      {{ t("settings.plugins.openFolder") }}
+                    </UiButton>
+                    <UiButton size="sm" @click="onInstallZip()">
+                      {{ t("settings.plugins.importZip") }}
+                    </UiButton>
                   </div>
-                  <div class="plugin-dir num">{{ entry.dir }}</div>
+
+                  <div v-if="pluginEntries.length === 0" class="plugin-empty">
+                    <p>{{ t("settings.plugins.none") }}</p>
+                    <p class="muted">{{ t("settings.plugins.noneHint") }}</p>
+                  </div>
+
+                  <div
+                    v-for="entry in pluginEntries"
+                    :key="entry.id"
+                    class="plugin-card"
+                  >
+                    <div class="plugin-main">
+                      <div class="plugin-titles">
+                        <span class="plugin-name">
+                          {{ pluginName(entry) }}
+                          <span class="plugin-ver num"
+                            >v{{ entry.version }}</span
+                          >
+                        </span>
+                        <span class="plugin-desc">
+                          {{ pluginDescription(entry) || entry.id }}
+                        </span>
+                        <span v-if="entry.error" class="plugin-err">
+                          {{ entry.error }}
+                        </span>
+                      </div>
+                      <div class="plugin-meta">
+                        <span v-if="entry.main" class="badge">main</span>
+                        <span v-if="entry.renderer" class="badge"
+                          >renderer</span
+                        >
+                        <UiSwitch
+                          :model-value="entry.enabled"
+                          :disabled="pluginBusy === entry.id"
+                          @update:model-value="() => void onTogglePlugin(entry)"
+                        />
+                      </div>
+                    </div>
+                    <div class="plugin-dir num">{{ entry.dir }}</div>
+                  </div>
+                </div>
+
+                <div v-show="pluginsTab === 'market'">
+                  <div class="plugin-tools">
+                    <UiButton
+                      size="sm"
+                      :loading="marketLoading"
+                      @click="loadMarket(true)"
+                    >
+                      {{ t("settings.plugins.marketRefresh") }}
+                    </UiButton>
+                    <label
+                      class="ttl-field"
+                      :title="t('settings.plugins.cacheTtlDesc')"
+                    >
+                      <span class="muted">
+                        {{ t("settings.plugins.cacheTtl") }}
+                      </span>
+                      <nav class="subnav ttl-chips">
+                        <button
+                          v-for="o in ttlOptions"
+                          :key="o.value"
+                          type="button"
+                          class="subnav-item"
+                          :class="{
+                            active:
+                              settings.settings.marketCacheTtl === o.value,
+                          }"
+                          @click="marketCacheTtl = o.value"
+                        >
+                          {{ o.label }}
+                        </button>
+                      </nav>
+                    </label>
+                  </div>
+
+                  <div class="market-filters">
+                    <UiInput
+                      v-model="marketQuery"
+                      size="sm"
+                      :placeholder="t('settings.plugins.marketSearch')"
+                    />
+                  </div>
+                  <nav class="subnav market-cats">
+                    <button
+                      class="subnav-item"
+                      :class="{ active: marketCategory === '' }"
+                      @click="marketCategory = ''"
+                    >
+                      {{ t("settings.plugins.marketAll") }}
+                    </button>
+                    <button
+                      v-for="c in marketCategories"
+                      :key="c"
+                      class="subnav-item"
+                      :class="{ active: marketCategory === c }"
+                      @click="marketCategory = c"
+                    >
+                      {{ categoryLabel(c) }}
+                    </button>
+                  </nav>
+
+                  <p v-if="marketError" class="plugin-err">{{ marketError }}</p>
+
+                  <div
+                    v-for="p in marketFiltered"
+                    :key="p.id"
+                    class="plugin-card"
+                  >
+                    <div class="plugin-main">
+                      <div class="plugin-titles">
+                        <span class="plugin-name">
+                          {{ marketName(p) }}
+                          <span class="plugin-ver num">v{{ p.latest }}</span>
+                          <span
+                            v-if="p.installedVersion && p.updateAvailable"
+                            class="badge warn"
+                          >
+                            {{ t("settings.plugins.badgeUpdate") }}
+                          </span>
+                          <span v-else-if="p.installedVersion" class="badge">
+                            {{ t("settings.plugins.badgeInstalled") }}
+                          </span>
+                        </span>
+                        <span class="plugin-desc">{{ marketDesc(p) }}</span>
+                        <span class="plugin-sub muted">
+                          <template v-if="p.author">{{ p.author }}</template>
+                          <template v-for="c in p.categories" :key="c">
+                            · {{ categoryLabel(c) }}
+                          </template>
+                          <template v-if="p.installedVersion">
+                            ·
+                            {{
+                              t("settings.plugins.installedVer", {
+                                version: p.installedVersion,
+                              })
+                            }}
+                          </template>
+                        </span>
+                      </div>
+                      <div class="plugin-meta">
+                        <template v-if="marketBusy === p.id">
+                          <span class="plugin-ver num">
+                            {{ progressPhase(marketProgress[p.id]) }}
+                          </span>
+                          <div
+                            v-if="
+                              progressPercent(marketProgress[p.id]) !== null
+                            "
+                            class="progress-track"
+                          >
+                            <div
+                              class="progress-fill"
+                              :style="{
+                                width: `${progressPercent(marketProgress[p.id])}%`,
+                              }"
+                            />
+                          </div>
+                        </template>
+                        <template v-else-if="trustFor === p.id">
+                          <UiButton
+                            size="sm"
+                            variant="solid"
+                            @click="runInstall(p)"
+                          >
+                            {{ t("settings.plugins.trustConfirm") }}
+                          </UiButton>
+                          <UiButton size="sm" @click="trustFor = null">
+                            {{ t("settings.plugins.trustCancel") }}
+                          </UiButton>
+                        </template>
+                        <template v-else>
+                          <span
+                            v-if="!p.compatible"
+                            class="plugin-ver"
+                            :title="
+                              t('settings.plugins.requiresApp', {
+                                version: p.minAppVersion,
+                              })
+                            "
+                          >
+                            {{ t("settings.plugins.incompatible") }}
+                          </span>
+                          <UiButton
+                            v-else-if="marketAction(p) === 'install'"
+                            size="sm"
+                            variant="solid"
+                            @click="trustFor = p.id"
+                          >
+                            {{ t("settings.plugins.install") }}
+                          </UiButton>
+                          <UiButton
+                            v-else-if="marketAction(p) === 'update'"
+                            size="sm"
+                            variant="solid"
+                            @click="trustFor = p.id"
+                          >
+                            {{ t("settings.plugins.update") }}
+                          </UiButton>
+                          <button
+                            v-if="marketAction(p) === 'installed' && p.managed"
+                            class="link-btn"
+                            @click="onUninstall(p)"
+                          >
+                            {{ t("settings.plugins.uninstall") }}
+                          </button>
+                        </template>
+                      </div>
+                    </div>
+                    <div v-if="trustFor === p.id" class="trust-box">
+                      <strong>{{ t("settings.plugins.trustTitle") }}</strong>
+                      <span>
+                        {{
+                          t("settings.plugins.trustBody", {
+                            name: marketName(p),
+                          })
+                        }}
+                      </span>
+                    </div>
+                    <div class="plugin-dir num">{{ p.repo || p.id }}</div>
+                  </div>
+                </div>
+              </section>
+
+              <!-- 网络 -->
+              <section v-if="cat === 'network'">
+                <h3>{{ t("settings.cats.network") }}</h3>
+
+                <div class="sub-head">{{ t("settings.network.proxy") }}</div>
+                <div class="field-row col">
+                  <div class="field-info">
+                    <span class="field-name">{{
+                      t("settings.network.proxy")
+                    }}</span>
+                    <span class="field-desc">{{
+                      t("settings.network.proxyDesc")
+                    }}</span>
+                  </div>
+                  <UiRadioGroup
+                    :model-value="settings.settings.proxyMode"
+                    :options="proxyOptions"
+                    @update:model-value="onProxyMode"
+                  />
+                </div>
+                <p
+                  v-if="settings.settings.proxyMode === 'env'"
+                  class="field-desc network-note"
+                >
+                  {{ t("settings.network.proxyEnvHint") }}
+                </p>
+
+                <div class="sub-head">{{ t("settings.network.ghProxy") }}</div>
+                <div class="field-row">
+                  <div class="field-info">
+                    <span class="field-name">{{
+                      t("settings.network.ghProxy")
+                    }}</span>
+                    <span class="field-desc">{{
+                      t("settings.network.ghProxyDesc")
+                    }}</span>
+                  </div>
+                  <UiSwitch
+                    :model-value="settings.settings.githubProxy"
+                    @update:model-value="onGithubProxy"
+                  />
+                </div>
+                <div v-if="settings.settings.githubProxy" class="field-row col">
+                  <div class="field-info">
+                    <span class="field-name">{{
+                      t("settings.network.ghProxyHost")
+                    }}</span>
+                    <span class="field-desc">{{
+                      t("settings.network.ghProxyHostDesc")
+                    }}</span>
+                  </div>
+                  <div class="ghproxy-list">
+                    <button
+                      v-for="u in GH_PROXY_PRESETS"
+                      :key="u"
+                      type="button"
+                      class="ghproxy-item"
+                      :class="{
+                        active: settings.settings.githubProxyHost === u,
+                      }"
+                      @click="onGithubProxyHost(u)"
+                    >
+                      <span class="ghproxy-host">{{ hostOf(u) }}</span>
+                      <span class="ghproxy-ms num">{{
+                        ghProxyLatencyText(u)
+                      }}</span>
+                    </button>
+                    <button
+                      type="button"
+                      class="ghproxy-item"
+                      :class="{ active: isCustomProxy }"
+                      @click="useCustomProxy()"
+                    >
+                      <span class="ghproxy-host">{{
+                        t("settings.network.ghProxyCustom")
+                      }}</span>
+                    </button>
+                    <UiInput
+                      v-if="isCustomProxy"
+                      :model-value="settings.settings.githubProxyHost"
+                      size="sm"
+                      @update:model-value="onGithubProxyHost"
+                    />
+                    <UiButton
+                      size="sm"
+                      variant="soft"
+                      :loading="pinging"
+                      @click="testProxies()"
+                    >
+                      {{ t("settings.network.ghProxyTest") }}
+                    </UiButton>
+                  </div>
                 </div>
               </section>
             </main>
@@ -2035,6 +2604,117 @@ function onSearchEnter(): void {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.plugin-sub {
+  font-size: 11px;
+}
+.plugin-meta .badge.warn {
+  color: var(--bdg-amber);
+  background: rgb(var(--bdg-amber-rgb) / 0.14);
+  border-color: rgb(var(--bdg-amber-rgb) / 0.28);
+}
+.market-filters {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.market-cats {
+  margin: 0 0 12px;
+}
+.ttl-field {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+.ttl-chips {
+  margin: 0;
+}
+.ghproxy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  max-width: 440px;
+}
+.ghproxy-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 10px;
+  border: 1px solid var(--bdg-border);
+  border-radius: var(--bdg-radius-ui, 6px);
+  background: transparent;
+  color: var(--bdg-text);
+  font-family: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+.ghproxy-item:hover {
+  background: rgb(var(--bdg-neutral) / 0.1);
+}
+.ghproxy-item.active {
+  border-color: rgb(var(--bdg-accent-rgb) / 0.5);
+  background: rgb(var(--bdg-accent-rgb) / 0.12);
+  color: var(--bdg-accent);
+  font-weight: 600;
+}
+.ghproxy-host {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ghproxy-ms {
+  flex: none;
+  font-size: 11px;
+  color: var(--bdg-text-dim);
+}
+.ghproxy-item.active .ghproxy-ms {
+  color: var(--bdg-accent);
+}
+.network-note {
+  margin: -6px 0 6px;
+}
+.link-btn {
+  border: none;
+  background: transparent;
+  color: var(--bdg-danger);
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+.link-btn:hover {
+  text-decoration: underline;
+}
+.progress-track {
+  width: 120px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgb(var(--bdg-neutral) / 0.2);
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: var(--bdg-accent);
+  transition: width 0.15s ease;
+}
+.trust-box {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgb(var(--bdg-amber-rgb) / 0.1);
+  border: 1px solid rgb(var(--bdg-amber-rgb) / 0.25);
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+.trust-box strong {
+  color: var(--bdg-amber);
 }
 .dev-block.off {
   opacity: 0.5;

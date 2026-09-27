@@ -1,10 +1,17 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { IpcApi, WelcomeAction } from "../shared/ipc";
+import type { MarketProgress } from "../shared/market";
 
 function onMainAction(cb: (payload: WelcomeAction) => void): () => void {
   const listener = (_e: unknown, payload: WelcomeAction): void => cb(payload);
   ipcRenderer.on("welcome:action", listener);
   return () => ipcRenderer.removeListener("welcome:action", listener);
+}
+
+function onMarketProgress(cb: (p: MarketProgress) => void): () => void {
+  const listener = (_e: unknown, payload: MarketProgress): void => cb(payload);
+  ipcRenderer.on("plugin:market:progress", listener);
+  return () => ipcRenderer.removeListener("plugin:market:progress", listener);
 }
 
 function onPluginsChanged(cb: () => void): () => void {
@@ -53,6 +60,14 @@ const api: IpcApi = {
   invokePlugin: (id, method, ...args) =>
     ipcRenderer.invoke("plugins:invoke", id, method, args),
   onPluginsChanged,
+  marketList: () => ipcRenderer.invoke("plugins:market:list"),
+  marketRefresh: () => ipcRenderer.invoke("plugins:market:refresh"),
+  marketInstall: (id, version) =>
+    ipcRenderer.invoke("plugins:market:install", id, version),
+  marketUninstall: (id) => ipcRenderer.invoke("plugins:market:uninstall", id),
+  installPluginZip: () => ipcRenderer.invoke("plugins:market:install-zip"),
+  pingHost: (url: string) => ipcRenderer.invoke("network:ping", url),
+  onMarketProgress,
   pickFile: (title, filters) => ipcRenderer.invoke("io:pick", title, filters),
   saveFileDialog: (title, defaultPath, filters) =>
     ipcRenderer.invoke("io:save", title, defaultPath, filters),

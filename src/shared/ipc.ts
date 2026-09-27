@@ -1,4 +1,10 @@
 import type { PluginEntry } from "./plugin";
+import type {
+  MarketInstallResult,
+  MarketPluginView,
+  MarketProgress,
+} from "./market";
+import type { PingResult } from "./network";
 import type { SettingsData } from "./settings";
 
 export type { SettingsData } from "./settings";
@@ -103,6 +109,20 @@ export interface IpcApi {
   ) => Promise<unknown>;
   /** Fired by the main process whenever the plugin set or its state changes. */
   onPluginsChanged: (cb: () => void) => () => void;
+  /** Registry plugins merged with local install state (uses the cached index). */
+  marketList: () => Promise<MarketPluginView[]>;
+  /** Same as marketList but forces a registry re-fetch. */
+  marketRefresh: () => Promise<MarketPluginView[]>;
+  /** Download, verify and install a registry plugin (defaults to latest). */
+  marketInstall: (id: string, version?: string) => Promise<MarketInstallResult>;
+  /** Remove a marketplace-installed plugin; false when not managed. */
+  marketUninstall: (id: string) => Promise<boolean>;
+  /** Pick a local .zip and install it as a plugin; null when canceled. */
+  installPluginZip: () => Promise<MarketInstallResult | null>;
+  /** Measure latency to an https endpoint (gh-proxy mirror). */
+  pingHost: (url: string) => Promise<PingResult>;
+  /** Progress events for in-flight marketplace installs. */
+  onMarketProgress: (cb: (p: MarketProgress) => void) => () => void;
   /** Generic native open picker for arbitrary extensions (plugin service). */
   pickFile: (title: string, filters: IpcFileFilter[]) => Promise<string | null>;
   /** Generic native save dialog; returns the chosen path, caller writes. */

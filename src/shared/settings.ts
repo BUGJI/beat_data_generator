@@ -31,6 +31,28 @@ const intInRange = (def: number, min: number, max: number) =>
 
 export const CloseModeSchema = z.enum(["ask", "minimize", "close"]);
 
+/** How long the cached plugin-market index stays fresh. */
+export const MarketCacheTtlSchema = z
+  .enum(["1d", "3d", "7d", "30d"])
+  .catch("3d")
+  .default("3d");
+export type MarketCacheTtl = z.infer<typeof MarketCacheTtlSchema>;
+
+/** Duration in ms for each MarketCacheTtl value. */
+export const MARKET_TTL_MS: Record<MarketCacheTtl, number> = {
+  "1d": 24 * 60 * 60 * 1000,
+  "3d": 3 * 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+  "30d": 30 * 24 * 60 * 60 * 1000,
+};
+
+/** Proxy source for marketplace / update network requests. */
+export const ProxyModeSchema = z
+  .enum(["system", "env", "off"])
+  .catch("system")
+  .default("system");
+export type ProxyMode = z.infer<typeof ProxyModeSchema>;
+
 export const AlignRoundingSchema = z.enum(["round", "floor", "ceil"]);
 export type AlignRounding = z.infer<typeof AlignRoundingSchema>;
 
@@ -64,6 +86,18 @@ export const SettingsSchema = z.object({
   gridAutoHide: bool(true),
   /** silently check for updates on startup and notify when one is available. */
   checkUpdates: bool(true),
+  /** how long the cached plugin-market index stays fresh before a refetch. */
+  marketCacheTtl: MarketCacheTtlSchema,
+  /** proxy source for marketplace / update network requests. */
+  proxyMode: ProxyModeSchema,
+  /** rewrite GitHub download URLs through a gh-proxy mirror to speed up downloads. */
+  githubProxy: bool(false),
+  /** gh-proxy host or base URL, e.g. "ghfast.top" or "https://ghfast.top". */
+  githubProxyHost: z
+    .string()
+    .catch("ghfast.top")
+    .default("ghfast.top")
+    .transform((s) => s.trim().replace(/\/+$/, "").slice(0, 120)),
   followScroll: bool(true),
   followPercent: intInRange(90, 0, 100),
   followPreset: bool(false),

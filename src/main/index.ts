@@ -21,6 +21,8 @@ import {
 } from "node:fs";
 import { basename, isAbsolute, join } from "node:path";
 import { installPluginManager } from "./plugins";
+import { installMarketManager } from "./market";
+import { applyProxyMode } from "./network";
 import log, { setFileLogging } from "./logger";
 import {
   defaultSettings,
@@ -661,8 +663,11 @@ function registerIpc(): void {
     (_e, patch: Partial<SettingsData>): SettingsData => {
       const wasLogging = settings.logToFile === true;
       const wasName = settings.appName;
+      const wasProxy = settings.proxyMode;
       settings = sanitizeSettings({ ...settings, ...patch });
       persistSettings();
+      if (settings.proxyMode !== wasProxy)
+        void applyProxyMode(settings.proxyMode);
       if (settings.appName !== wasName) {
         if (mainWindow && !mainWindow.isDestroyed())
           mainWindow.setTitle(appTitle());
@@ -976,6 +981,8 @@ app.whenReady().then(() => {
   loadRecents();
   registerIpc();
   installPluginManager();
+  installMarketManager({ getSettings: () => settings });
+  void applyProxyMode(settings.proxyMode);
   checkUpdatesSilent();
   // remove the default app menu so pressing Alt no longer pops the File/Edit/View/Window bar
   Menu.setApplicationMenu(null);

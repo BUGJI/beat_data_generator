@@ -16,6 +16,10 @@ describe("defaultSettings", () => {
     expect(s.themePreset).toBe("default");
     expect(s.themeOverrides).toEqual({});
     expect(s.settingsVersion).toBe(0);
+    expect(s.marketCacheTtl).toBe("3d");
+    expect(s.proxyMode).toBe("system");
+    expect(s.githubProxy).toBe(false);
+    expect(s.githubProxyHost).toBe("ghfast.top");
   });
 });
 
@@ -97,5 +101,25 @@ describe("sanitizeSettings", () => {
     expect(sanitizeSettings({ stretchEngine: "nope" }).stretchEngine).toBe(
       "signalsmith",
     );
+  });
+
+  it("validates marketplace cache TTL and proxy settings", () => {
+    expect(sanitizeSettings({ marketCacheTtl: "7d" }).marketCacheTtl).toBe(
+      "7d",
+    );
+    expect(sanitizeSettings({ marketCacheTtl: "1y" }).marketCacheTtl).toBe(
+      "3d",
+    );
+    expect(sanitizeSettings({ proxyMode: "env" }).proxyMode).toBe("env");
+    expect(sanitizeSettings({ proxyMode: "tor" }).proxyMode).toBe("system");
+    expect(sanitizeSettings({ githubProxy: "on" }).githubProxy).toBe(false);
+  });
+
+  it("trims a trailing slash from the gh-proxy host", () => {
+    expect(
+      sanitizeSettings({ githubProxyHost: "https://ghfast.top/" })
+        .githubProxyHost,
+    ).toBe("https://ghfast.top");
+    expect(sanitizeSettings({ githubProxy: true }).githubProxy).toBe(true);
   });
 });

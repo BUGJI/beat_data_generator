@@ -94,6 +94,32 @@ module.exports = function activate(ctx) {
 `plugins/example-basic` 覆盖:面板、动作、快捷键、导入/导出、main 往返调用、类型化轨道注册。
 开发时把工程目录当扫描根即可(见上),发布则把插件放入 `<userData>/plugins`。
 
+## 插件市场
+
+设置 → 插件 → **插件市场** 提供应用内的一键安装/更新/卸载:
+
+- 数据来自官方注册表 [`beat-data-generator/registry`](https://github.com/beat-data-generator/registry)
+  的 `registry.json`（可用环境变量 `BDG_MARKET_REGISTRY` 覆盖地址）。
+- 每个版本都带 SHA-256 校验和,安装前强制校验;产物为 HTTPS 下载的 ZIP,解压时
+  会拦截路径穿越与超大文件。
+- 市场安装的插件落在 `<userData>/plugins/<id>`,并写入 `.installed.json` 回执;
+  只有带回执的插件才能从市场卸载,开发/手动放入的插件不受影响。
+- 插件可获得完整 Node 权限,安装前请确认来源可信(界面会给出提示)。
+- **缓存**:索引缓存在 `<userData>/market-cache.json`。进入市场优先读缓存,超过
+  有效期(市场页可选 1 天 / 3 天 / 一周 / 一个月)才重新拉取;手动“刷新市场”
+  始终重新拉取。网络失败时会回退到缓存。
+- **网络设置**(设置 → 网络):代理来源可选 系统代理 / 读取环境变量
+  (`HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`) / 不使用;还可开启 GitHub 加速,
+  从预设 gh-proxy 镜像中选择或自定义地址,并可一键测试各镜像延迟。
+- **本地安装**:市场页“从 ZIP 安装”可选择一个本地 `.zip`(包根含 `manifest.json`),
+  走与市场一致的解压/路径校验流程;来源记为 `file:<path>` 并写入安装回执。
+
+发布流程:插件仓库打 `vX.Y.Z` tag(与 `manifest.json` 的 `version` 一致)→
+组织级工作流打包 `plugin.zip` 并创建 Release → registry 定时任务读取 Release
+资产的 SHA-256 写入索引 → 应用内即可安装。详见
+[bdg_plugin_template](https://github.com/beat-data-generator/bdg_plugin_template)
+的 README。
+
 ## 常用命令
 
 ```bash
@@ -105,4 +131,4 @@ npm run build
 
 - 你编写的插件属于你自己的作品(版权归你),可自行选择开源协议。
 - 宿主编辑器 **Beat Data Generator** 以 **GNU GPL v3** 发布(作者 BUGJI)。插件由宿主加载器装载运行,分发插件时建议注明与宿主的关联。
-- 官方插件模板/脚手架见 <https://github.com/BUGJI/bdg_plugin_template>。
+- 官方插件模板/脚手架见 <https://github.com/beat-data-generator/bdg_plugin_template>。

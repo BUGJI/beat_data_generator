@@ -41,7 +41,7 @@ interface LoadedPlugin {
 const USER_PLUGIN_DIR = "plugins";
 const STATE_FILE = "plugins-state.json";
 
-function userPluginsDir(): string {
+export function userPluginsDir(): string {
   return join(app.getPath("userData"), USER_PLUGIN_DIR);
 }
 
@@ -96,6 +96,11 @@ function persistState(): void {
 
 function isEnabled(id: string): boolean {
   return state.enabled.includes(id);
+}
+
+/** Whether a plugin id is currently enabled (used by the marketplace). */
+export function isPluginEnabled(id: string): boolean {
+  return isEnabled(id);
 }
 
 // ---- manifest helpers ----
@@ -299,7 +304,7 @@ function refreshEnabled(): PluginEntry[] {
   return list;
 }
 
-function setEnabled(id: string, enabled: boolean): PluginEntry[] {
+export function setEnabled(id: string, enabled: boolean): PluginEntry[] {
   const entry = scanAll().find((e) => e.id === id);
   if (!entry) return scanAll();
   if (enabled) {
@@ -321,6 +326,13 @@ function broadcastChanged(): void {
   for (const w of BrowserWindow.getAllWindows()) {
     if (!w.isDestroyed()) w.webContents.send("plugin:changed");
   }
+}
+
+/** Rescan plugin roots, (re)load enabled ones and notify renderers. */
+export function rescanPlugins(): PluginEntry[] {
+  const list = refreshEnabled();
+  broadcastChanged();
+  return list.map((e) => ({ ...e }));
 }
 
 export function installPluginManager(): void {
