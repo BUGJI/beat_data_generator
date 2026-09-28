@@ -20,7 +20,7 @@
 
 当前发布为**公测版**。macOS / Linux 的支持已在计划内，欢迎在这两个平台上试用源码版本并反馈问题。
 
-**自动更新**：应用启动时会静默检查新版本（可在 **设置 → 高级 → 窗口与启动** 关闭），也可在 **设置 → 关于 → 检查更新** 手动检查；新版本从 GitHub Releases 获取。
+**自动更新**：应用启动时会静默检查新版本（可在 **设置 → 常规 → 窗口与启动** 关闭），也可在 **设置 → 关于 → 检查更新** 手动检查；新版本从 GitHub Releases 获取。
 
 各版本的变更记录见 [`CHANGELOG.md`](CHANGELOG.md)。
 
@@ -54,7 +54,11 @@
 ### 扩展与外观
 
 - **插件系统**：可扩展新的导入 / 导出格式、侧栏浮动面板、自定义快捷键、独立预览窗口与类型化轨道；详情见 [`docs/plugin-system.md`](docs/plugin-system.md)。
-- **主题系统**：6 套预设（default / midnight / forest / amber / graphite / light），并支持按 token 自定义配色，实时生效。
+- **插件市场**：内置市场可浏览、搜索、分类筛选，并一键安装 / 更新 / 卸载官方插件，也可从本地 ZIP 离线安装；安装前做 SHA-256 校验与信任提示（见[安装插件](#导出与对接目标)）。
+- **主题系统**：6 套预设（default / midnight / forest / amber / graphite / light），支持按 token 自定义配色与独立强调色，实时生效。
+- **外观**：可将本地图片设为应用背景（铺满 / 完整显示 / 平铺，附模糊与变暗），并调节界面缩放、字号缩放、圆角、阴影与面板不透明度。
+- **简化模式**：默认开启，隐藏进阶选项与「高级」分类，只保留常用设置；可在 **设置 → 常规** 关闭。
+- **网络**：代理来源可选 系统代理 / 环境变量 / 不使用，并可启用 GitHub 加速镜像，便于访问插件市场与更新。
 - **其他**：多语言界面（中文 / English）、欢迎页与最近工程、记住窗口位置、退出模式设置。
 
 ## 导出与对接目标
@@ -69,7 +73,7 @@
 | Phira / RPE | `.pez` 谱面，可选合并成单判定线模式，并连同音频一起打包 | 插件 [bdg_plugin_phira](https://github.com/beat-data-generator/bdg_plugin_phira) |
 | 文本时间戳 / MIDI（导入） | 从文本时间戳或 MIDI 导入踩点：整数按毫秒、含小数按秒；MIDI 按音符时间新建轨道 | 插件 [bdg_plugin_import](https://github.com/beat-data-generator/bdg_plugin_import) |
 
-**安装插件**：下载插件仓库文件夹 → 放入插件目录（**设置 → 插件 → 打开插件目录**，即 `<userData>/plugins`）→ 在设置里点“重新扫描并加载”。开发模式下也会扫描项目根目录的 `plugins/`。
+**安装插件**：在 **设置 → 插件 → 插件市场** 中一键安装官方插件；也可下载插件仓库文件夹 → 放入插件目录（**设置 → 插件 → 打开插件目录**，即 `<userData>/plugins`）→ 在设置里点“重新扫描并加载”。开发模式下也会扫描项目根目录的 `plugins/`。
 
 **想自己做插件**：[`plugins/plugin-api.d.ts`](plugins/plugin-api.d.ts) 提供带注释的类型声明，[bdg_plugin_template](https://github.com/beat-data-generator/bdg_plugin_template) 是最小可运行模板，详见 [`docs/plugin-system.md`](docs/plugin-system.md)。
 
@@ -122,6 +126,7 @@
 | Markdown 渲染 | slimdown-js（便签 / 插件面板） |
 | 波形绘制 | Canvas（自绘） |
 | 自动更新 | electron-updater（GitHub Releases） |
+| 插件解压 | fflate（ZIP） |
 | 日志 | electron-log |
 
 ## 项目结构
@@ -141,10 +146,13 @@ src/
         ├── i18n/         # 中英文案（zh / en）
         ├── engine.ts     # Web Audio 播放引擎
         ├── tempo.ts      # 节拍 ↔ 时间换算与 tempo map
-        ├── stretch.ts    # soundtouchjs 时间拉伸
+        ├── stretch/      # 变速引擎：signalsmith（默认）/ soundtouch（回退）+ Worker
         ├── analysis.ts   # 音频智能分析桥接（pleco-xa，Web Worker 异步）
         ├── analysis.worker.ts # 分析 Worker（BPM / 节拍 / 循环 / 频谱）
         ├── theme.ts      # 主题预设与配色 token 派生
+        ├── welcome.ts    # 独立欢迎窗口脚本
+        ├── ui/           # 轻量 UI 工具（toast 等）
+        ├── utils/        # 通用工具（文本处理等）
         └── metrics.ts    # 绘制度量与配色
 ```
 
@@ -189,7 +197,7 @@ npm run format
 npm run format:check
 ```
 
-测试目前覆盖纯逻辑层：节拍换算（`tempo.ts`）、工程文件解析与容错（`schemas/project.ts`）、设置修复（`shared/settings.ts`），以及撤销/重做与导出格式（`services/history.ts` / `services/projectIO.ts`）。
+测试目前覆盖纯逻辑层：节拍换算（`tempo.ts`）、工程文件解析与容错（`schemas/project.ts`）、设置修复（`shared/settings.ts`）、主题编解码（`theme.ts`）、变速引擎（`stretch/`），以及撤销/重做、复制粘贴与导出格式（`services/history.ts` / `services/clipboard.ts` / `services/projectIO.ts`）。
 
 ### 运行日志
 

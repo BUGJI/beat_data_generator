@@ -20,7 +20,7 @@ A music beat-marker editor: align a beat grid over the audio waveform, place bea
 
 The current release is a **public beta**. macOS and Linux support is on the roadmap; if you try the source build on those platforms, feedback is very welcome.
 
-**Auto-update**: the app checks for new versions silently on startup (turn it off under **Settings → Advanced → Window & startup**), or check manually via **Settings → About → Check for updates**. Updates come from GitHub Releases.
+**Auto-update**: the app checks for new versions silently on startup (turn it off under **Settings → General → Window & Startup**), or check manually via **Settings → About → Check for updates**. Updates come from GitHub Releases.
 
 See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
 
@@ -56,7 +56,11 @@ See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
 ### Extensibility & appearance
 
 - **Plugin system**: extend with new import/export formats, floating sidebar panels, custom shortcuts, standalone preview windows, and typed tracks. See [`docs/plugin-system.md`](docs/plugin-system.md).
-- **Theming**: 6 presets (default / midnight / forest / amber / graphite / light) with per-token color overrides, applied live.
+- **Plugin marketplace**: browse, search and filter by category, then install / update / uninstall official plugins in one click, or install a local ZIP offline; SHA-256 verification and a trust prompt run before install (see [Installing a plugin](#export--integration-targets)).
+- **Theming**: 6 presets (default / midnight / forest / amber / graphite / light) with per-token color overrides and an independent accent color, applied live.
+- **Appearance**: use a local image as the app background (cover / contain / tile, with blur and dimming), and tune UI zoom, font scale, corner radius, shadow and panel opacity.
+- **Simple mode**: on by default, hiding advanced options and the "Advanced" category; turn it off under **Settings → General**.
+- **Network**: pick a proxy source (system / environment / off) and enable a GitHub mirror to reach the marketplace and updates.
 - **Extras**: bilingual UI (中文 / English), welcome screen with recent projects, window-state memory, close-mode settings.
 
 ## Export & Integration Targets
@@ -71,7 +75,7 @@ One project can feed several targets: generic formats ship with the editor, ever
 | Phira / RPE | `.pez` chart, optional single-judge-line merge, packed together with the audio | Plugin [bdg_plugin_phira](https://github.com/beat-data-generator/bdg_plugin_phira) |
 | Text timestamps / MIDI (import) | Import markers from text timestamps or MIDI files: integers are milliseconds, decimals are seconds; MIDI note times create new tracks | Plugin [bdg_plugin_import](https://github.com/beat-data-generator/bdg_plugin_import) |
 
-**Installing a plugin**: download the plugin repository folder → drop it into the plugin directory (**Settings → Plugins → Open plugin folder**, i.e. `<userData>/plugins`) → hit "Rescan and load" in Settings. In development mode the project's `plugins/` folder is scanned as well.
+**Installing a plugin**: install official plugins in one click under **Settings → Plugins → Marketplace**; alternatively, download the plugin repository folder → drop it into the plugin directory (**Settings → Plugins → Open plugin folder**, i.e. `<userData>/plugins`) → hit "Rescan and load" in Settings. In development mode the project's `plugins/` folder is scanned as well.
 
 **Writing your own plugin**: [`plugins/plugin-api.d.ts`](plugins/plugin-api.d.ts) ships commented type declarations, [bdg_plugin_template](https://github.com/beat-data-generator/bdg_plugin_template) is a minimal working template, and [`docs/plugin-system.md`](docs/plugin-system.md) has the full guide.
 
@@ -125,6 +129,7 @@ Shortcuts are currently read-only (listed under **Settings → Shortcuts**); use
 | Markdown rendering | slimdown-js (notes / plugin panels) |
 | Waveform | Canvas (custom) |
 | Auto-update | electron-updater (GitHub Releases) |
+| Plugin unzip | fflate (ZIP) |
 | Logging | electron-log |
 
 ## Project Layout
@@ -144,10 +149,13 @@ src/
         ├── i18n/         # Chinese & English strings (zh / en)
         ├── engine.ts     # Web Audio playback engine
         ├── tempo.ts      # beat↔time mapping and tempo map builder
-        ├── stretch.ts    # soundtouchjs time stretch wrapper
+        ├── stretch/      # Time-stretch engines: signalsmith (default) / soundtouch (fallback) + worker
         ├── analysis.ts   # Audio intelligence bridge (pleco-xa, async in Web Worker)
         ├── analysis.worker.ts # Analysis worker (BPM / beats / loop / spectrogram)
         ├── theme.ts      # theme presets and color-token derivation
+        ├── welcome.ts    # standalone welcome-window script
+        ├── ui/           # light UI helpers (toast, etc.)
+        ├── utils/        # generic helpers (text, etc.)
         └── metrics.ts    # drawing metrics & palette
 ```
 
@@ -192,7 +200,7 @@ npm run format
 npm run format:check
 ```
 
-Tests currently cover the pure-logic layer: tempo math (`tempo.ts`), project-file parsing and recovery (`schemas/project.ts`), settings repair (`shared/settings.ts`), and undo/redo plus export formats (`services/history.ts` / `services/projectIO.ts`).
+Tests currently cover the pure-logic layer: tempo math (`tempo.ts`), project-file parsing and recovery (`schemas/project.ts`), settings repair (`shared/settings.ts`), theme encode/decode (`theme.ts`), the time-stretch engines (`stretch/`), and undo/redo, clipboard plus export formats (`services/history.ts` / `services/clipboard.ts` / `services/projectIO.ts`).
 
 ### Runtime logs
 

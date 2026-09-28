@@ -395,7 +395,7 @@ export default {
     about: {
       checkUpdates: "检查更新",
       checkUpdatesDesc:
-        "立即检查是否有新版本；启动时的静默检测可在“高级 → 窗口与启动”中关闭。",
+        "立即检查是否有新版本；启动时的静默检测可在“常规 → 窗口与启动”中关闭。",
       upToDate: "已是最新版本",
       updateAvailable: "发现新版本 v{version}，可在 GitHub Releases 下载。",
       updateUnsupported: "开发模式下不支持检查更新",

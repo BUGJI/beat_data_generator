@@ -423,7 +423,7 @@ export default {
     about: {
       checkUpdates: "Check for updates",
       checkUpdatesDesc:
-        "Check for a new version now. The silent startup check can be turned off under Advanced → Window & Startup.",
+        "Check for a new version now. The silent startup check can be turned off under General → Window & Startup.",
       upToDate: "You are on the latest version",
       updateAvailable:
         "New version v{version} is available — download it from GitHub Releases.",
