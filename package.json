@@ -32,7 +32,7 @@
           ]
         }
       ],
-      "artifactName": "${productName}-${version}-setup.${ext}"
+      "artifactName": "Beat-Data-Generator-${version}-setup.${ext}"
     },
     "nsis": {
       "oneClick": false,
