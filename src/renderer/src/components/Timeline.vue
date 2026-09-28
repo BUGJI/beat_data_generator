@@ -2238,7 +2238,7 @@ const selectionMs = computed<string | null>(() => {
   background: var(--bdg-bg-raised);
   border: 1px solid rgb(var(--bdg-neutral) / 0.35);
   border-left: 3px solid var(--bdg-accent);
-  border-radius: 8px;
+  border-radius: var(--bdg-radius, 6px);
   box-shadow: 0 4px 16px var(--bdg-shadow);
   overflow: hidden;
   user-select: none;
@@ -2262,13 +2262,13 @@ const selectionMs = computed<string | null>(() => {
 }
 .note-grip {
   color: var(--bdg-text-dim);
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   line-height: 1;
 }
 .note-title {
   flex: 1;
   min-width: 0;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   font-weight: 700;
   color: var(--bdg-text-dim);
   overflow: hidden;
@@ -2287,7 +2287,7 @@ const selectionMs = computed<string | null>(() => {
   color: var(--bdg-text-dim);
   cursor: pointer;
   border-radius: 5px;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -2299,7 +2299,7 @@ const selectionMs = computed<string | null>(() => {
 }
 .note-body {
   padding: 6px 8px 7px;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   cursor: default;
   position: relative;
 }
@@ -2308,17 +2308,17 @@ const selectionMs = computed<string | null>(() => {
   position: absolute;
   right: 6px;
   bottom: -2px;
-  font-size: 9px;
+  font-size: calc(9px * var(--bdg-font-scale, 1));
   color: rgb(var(--bdg-neutral) / 0.35);
   line-height: 1;
 }
 .note-body.md h1 {
-  font-size: 14px;
+  font-size: calc(14px * var(--bdg-font-scale, 1));
   margin: 0 0 4px;
 }
 .note-body.md h2,
 .note-body.md h3 {
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--bdg-font-scale, 1));
   margin: 0 0 3px;
 }
 .note-body.md p {
@@ -2337,7 +2337,7 @@ const selectionMs = computed<string | null>(() => {
   background: rgb(var(--bdg-neutral) / 0.15);
   padding: 0 3px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
 }
 .note-body.md a {
   color: var(--bdg-accent);
@@ -2350,10 +2350,10 @@ const selectionMs = computed<string | null>(() => {
   min-height: 76px;
   background: var(--bdg-bg-sunken);
   border: 1px solid var(--bdg-border-strong);
-  border-radius: 6px;
+  border-radius: var(--bdg-radius, 6px);
   color: var(--bdg-text);
   font: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   line-height: 1.45;
   resize: vertical;
   padding: 4px 6px;
@@ -2371,10 +2371,10 @@ const selectionMs = computed<string | null>(() => {
   pointer-events: none;
   color: var(--bdg-text-dim);
   text-align: center;
-  font-size: 14px;
+  font-size: calc(14px * var(--bdg-font-scale, 1));
 }
 .editor-hint-sub {
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   opacity: 0.8;
 }
 .editor-statusbar {
@@ -2387,7 +2387,7 @@ const selectionMs = computed<string | null>(() => {
   align-items: center;
   gap: 8px;
   padding: 0 10px;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   background: rgb(var(--bdg-bg-rgb) / 0.88);
   border-top: 1px solid var(--bdg-border);
@@ -2438,7 +2438,7 @@ const selectionMs = computed<string | null>(() => {
   width: 236px;
   background: var(--bdg-menu);
   border: 1px solid var(--bdg-border-strong);
-  border-radius: 10px;
+  border-radius: calc(var(--bdg-radius, 6px) * 2);
   padding: 10px;
   box-shadow: 0 8px 24px var(--bdg-shadow);
   display: flex;
@@ -2476,7 +2476,7 @@ const selectionMs = computed<string | null>(() => {
   border: none;
   color: var(--bdg-text-dim);
   cursor: pointer;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
 }
 .pc-x:hover {
   color: var(--bdg-text);
@@ -2485,14 +2485,14 @@ const selectionMs = computed<string | null>(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
 }
 .pc-mode {
   display: flex;
 }
 .pc-sub {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
 }
 .pc-actions {
@@ -2521,7 +2521,7 @@ const selectionMs = computed<string | null>(() => {
   gap: 7px;
 }
 .pc-attrs-title {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   font-weight: 700;
   color: var(--bdg-text);
   text-transform: uppercase;
@@ -2531,7 +2531,7 @@ const selectionMs = computed<string | null>(() => {
   gap: 6px;
 }
 .pc-missing-tag {
-  font-size: 9px;
+  font-size: calc(9px * var(--bdg-font-scale, 1));
   color: var(--bdg-amber);
   background: rgb(var(--bdg-amber-rgb) / 0.14);
   padding: 1px 6px;
@@ -2545,17 +2545,17 @@ const selectionMs = computed<string | null>(() => {
   flex-direction: column;
   gap: 6px;
   color: var(--bdg-text-dim);
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
 }
 .pc-raw {
   margin: 0;
   padding: 6px;
   background: rgb(var(--bdg-neutral) / 0.06);
   border: 1px solid var(--bdg-border);
-  border-radius: 6px;
+  border-radius: var(--bdg-radius, 6px);
   max-height: 120px;
   overflow: auto;
-  font-size: 10px;
+  font-size: calc(10px * var(--bdg-font-scale, 1));
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--bdg-text);
@@ -2583,7 +2583,7 @@ const selectionMs = computed<string | null>(() => {
   border: 1px solid var(--bdg-border-strong);
   background: rgb(var(--bdg-neutral) / 0.08);
   color: var(--bdg-text);
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
   line-height: 1;
   cursor: pointer;
   padding: 0;

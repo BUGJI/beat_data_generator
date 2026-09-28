@@ -194,7 +194,7 @@ function onCmd(cmd: string): void {
   }
   switch (cmd) {
     case "new":
-      newProject();
+      void newProject();
       break;
     case "open-project":
       void openProject();
@@ -445,7 +445,7 @@ onMounted(() => {
 }
 .top-dirty {
   color: var(--bdg-amber);
-  font-size: 10px;
+  font-size: calc(10px * var(--bdg-font-scale, 1));
   line-height: 1;
   cursor: default;
 }
@@ -456,9 +456,9 @@ onMounted(() => {
   background: transparent;
   color: var(--bdg-text);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--bdg-radius, 6px);
   padding: 6px 8px;
-  font-size: 12.5px;
+  font-size: calc(12.5px * var(--bdg-font-scale, 1));
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
@@ -478,7 +478,7 @@ onMounted(() => {
   display: flex;
   align-items: center;
   background: rgb(var(--bdg-neutral) / 0.06);
-  border-radius: 8px;
+  border-radius: var(--bdg-radius, 6px);
   padding: 0 2px;
 }
 .help-btn {
@@ -491,7 +491,7 @@ onMounted(() => {
 }
 .plug-head {
   opacity: 0.55;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   text-transform: uppercase;
   letter-spacing: 0.06em;
   cursor: default;
@@ -499,7 +499,7 @@ onMounted(() => {
 .plug-check {
   display: inline-flex;
   width: 14px;
-  font-size: 9px;
+  font-size: calc(9px * var(--bdg-font-scale, 1));
   color: var(--bdg-accent);
 }
 .plug-label {

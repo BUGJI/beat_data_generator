@@ -160,9 +160,19 @@ function writeCache(cache: RegistryCache): void {
 }
 
 function asStringArray(v: unknown): string[] {
-  return Array.isArray(v)
-    ? v.filter((x): x is string => typeof x === "string" && !!x.trim())
-    : [];
+  if (!Array.isArray(v)) return [];
+  const out: string[] = [];
+  for (const x of v) {
+    if (typeof x !== "string") continue;
+    const s = x.trim();
+    if (s && !out.includes(s)) out.push(s);
+  }
+  return out;
+}
+
+/** Categories are lowercased, trimmed and de-duplicated to match i18n keys. */
+function asCategoryArray(v: unknown): string[] {
+  return [...new Set(asStringArray(v).map((c) => c.toLowerCase()))];
 }
 
 function sanitizeVersion(v: unknown): MarketVersionInfo | null {
@@ -203,7 +213,7 @@ function sanitizePlugin(v: unknown): MarketPlugin | null {
     repo: typeof o.repo === "string" ? o.repo : undefined,
     homepage: typeof o.homepage === "string" ? o.homepage : undefined,
     author: typeof o.author === "string" ? o.author : undefined,
-    categories: asStringArray(o.categories),
+    categories: asCategoryArray(o.categories),
     tags: asStringArray(o.tags),
     name: o.name as MarketPlugin["name"],
     description: o.description as MarketPlugin["description"],

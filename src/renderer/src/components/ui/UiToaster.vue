@@ -25,7 +25,7 @@ const COLOR: Record<ToastType, string> = {
       <div
         v-for="item in toasts"
         :key="item.id"
-        class="pointer-events-auto flex items-center gap-2 rounded-ui border border-line-strong bg-menu px-3 py-2 text-[12.5px] text-fg shadow-2xl"
+        class="pointer-events-auto flex items-center gap-2 rounded-ui border border-line-strong bg-menu px-3 py-2 text-[length:calc(12.5px*var(--bdg-font-scale,1))] text-fg shadow-2xl"
       >
         <component
           :is="ICONS[item.type]"

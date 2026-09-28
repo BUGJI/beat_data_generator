@@ -14,7 +14,7 @@ import { isFreeInput, setFreeInput } from "./limits";
  */
 
 /** Bump to force migration of persisted settings defaults. */
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 /** Boolean that repairs to `def` for any non-boolean input. */
 const bool = (def: boolean) => z.boolean().catch(def).default(def);
@@ -56,6 +56,13 @@ export type ProxyMode = z.infer<typeof ProxyModeSchema>;
 export const AlignRoundingSchema = z.enum(["round", "floor", "ceil"]);
 export type AlignRounding = z.infer<typeof AlignRoundingSchema>;
 
+/** How the background image fills the window. */
+export const BackgroundFitSchema = z
+  .enum(["cover", "contain", "tile"])
+  .catch("cover")
+  .default("cover");
+export type BackgroundFit = z.infer<typeof BackgroundFitSchema>;
+
 /** Pitch-preserving time-stretch backend. */
 export const StretchEngineSchema = z
   .enum(["soundtouch", "signalsmith"])
@@ -65,6 +72,8 @@ export type StretchEngine = z.infer<typeof StretchEngineSchema>;
 
 export const SettingsSchema = z.object({
   closeMode: CloseModeSchema.catch("ask").default("ask"),
+  /** Hide advanced categories/rows for a simpler first-run experience. */
+  simpleMode: bool(true),
   /** custom application name; empty string uses the built-in default. */
   appName: z
     .string()
@@ -80,8 +89,32 @@ export const SettingsSchema = z.object({
   animEnabled: bool(true),
   /** animate UI surfaces (settings drawer/overlay, toasts, etc.). */
   uiMotion: bool(true),
+  /** overall UI zoom in percent (75–150); applied via Electron page zoom. */
+  uiZoom: intInRange(100, 75, 150),
+  /** text scale in percent (85–150); multiplies every UI font size. */
+  uiFontScale: intInRange(100, 85, 150),
   /** global backdrop blur; off removes every blur effect in the UI. */
   uiBlur: bool(true),
+  /** backdrop blur radius in px (0–24) when uiBlur is on. */
+  uiBlurAmount: intInRange(3, 0, 24),
+  /** global corner radius in px (0–20) applied to controls and surfaces. */
+  uiRadius: intInRange(6, 0, 20),
+  /** shadow strength in percent (0–100); 0 = flat, 100 = heavy. */
+  uiShadow: intInRange(50, 0, 100),
+  /** Absolute path to a user-picked background image ("" = none). */
+  backgroundImage: z
+    .string()
+    .catch("")
+    .default("")
+    .transform((s) => s.trim().slice(0, 1024)),
+  /** How the background image fills the window. */
+  backgroundFit: BackgroundFitSchema,
+  /** Darkening overlay between the background image and the UI, in percent. */
+  backgroundDim: intInRange(0, 0, 100),
+  /** Gaussian blur applied to the background image, in px (0–40). */
+  backgroundBlur: intInRange(0, 0, 40),
+  /** Opacity of the main panel surfaces in percent (20–100); 100 = solid. */
+  surfaceOpacity: intInRange(90, 20, 100),
   /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
   gridAutoHide: bool(true),
   /** silently check for updates on startup and notify when one is available. */
@@ -106,6 +139,8 @@ export const SettingsSchema = z.object({
   /** Drawer width in px; 0 = auto (40% of the window). Clamped to 90vw at runtime. */
   settingsDrawerWidth: intInRange(0, 0, 4000),
   rememberWindow: bool(true),
+  /** show the standalone welcome window at startup. */
+  showWelcome: bool(true),
   autoSave: bool(true),
   autoSaveMinutes: intInRange(5, 1, 60),
   /** hold Ctrl when pressing Space to play at the current rate; plain Space plays at 1x. */
@@ -147,7 +182,9 @@ export const SettingsSchema = z.object({
     .transform((o) => {
       const out: Record<string, string> = {};
       for (const [k, v] of Object.entries(o)) {
-        if (typeof v === "string") out[k] = v;
+        // Keep only plausible color literals. Tokens are resolved by name, so
+        // unknown keys are inert but would otherwise pile up in settings.json.
+        if (typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v)) out[k] = v;
       }
       return out;
     }),

@@ -240,7 +240,7 @@ function rgba(hex: string, alpha: number): string {
 }
 
 /** Rough relative luminance test used to flip the Element Plus light/dark base. */
-function isLightColor(hex: string): boolean {
+export function isLightColor(hex: string): boolean {
   const h = normalizeHex(hex);
   if (!h) return false;
   const n = parseInt(h.slice(1), 16);
@@ -451,7 +451,10 @@ export function buildCanvasColors(spec: ThemeSpec): CanvasColors {
 export function buildCssVars(spec: ThemeSpec): Record<string, string> {
   return {
     "--bdg-bg": spec.bg,
-    "--bdg-bg-panel": spec.panel,
+    // Panel surfaces honor the Appearance "surface opacity" preference: the
+    // alpha comes from `--bdg-panel-alpha` (set by applyUiPreferences), so the
+    // theme only has to supply the RGB triple.
+    "--bdg-bg-panel": "rgb(var(--bdg-panel-rgb) / var(--bdg-panel-alpha, 1))",
     "--bdg-bg-raised": spec.raised,
     "--bdg-bg-sunken": spec.sunken,
     "--bdg-menu": spec.menu,
@@ -477,7 +480,8 @@ export function buildCssVars(spec: ThemeSpec): Record<string, string> {
     "--bdg-amber-rgb": rgbTriple(spec.amber),
     "--bdg-bpm-rgb": rgbTriple(spec.bpm),
     "--bdg-mask": rgba(spec.bg, 0.9),
-    "--bdg-shadow": "rgba(0, 0, 0, 0.5)",
+    // `--bdg-shadow` is owned by the Appearance preferences (shadow strength),
+    // not the theme, so it is intentionally not set here.
   };
 }
 

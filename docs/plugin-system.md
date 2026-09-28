@@ -114,6 +114,25 @@ module.exports = function activate(ctx) {
 - **本地安装**:市场页“从 ZIP 安装”可选择一个本地 `.zip`(包根含 `manifest.json`),
   走与市场一致的解压/路径校验流程;来源记为 `file:<path>` 并写入安装回执。
 
+### 市场品类
+
+市场的分类芯片来自注册表条目的 `categories` 字段(字符串数组,小写 slug),
+用于市场页顶部筛选与详情展示。约定使用以下固定品类(顺序即展示顺序):
+
+| slug          | 中文 | 说明                                     |
+| ------------- | ---- | ---------------------------------------- |
+| `export`      | 导出 | 新增导出格式 / 导出目标                  |
+| `import`      | 导入 | 导入新格式的数据                         |
+| `integration` | 联动 | 与外部工具/进程联动、桥接                |
+| `visual`      | 界面 | 界面外观、主题、可视化增强               |
+| `utility`     | 工具 | 通用辅助工具、批量编辑                   |
+| `analysis`    | 分析 | 音频/节拍分析等数据洞察                  |
+
+- 一个插件可同时属于多个品类;未知 slug 仍会被列出并做首字母美化,但不会本地化。
+  新增品类需同时更新 `src/shared/market.ts` 的 `MARKET_CATEGORIES` 与
+  `settings.plugins.cats` 的 i18n 文案。
+- slug 会被宿主统一转为小写、去空格并去重,因此注册表无需关心大小写与重复。
+
 发布流程:插件仓库打 `vX.Y.Z` tag(与 `manifest.json` 的 `version` 一致)→
 组织级工作流打包 `plugin.zip` 并创建 Release → registry 定时任务读取 Release
 资产的 SHA-256 写入索引 → 应用内即可安装。详见

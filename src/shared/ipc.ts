@@ -77,8 +77,12 @@ export interface IpcApi {
   /** Manually check for app updates (About page); resolves with the outcome. */
   checkForUpdates: () => Promise<UpdateCheckResult>;
   toggleDevTools: () => Promise<void>;
+  /** Set the main window's page zoom factor (1 = 100%). */
+  setZoom: (factor: number) => Promise<void>;
   writeProjectFile: (filePath: string, content: string) => Promise<boolean>;
   readTextFile: (filePath: string) => Promise<TextFileResult>;
+  /** Read an image file as a data URL for the app background (null when missing/too large). */
+  readImageAsDataUrl: (filePath: string) => Promise<string | null>;
   computeMd5: (filePath: string) => Promise<string | null>;
   /** List the metronome sounds in the app's metronome folder. */
   listMetronomes: () => Promise<MetronomeFile[]>;

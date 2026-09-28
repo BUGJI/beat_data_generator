@@ -357,7 +357,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
 }
 .corner-text {
-  font-size: 10px;
+  font-size: calc(10px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -368,8 +368,8 @@ onBeforeUnmount(() => {
   color: var(--bdg-accent);
   width: 20px;
   height: 20px;
-  border-radius: 6px;
-  font-size: 14px;
+  border-radius: var(--bdg-radius, 6px);
+  font-size: calc(14px * var(--bdg-font-scale, 1));
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -391,7 +391,7 @@ onBeforeUnmount(() => {
   z-index: 30;
   background: var(--bdg-bg-raised);
   border: 1px solid var(--bdg-border-strong);
-  border-radius: 8px;
+  border-radius: var(--bdg-radius, 6px);
   box-shadow: 0 10px 30px var(--bdg-shadow);
   padding: 4px;
   display: flex;
@@ -406,9 +406,9 @@ onBeforeUnmount(() => {
   border: none;
   background: transparent;
   color: var(--bdg-text);
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   padding: 6px 8px;
-  border-radius: 6px;
+  border-radius: var(--bdg-radius, 6px);
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
@@ -480,12 +480,12 @@ onBeforeUnmount(() => {
   width: 24px;
   height: 24px;
   flex: none;
-  border-radius: 6px;
+  border-radius: var(--bdg-radius, 6px);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
 }
 .bpm-ic {
   background: rgb(var(--bdg-bpm-rgb) / 0.16);
@@ -510,7 +510,7 @@ onBeforeUnmount(() => {
 }
 .t-name,
 .t-name-input {
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   font-weight: 700;
 }
 .t-name-input {
@@ -529,7 +529,7 @@ onBeforeUnmount(() => {
   background: rgb(var(--bdg-neutral) / 0.08);
 }
 .t-sub {
-  font-size: 10px;
+  font-size: calc(10px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   white-space: nowrap;
   overflow: hidden;
@@ -542,7 +542,7 @@ onBeforeUnmount(() => {
 }
 .h-count {
   flex: none;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
 }
 .h-actions {
@@ -557,7 +557,7 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--bdg-text-dim);
   border-radius: 4px;
-  font-size: 9px;
+  font-size: calc(9px * var(--bdg-font-scale, 1));
   cursor: pointer;
   padding: 0;
   line-height: 1;
@@ -566,7 +566,7 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 .mini.icon {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
 }
 .mini:hover:not(:disabled) {
   background: rgb(var(--bdg-neutral) / 0.16);
@@ -610,6 +610,6 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   color: var(--bdg-text-dim);
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
 }
 </style>

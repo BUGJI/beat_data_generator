@@ -17,6 +17,10 @@ const model = defineModel<string>({ required: true });
     :placeholder="placeholder"
     :disabled="disabled"
     class="w-full rounded-ui border border-line bg-sunken px-2 text-fg outline-none placeholder:text-fg-faint focus:border-line-strong disabled:opacity-40"
-    :class="size === 'sm' ? 'h-7 text-xs' : 'h-8 text-[13px]'"
+    :class="
+      size === 'sm'
+        ? 'h-7 text-xs'
+        : 'h-8 text-[length:calc(13px*var(--bdg-font-scale,1))]'
+    "
   />
 </template>

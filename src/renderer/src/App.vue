@@ -149,6 +149,7 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-root">
+    <div class="app-bg" aria-hidden="true" />
     <TopBar />
     <ProjectBar />
     <div class="workspace">

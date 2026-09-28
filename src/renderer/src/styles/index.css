@@ -32,6 +32,10 @@
   --bdg-mask: rgba(14, 17, 22, 0.9);
   --bdg-shadow: rgba(0, 0, 0, 0.5);
   --bdg-blur: blur(3px);
+  /* Appearance preferences (Settings → Display → Appearance) override these
+     inline on <html>; the values here are the first-paint defaults. */
+  --bdg-radius: 6px;
+  --bdg-font-scale: 1;
   /* Layout */
   --bdg-toolbar-h: 46px;
   --bdg-transport-h: 52px;
@@ -53,7 +57,7 @@ body {
   background: var(--bdg-bg);
   color: var(--bdg-text);
   overflow: hidden;
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
   -webkit-user-select: none;
   user-select: none;
 }
@@ -82,6 +86,30 @@ body {
   height: 100%;
 }
 
+/* Full-window background image layer. Sits behind the (translucent) panels and
+   carries the optional blur / dim treatment. `--bdg-bg-image` is set by
+   `applyBackgroundImage`; without it the layer only shows the theme surface. */
+.app-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--bdg-bg);
+  background-image: var(--bdg-bg-image, none);
+  background-size: var(--bdg-bg-size, cover);
+  background-position: center;
+  background-repeat: var(--bdg-bg-repeat, no-repeat);
+  filter: blur(var(--bdg-bg-blur, 0px));
+  /* Slight overscan so blur doesn't reveal a soft edge at the window border. */
+  transform: scale(1.06);
+}
+.app-bg::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgb(var(--bdg-bg-rgb) / var(--bdg-bg-dim, 0));
+}
+
 .workspace {
   flex: 1;
   display: flex;
@@ -102,8 +130,24 @@ body {
   font-family: "Cascadia Mono", "Consolas", monospace;
 }
 
-/* Global blur value; the "Interface blur" setting toggles html.no-blur, which
-   collapses every backdrop blur that reads this variable. */
-html.no-blur {
-  --bdg-blur: none;
+/* Theme switch crossfade: `applyThemeFromSettings` adds this class for ~320ms
+   around a theme change, smoothing the repaint of every token-driven surface.
+   Only color-like properties are transitioned so layout never animates. */
+html.theme-anim *,
+html.theme-anim *::before,
+html.theme-anim *::after {
+  transition:
+    background-color 0.28s ease,
+    border-color 0.28s ease,
+    color 0.28s ease,
+    fill 0.28s ease,
+    stroke 0.28s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.theme-anim *,
+  html.theme-anim *::before,
+  html.theme-anim *::after {
+    transition: none;
+  }
 }

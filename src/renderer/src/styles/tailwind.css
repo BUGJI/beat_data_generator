@@ -26,7 +26,20 @@
   --color-amber: var(--bdg-amber);
   --color-bpm: var(--bdg-bpm);
 
-  --radius-ui: 6px;
+  /* Bridged onto the Appearance preference so changing the corner-radius
+     setting repaints every `rounded-ui` control without a rebuild. */
+  --radius-ui: var(--bdg-radius, 6px);
+
+  /* Named text sizes scale with the Appearance "text scale" preference;
+     their paired line-heights track so line boxes stay proportional. */
+  --text-xs: calc(0.75rem * var(--bdg-font-scale, 1));
+  --text-xs--line-height: calc(1rem * var(--bdg-font-scale, 1));
+  --text-sm: calc(0.875rem * var(--bdg-font-scale, 1));
+  --text-sm--line-height: calc(1.25rem * var(--bdg-font-scale, 1));
+  --text-base: calc(1rem * var(--bdg-font-scale, 1));
+  --text-base--line-height: calc(1.5rem * var(--bdg-font-scale, 1));
+  --text-lg: calc(1.125rem * var(--bdg-font-scale, 1));
+  --text-lg--line-height: calc(1.75rem * var(--bdg-font-scale, 1));
 
   --font-sans:
     "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system,

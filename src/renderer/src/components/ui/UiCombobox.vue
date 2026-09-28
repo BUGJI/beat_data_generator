@@ -101,7 +101,11 @@ function onEscape(): void {
           :placeholder="placeholder"
           :disabled="disabled"
           class="w-full rounded-ui border border-line bg-sunken pr-7 pl-2 text-fg outline-none placeholder:text-fg-faint focus:border-line-strong disabled:opacity-40"
-          :class="size === 'sm' ? 'h-7 text-xs' : 'h-8 text-[13px]'"
+          :class="
+            size === 'sm'
+              ? 'h-7 text-xs'
+              : 'h-8 text-[length:calc(13px*var(--bdg-font-scale,1))]'
+          "
           @focus="open = true"
           @keydown.enter.prevent="onEnter"
           @keydown.esc.prevent="onEscape"
@@ -123,7 +127,7 @@ function onEscape(): void {
           v-for="o in filtered"
           :key="o.value"
           type="button"
-          class="flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-left text-[12.5px] text-fg hover:bg-accent/20 hover:text-accent"
+          class="flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-left text-[length:calc(12.5px*var(--bdg-font-scale,1))] text-fg hover:bg-accent/20 hover:text-accent"
           @mousedown.prevent="choose(o)"
         >
           <Check
@@ -136,7 +140,7 @@ function onEscape(): void {
         </button>
         <div
           v-if="!filtered.length"
-          class="px-2 py-1.5 text-[12px] text-fg-faint"
+          class="px-2 py-1.5 text-[length:calc(12px*var(--bdg-font-scale,1))] text-fg-faint"
         >
           {{ placeholder }}
         </div>

@@ -13,6 +13,23 @@ import type { LocaText } from "./plugin";
 /** File name of the install receipt written next to an installed plugin. */
 export const MARKET_RECEIPT = ".installed.json";
 
+/**
+ * Canonical marketplace category slugs, in display order.
+ *
+ * Registry authors should only use these; the renderer still tolerates unknown
+ * slugs (they are shown after the known ones) so the taxonomy can grow without
+ * an app update. Keep in sync with `settings.plugins.cats` in the i18n files.
+ */
+export const MARKET_CATEGORIES = [
+  "export",
+  "import",
+  "integration",
+  "visual",
+  "utility",
+  "analysis",
+] as const;
+export type MarketCategory = (typeof MARKET_CATEGORIES)[number];
+
 /** Provenance record written into a plugin folder after a marketplace install. */
 export interface PluginInstallReceipt {
   id: string;

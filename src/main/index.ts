@@ -19,7 +19,7 @@ import {
   readdirSync,
   writeFileSync,
 } from "node:fs";
-import { basename, isAbsolute, join } from "node:path";
+import { basename, extname, isAbsolute, join } from "node:path";
 import { installPluginManager } from "./plugins";
 import { installMarketManager } from "./market";
 import { applyProxyMode } from "./network";
@@ -50,6 +50,16 @@ const AUDIO_FILTERS = [
 const PROJECT_FILTERS = [{ name: "Beat Project", extensions: ["bdg", "json"] }];
 const TEXT_FILTERS = [{ name: "Text", extensions: ["txt", "csv"] }];
 const EDL_FILTERS = [{ name: "EDL", extensions: ["edl"] }];
+const IMAGE_MIME: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".webp": "image/webp",
+  ".gif": "image/gif",
+  ".bmp": "image/bmp",
+};
+/** Upper bound for a background image read over IPC (~16 MB). */
+const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 
 let mainWindow: BrowserWindow | null = null;
 let welcomeWindow: BrowserWindow | null = null;
@@ -279,25 +289,30 @@ function loadSettings(): void {
       unknown
     >;
     let changed = false;
+    const fromVersion = Number(raw.settingsVersion ?? 0);
     // Migration: v1 shipped with auto audio-analysis toggles defaulting on.
     // Reset the analysis toggles to their current defaults so residual
     // enabled values from those early builds stop auto-running on load.
-    if (Number(raw.settingsVersion ?? 0) < SETTINGS_VERSION) {
+    // Only v1 (< 2) needs this; later versions must not be reset again.
+    if (fromVersion < 2) {
       raw.audioAutoBpm = true;
       raw.audioAutoBeats = false;
       raw.audioLoopDetect = false;
       raw.audioLiveBpm = false;
       raw.audioSpectrum = false;
       raw.audioPanel = true;
+      changed = true;
+    }
+    if (fromVersion < SETTINGS_VERSION) {
       raw.settingsVersion = SETTINGS_VERSION;
       changed = true;
     }
     settings = sanitizeSettings(raw);
     if (changed) persistSettings();
   } catch {
+    // no readable settings file yet: seed one with the defaults
     persistSettings();
   }
-  persistSettings();
 }
 
 function persistSettings(): void {
@@ -664,6 +679,7 @@ function registerIpc(): void {
       const wasLogging = settings.logToFile === true;
       const wasName = settings.appName;
       const wasProxy = settings.proxyMode;
+      const wasCheckUpdates = settings.checkUpdates;
       settings = sanitizeSettings({ ...settings, ...patch });
       persistSettings();
       if (settings.proxyMode !== wasProxy)
@@ -680,7 +696,9 @@ function registerIpc(): void {
         if (isLogging) log.info("file logging enabled");
       }
       if (!settings.devEnabled) closeDevToolsAll();
-      if (settings.checkUpdates) checkUpdatesSilent();
+      // Only kick a network check when the toggle is switched on, not on every
+      // unrelated settings write (startup already checks once).
+      if (settings.checkUpdates && !wasCheckUpdates) checkUpdatesSilent();
       return settings;
     },
   );
@@ -693,6 +711,30 @@ function registerIpc(): void {
     wc.closeDevTools();
     wc.openDevTools({ mode: "detach" });
   });
+
+  ipcMain.handle("ui:zoom", (_e, factor: number): void => {
+    const w = win();
+    if (!w) return;
+    const f = Math.min(1.5, Math.max(0.75, Number(factor) || 1));
+    w.webContents.setZoomFactor(f);
+  });
+
+  ipcMain.handle(
+    "image:read-data-url",
+    async (_e, filePath: unknown): Promise<string | null> => {
+      if (typeof filePath !== "string" || !filePath) return null;
+      const mime = IMAGE_MIME[extname(filePath).toLowerCase()];
+      if (!mime) return null;
+      try {
+        const buf = await readFile(filePath);
+        if (buf.byteLength === 0 || buf.byteLength > MAX_IMAGE_BYTES)
+          return null;
+        return `data:${mime};base64,${buf.toString("base64")}`;
+      } catch {
+        return null;
+      }
+    },
+  );
 
   ipcMain.handle(
     "updates:check",
@@ -792,7 +834,7 @@ function registerIpc(): void {
 }
 
 function scheduleWelcomeWindow(): void {
-  if (welcomeCreated) return;
+  if (welcomeCreated || !settings.showWelcome) return;
   const poll = setInterval(() => {
     if (mainReady) {
       clearInterval(poll);
@@ -856,6 +898,9 @@ function createWindow(): void {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: true,
       contextIsolation: true,
+      // Restore the persisted interface zoom (setZoomFactor keeps it applied
+      // for the lifetime of the window; the renderer updates it at runtime).
+      zoomFactor: Math.min(1.5, Math.max(0.75, settings.uiZoom / 100)),
       // Keep rAF/timers alive while minimized so playback-driven work (metronome
       // clicks, follow scroll, beat flashes) keeps running instead of pausing
       // and then firing everything at once on restore.

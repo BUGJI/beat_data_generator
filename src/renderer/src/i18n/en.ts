@@ -149,6 +149,8 @@ export default {
   settings: {
     title: "Settings",
     done: "Done",
+    close: "Close",
+    simpleModeHint: "Show all settings",
     autoSave: "Changes are saved immediately",
     expand: "Expand to full screen",
     collapse: "Collapse to side panel",
@@ -168,7 +170,7 @@ export default {
       about: "About",
     },
     subcats: {
-      general: { general: "General" },
+      general: { general: "General", window: "Window & Startup" },
       edit: {
         follow: "Follow",
         playback: "Playback",
@@ -180,18 +182,25 @@ export default {
         metronome: "Metronome",
         playback: "Playback",
       },
-      display: { grid: "Grid", motion: "Motion", appearance: "Appearance" },
+      display: { grid: "Grid", motion: "Motion" },
       advanced: {
-        window: "Window & Startup",
         developer: "Developer",
       },
     },
     theme: {
-      subs: { preset: "Presets", custom: "Custom" },
+      subs: { preset: "Presets", custom: "Custom", appearance: "Appearance" },
       preset: "Preset themes",
       custom: "Custom colors",
       hint: "Tweak any color on top of the preset; changes are kept when you switch presets. Click ↺ to restore a color.",
       reset: "Reset preset",
+      resetGroup: "Reset group",
+      accentPick: "Quick accent",
+      accentPickDesc:
+        "Pick an accent independent of the preset; it survives light/dark switches.",
+      preview: "Live preview",
+      previewHint: "Updates as you edit the colors.",
+      modeLight: "Light",
+      modeDark: "Dark",
       share: "Share / import",
       export: "Copy code",
       importBtn: "Apply",
@@ -236,8 +245,48 @@ export default {
         markerDim: "Marker dim",
         bpmPointSelected: "BPM selected",
       },
+      appearance: {
+        bgImage: "Background image",
+        bgImageDesc:
+          "Pick a local image as the app background; tune it with the blur, dim and panel opacity controls below.",
+        bgPick: "Choose image",
+        bgClear: "Clear",
+        bgFit: "Fill mode",
+        bgFitDesc: "How the image fills the window",
+        fitCover: "Cover",
+        fitContain: "Contain",
+        fitTile: "Tile",
+        bgBlur: "Background blur",
+        bgBlurDesc: "Gaussian blur applied to the background image (0–40px)",
+        bgDim: "Background dim",
+        bgDimDesc:
+          "Darken the image with the theme surface for readability (0–100%)",
+        surfaceOpacity: "Panel opacity",
+        surfaceOpacityDesc:
+          "How visible panels are over the background (20–100%); lower shows more of the image",
+        uiZoom: "Interface scale",
+        uiZoomDesc:
+          "Scale the whole UI including the timeline and all panels (75–150%)",
+        uiFontScale: "Text scale",
+        uiFontScaleDesc:
+          "Scale text only, leaving control and layout sizes unchanged (85–150%)",
+        uiBlur: "Interface blur",
+        uiBlurDesc:
+          "Backdrop blur behind overlays. Turn off to remove all blur effects",
+        uiBlurAmount: "Blur strength",
+        uiBlurAmountDesc: "Backdrop blur radius in px (0–24)",
+        uiRadius: "Corner radius",
+        uiRadiusDesc:
+          "Corner radius of buttons, inputs, cards and panels (0–20px)",
+        uiShadow: "Shadow strength",
+        uiShadowDesc:
+          "Depth of panel and overlay shadows; 0 is completely flat",
+      },
     },
     general: {
+      simpleMode: "Simple mode",
+      simpleModeDesc:
+        "Hide advanced options and categories, keeping only the common settings",
       language: "Language",
       languageDesc: "Switch UI language (applies immediately)",
       closeMode: "Default window close mode",
@@ -246,6 +295,15 @@ export default {
       modeAskDesc: "Ask before quitting",
       modeMinimize: "Minimize",
       modeClose: "Close",
+      showWelcome: "Show welcome window at startup",
+      showWelcomeDesc:
+        "Open a separate welcome window on launch with new / open / recent project options.",
+      rememberWindow: "Remember window size & position",
+      rememberWindowDesc:
+        "Keep the last window size and maximized state, restored on restart",
+      checkUpdates: "Silently check for updates on startup",
+      checkUpdatesDesc:
+        "Check for a new version quietly at startup; when one is found you get a notification that opens the download page.",
     },
     edit: {
       autoFollow: "Auto-scroll while playing",
@@ -259,7 +317,7 @@ export default {
       autoSaveMinutesUnit: "minutes (1–60)",
       ctrlSpeedPlay: "Hold Ctrl to play at speed",
       ctrlSpeedPlayDesc:
-        "When on, pressing Ctrl+Space (play) plays at the current rate and plain Space plays at 1x; when off, plain Space always plays at the current rate.",
+        "When on, Ctrl+Space plays at the current rate and Space plays at 1x; when off, both play at the current rate.",
       alignTitle: "Marker alignment",
       alignDecimals: "Decimal places",
       alignDecimalsDesc:
@@ -318,22 +376,19 @@ export default {
       playbackTitle: "Playback",
       stretchEngine: "Time-stretch engine",
       stretchEngineDesc:
-        "Engine used for off-speed playback with pitch preserved. Signalsmith sounds better (default); it falls back to SoundTouch if rendering fails or times out.",
+        "Engine used for off-speed playback with pitch preserved; the default works best for most users.",
       engineSoundtouch: "SoundTouch",
       engineSignalsmith: "Signalsmith",
     },
     display: {
       autoHideGrid: "Auto-hide grid lines",
       autoHideGridDesc:
-        "Caps the drawn subdivision detail by zoom to keep rendering fast: at most 1/16 below 500 px/s, 1/8 below 250 px/s, and 1/4 below 100 px/s. Your snap setting is unchanged \u2014 only the display is affected; beat and bar lines always show.",
+        "Hides fine grid lines when zoomed out to keep scrolling smooth. Display only \u2014 snapping and beat/bar lines are unchanged.",
       editor: "Editor animations",
       editorDesc: "Zoom/pan the timeline with an interruptible 0.1s ease-out",
       uiMotion: "Interface motion",
       uiMotionDesc:
         "Animate the settings panel (slide / fade) and other UI transitions",
-      uiBlur: "Interface blur",
-      uiBlurDesc:
-        "Backdrop blur behind overlays. Turn off to remove all blur effects",
     },
     shortcuts: {
       note: "Shortcuts are read-only for now; rebinding will come later.",
@@ -351,13 +406,6 @@ export default {
       pan: "Scroll vertically / horizontally",
     },
     advanced: {
-      window: "Window & Startup",
-      rememberWindow: "Remember window size & position",
-      rememberWindowDesc:
-        "Restore the last window size and maximized state on launch",
-      checkUpdates: "Check for updates on startup",
-      checkUpdatesDesc:
-        "Silently looks for a new version when the app opens; if one is found, a notification appears that opens the download page.",
       developer: "Developer",
       master: "Developer options",
       masterDesc: "When off, devtools are disabled and the entry is hidden",
@@ -403,6 +451,7 @@ export default {
       marketEmpty: "No plugins in the market",
       marketEmptyHint:
         "The registry has no installable plugins yet — try again later.",
+      marketNoMatch: "No matching plugins — try another category or keyword.",
       marketError: "Failed to load the market: {error}",
       install: "Install",
       update: "Update",

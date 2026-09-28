@@ -80,8 +80,15 @@ function freshProject(): void {
   addTrack(undefined, false);
 }
 
-export function newProject(): void {
-  freshProject();
+/**
+ * Ask for a location, then create and write a fresh project there. Cancelling
+ * the dialog leaves the current project untouched. Same flow as the welcome
+ * window's "new project" so both entry points behave identically.
+ */
+export async function newProject(): Promise<void> {
+  const res = await window.api.saveTextFile("untitled.bdg");
+  if (res.canceled || !res.filePath) return;
+  await newProjectAt(res.filePath);
 }
 
 export async function openProject(explicitPath?: string): Promise<void> {
@@ -315,7 +322,7 @@ export async function autoSaveTick(): Promise<void> {
 
 export async function newProjectAt(filePath: string): Promise<void> {
   const p = useProjectStore();
-  newProject();
+  freshProject();
   p.projectPath = filePath;
   setAudioNameRelative();
   const ok = await window.api.writeProjectFile(filePath, projectJson());
@@ -337,7 +344,6 @@ export function bindWelcomeActions(): () => void {
       // main process already showed the Save dialog; if a path was chosen we
       // get it here, otherwise (cancel) nothing is sent and the project is kept.
       if (typeof payload.path === "string") void newProjectAt(payload.path);
-      else newProject();
     } else if (payload.type === "open") {
       // main process already ran the file picker
       if (typeof payload.path === "string") void openProject(payload.path);

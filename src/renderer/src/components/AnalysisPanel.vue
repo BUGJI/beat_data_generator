@@ -242,7 +242,7 @@ onBeforeUnmount(() => {
   max-width: 92vw;
   background: var(--bdg-bg-panel);
   border: 1px solid var(--bdg-border-strong);
-  border-radius: 12px;
+  border-radius: calc(var(--bdg-radius, 6px) * 2);
   box-shadow: 0 14px 44px var(--bdg-shadow);
   overflow: hidden;
   display: flex;
@@ -257,7 +257,7 @@ onBeforeUnmount(() => {
 }
 .ana-title {
   font-weight: 700;
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
 }
 .ana-x {
   margin-left: auto;
@@ -265,7 +265,7 @@ onBeforeUnmount(() => {
   border: none;
   color: var(--bdg-text-dim);
   cursor: pointer;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
 }
 .ana-x:hover {
   color: var(--bdg-text);
@@ -273,7 +273,7 @@ onBeforeUnmount(() => {
 .ana-empty {
   padding: 20px;
   color: var(--bdg-text-dim);
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
 }
 .ana-body {
   padding: 12px 14px 14px;
@@ -289,11 +289,11 @@ onBeforeUnmount(() => {
 }
 .ana-label {
   flex: 1;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
 }
 .ana-value {
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
   font-weight: 700;
   min-width: 76px;
   text-align: right;
@@ -308,11 +308,11 @@ onBeforeUnmount(() => {
 }
 .ana-spectrum {
   border: 1px solid var(--bdg-border);
-  border-radius: 8px;
+  border-radius: var(--bdg-radius, 6px);
   overflow: hidden;
 }
 .ana-sub {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   padding: 6px 8px;
   background: rgb(var(--bdg-neutral) / 0.05);
@@ -325,7 +325,7 @@ onBeforeUnmount(() => {
 }
 .ana-spectrum-empty {
   padding: 16px;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
 }
 </style>

@@ -19,7 +19,7 @@ function handle(): void {
 <template>
   <DropdownMenuItem
     :disabled="disabled"
-    class="flex items-center gap-2 rounded-[4px] px-2 py-1.5 text-[12.5px] text-fg outline-none select-none data-[disabled]:opacity-50 data-[highlighted]:bg-accent/20 data-[highlighted]:text-accent"
+    class="flex items-center gap-2 rounded-[4px] px-2 py-1.5 text-[length:calc(12.5px*var(--bdg-font-scale,1))] text-fg outline-none select-none data-[disabled]:opacity-50 data-[highlighted]:bg-accent/20 data-[highlighted]:text-accent"
     @select="handle"
   >
     <slot />

@@ -13,6 +13,12 @@ describe("defaultSettings", () => {
     expect(s.autoSaveMinutes).toBe(5);
     expect(s.alignDecimals).toBe(2);
     expect(s.alignRounding).toBe("round");
+    expect(s.uiZoom).toBe(100);
+    expect(s.uiFontScale).toBe(100);
+    expect(s.uiBlur).toBe(true);
+    expect(s.uiBlurAmount).toBe(3);
+    expect(s.uiRadius).toBe(6);
+    expect(s.uiShadow).toBe(50);
     expect(s.themePreset).toBe("default");
     expect(s.themeOverrides).toEqual({});
     expect(s.settingsVersion).toBe(0);
@@ -20,6 +26,11 @@ describe("defaultSettings", () => {
     expect(s.proxyMode).toBe("system");
     expect(s.githubProxy).toBe(false);
     expect(s.githubProxyHost).toBe("ghfast.top");
+    expect(s.backgroundImage).toBe("");
+    expect(s.backgroundFit).toBe("cover");
+    expect(s.backgroundDim).toBe(0);
+    expect(s.backgroundBlur).toBe(0);
+    expect(s.surfaceOpacity).toBe(90);
   });
 });
 
@@ -35,10 +46,16 @@ describe("sanitizeSettings", () => {
       followPercent: 250,
       autoSaveMinutes: 999,
       alignDecimals: 99,
+      uiBlurAmount: 99,
+      uiRadius: 99,
+      uiShadow: 999,
     });
     expect(high.followPercent).toBe(100);
     expect(high.autoSaveMinutes).toBe(60);
     expect(high.alignDecimals).toBe(6);
+    expect(high.uiBlurAmount).toBe(24);
+    expect(high.uiRadius).toBe(20);
+    expect(high.uiShadow).toBe(100);
 
     const low = sanitizeSettings({ followPercent: -5, autoSaveMinutes: 0 });
     expect(low.followPercent).toBe(0);
@@ -113,6 +130,24 @@ describe("sanitizeSettings", () => {
     expect(sanitizeSettings({ proxyMode: "env" }).proxyMode).toBe("env");
     expect(sanitizeSettings({ proxyMode: "tor" }).proxyMode).toBe("system");
     expect(sanitizeSettings({ githubProxy: "on" }).githubProxy).toBe(false);
+  });
+
+  it("validates background image settings", () => {
+    const s = sanitizeSettings({
+      backgroundImage: "  C:/pics/bg.png  ",
+      backgroundFit: "contain",
+      backgroundDim: 999,
+      backgroundBlur: -5,
+      surfaceOpacity: 5,
+    });
+    expect(s.backgroundImage).toBe("C:/pics/bg.png");
+    expect(s.backgroundFit).toBe("contain");
+    expect(s.backgroundDim).toBe(100);
+    expect(s.backgroundBlur).toBe(0);
+    expect(s.surfaceOpacity).toBe(20);
+    expect(sanitizeSettings({ backgroundFit: "nope" }).backgroundFit).toBe(
+      "cover",
+    );
   });
 
   it("trims a trailing slash from the gh-proxy host", () => {

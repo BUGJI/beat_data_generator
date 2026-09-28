@@ -38,7 +38,7 @@ const model = defineModel<string>({ required: true });
       :class="
         size === 'sm'
           ? 'h-7 min-w-[96px] text-xs'
-          : 'h-8 min-w-[120px] text-[13px]'
+          : 'h-8 min-w-[120px] text-[length:calc(13px*var(--bdg-font-scale,1))]'
       "
     >
       <SelectValue :placeholder="placeholder" />
@@ -55,7 +55,7 @@ const model = defineModel<string>({ required: true });
             v-for="o in options"
             :key="o.value"
             :value="o.value"
-            class="relative flex cursor-pointer items-center gap-2 rounded-[4px] py-1.5 pr-2 pl-6 text-[12.5px] text-fg outline-none select-none data-[highlighted]:bg-accent/20 data-[highlighted]:text-accent"
+            class="relative flex cursor-pointer items-center gap-2 rounded-[4px] py-1.5 pr-2 pl-6 text-[length:calc(12.5px*var(--bdg-font-scale,1))] text-fg outline-none select-none data-[highlighted]:bg-accent/20 data-[highlighted]:text-accent"
           >
             <SelectItemIndicator class="absolute left-1.5">
               <Check class="size-3.5" />

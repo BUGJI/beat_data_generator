@@ -207,7 +207,7 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 .tr-left {
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
   color: var(--bdg-text);
   display: flex;
   align-items: center;
@@ -215,7 +215,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .buffering {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-amber);
   letter-spacing: 0.05em;
 }
@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
   display: flex;
   align-items: center;
   gap: 7px;
-  border-radius: 6px;
+  border-radius: var(--bdg-radius, 6px);
   padding: 2px 4px;
 }
 .rate-ctl:hover {
@@ -233,7 +233,7 @@ onBeforeUnmount(() => {
   color: var(--bdg-text);
 }
 .rate-label {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   white-space: nowrap;
 }
@@ -250,7 +250,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 .live-bpm {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-accent);
   background: rgb(var(--bdg-accent-rgb) / 0.12);
   border: 1px solid rgb(var(--bdg-accent-rgb) / 0.22);
@@ -274,7 +274,7 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: var(--bdg-text);
   background: transparent;
-  border-radius: 8px;
+  border-radius: var(--bdg-radius, 6px);
   font-family: inherit;
 }
 .btn-icon {
@@ -310,7 +310,7 @@ button:disabled {
   margin: 0 4px;
 }
 .tr-time {
-  font-size: 17px;
+  font-size: calc(17px * var(--bdg-font-scale, 1));
   letter-spacing: 0.5px;
 }
 .tr-time .cur {
@@ -331,7 +331,7 @@ button:disabled {
   gap: 10px;
 }
 .vol-label {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   white-space: nowrap;
 }

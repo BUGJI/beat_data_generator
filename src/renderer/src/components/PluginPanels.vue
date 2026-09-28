@@ -242,7 +242,7 @@ function onClose(card: Card): void {
   pointer-events: auto;
   background: var(--bdg-bg-panel);
   border: 1px solid var(--bdg-border-strong);
-  border-radius: 10px;
+  border-radius: calc(var(--bdg-radius, 6px) * 2);
   box-shadow: 0 14px 44px var(--bdg-shadow);
   overflow: hidden;
   display: flex;
@@ -264,7 +264,7 @@ function onClose(card: Card): void {
 .pw-title {
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -276,7 +276,7 @@ function onClose(card: Card): void {
   border: none;
   color: var(--bdg-text-dim);
   cursor: pointer;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   padding: 2px 6px;
 }
 .pw-x:hover {
@@ -286,7 +286,7 @@ function onClose(card: Card): void {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   color: var(--bdg-text);
   user-select: text;
 }

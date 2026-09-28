@@ -7,8 +7,26 @@ import {
   ref,
   watch,
 } from "vue";
+import type { Component } from "vue";
 import { useI18n } from "vue-i18n";
-import { Maximize, Minimize, Search, X } from "@lucide/vue";
+import {
+  Blocks,
+  Check,
+  Info,
+  Keyboard,
+  Maximize,
+  Minimize,
+  Monitor,
+  Music,
+  Network,
+  Palette,
+  Pencil,
+  RotateCcw,
+  Search,
+  SlidersHorizontal,
+  Wrench,
+  X,
+} from "@lucide/vue";
 import {
   setSettingsOpen,
   patchSettings,
@@ -22,12 +40,14 @@ import {
   exportThemeCode,
   importThemeCode,
   applyAppName,
+  appDisplayName,
 } from "../store";
 import { setLocale, LOCALES } from "../i18n";
 import { toast } from "../ui/toast";
 import {
   THEME_PRESETS,
   THEME_TOKEN_ORDER,
+  isLightColor,
   resolveTheme,
   themeContrastIssues,
   type ThemeOverrides,
@@ -42,16 +62,22 @@ import {
   refreshPlugins,
 } from "../plugins/host";
 import type { PluginEntry } from "../../../shared/plugin";
-import type { MarketPluginView, MarketProgress } from "../../../shared/market";
+import {
+  MARKET_CATEGORIES,
+  type MarketPluginView,
+  type MarketProgress,
+} from "../../../shared/market";
 import type { CloseMode, MetronomeFile } from "../../../shared/ipc";
 import type {
   AlignRounding,
+  BackgroundFit,
   MarketCacheTtl,
   ProxyMode,
   StretchEngine,
 } from "../../../shared/settings";
 import { GH_PROXY_PRESETS, type PingResult } from "../../../shared/network";
-import { useSettingsStore } from "../stores/settings";
+import { backgroundImageUrl, useSettingsStore } from "../stores/settings";
+import ThemePreview from "./ThemePreview.vue";
 import UiButton from "./ui/UiButton.vue";
 import UiColorField from "./ui/UiColorField.vue";
 import UiInput from "./ui/UiInput.vue";
@@ -95,18 +121,21 @@ type CatKey =
   | "advanced"
   | "about";
 
-const cats: Array<{ key: CatKey; icon: string }> = [
-  { key: "general", icon: "⚙" },
-  { key: "edit", icon: "✎" },
-  { key: "audio", icon: "♪" },
-  { key: "display", icon: "◩" },
-  { key: "theme", icon: "◐" },
-  { key: "shortcuts", icon: "⌨" },
-  { key: "plugins", icon: "▤" },
-  { key: "network", icon: "⇅" },
-  { key: "advanced", icon: "⬢" },
-  { key: "about", icon: "◈" },
+const cats: Array<{ key: CatKey; icon: Component }> = [
+  { key: "general", icon: SlidersHorizontal },
+  { key: "edit", icon: Pencil },
+  { key: "audio", icon: Music },
+  { key: "display", icon: Monitor },
+  { key: "theme", icon: Palette },
+  { key: "plugins", icon: Blocks },
+  { key: "shortcuts", icon: Keyboard },
+  { key: "network", icon: Network },
+  { key: "advanced", icon: Wrench },
+  { key: "about", icon: Info },
 ];
+
+/** Whole categories hidden while simple mode is on. */
+const SIMPLE_HIDDEN_CATS: CatKey[] = ["advanced"];
 
 // ---- layout: docked drawer ↔ full screen (persisted) ----
 const layout = computed<"drawer" | "full">({
@@ -199,13 +228,14 @@ const themeGroups: Array<{ key: string; tokens: (keyof ThemeSpec)[] }> = [
 ];
 
 // Theme page sub-tabs (presets / custom colors, incl. share & import).
-const themeSub = ref<"preset" | "custom">("preset");
-const themeSubs = computed<Array<{ key: "preset" | "custom"; label: string }>>(
-  () => [
-    { key: "preset", label: t("settings.theme.subs.preset") },
-    { key: "custom", label: t("settings.theme.subs.custom") },
-  ],
-);
+const themeSub = ref<"preset" | "custom" | "appearance">("preset");
+const themeSubs = computed<
+  Array<{ key: "preset" | "custom" | "appearance"; label: string }>
+>(() => [
+  { key: "preset", label: t("settings.theme.subs.preset") },
+  { key: "custom", label: t("settings.theme.subs.custom") },
+  { key: "appearance", label: t("settings.theme.subs.appearance") },
+]);
 
 const contrastIssues = computed(() => themeContrastIssues(themeSpec.value));
 
@@ -214,6 +244,37 @@ function onThemeToken(token: keyof ThemeSpec, value: string | null): void {
 }
 function tokenOverridden(token: keyof ThemeSpec): boolean {
   return themeOverrides.value[token] != null;
+}
+
+/** Curated accents for the one-click swatch row (any color still works). */
+const ACCENT_SWATCHES = [
+  "#38bdf8",
+  "#22d3ee",
+  "#34d399",
+  "#a3e635",
+  "#fbbf24",
+  "#fb923c",
+  "#f43f5e",
+  "#ec4899",
+  "#a78bfa",
+  "#6366f1",
+  "#60a5fa",
+  "#94a3b8",
+];
+
+/** Preset cards are grouped dark-first; this flags the light ones. */
+function isLightPreset(spec: ThemeSpec): boolean {
+  return isLightColor(spec.bg);
+}
+
+function groupOverridden(tokens: (keyof ThemeSpec)[]): boolean {
+  return tokens.some((token) => themeOverrides.value[token] != null);
+}
+
+function resetThemeGroup(tokens: (keyof ThemeSpec)[]): void {
+  const next = { ...themeOverrides.value };
+  for (const token of tokens) delete next[token];
+  patchSettings({ themeOverrides: next });
 }
 
 // ---- shareable theme code (export / import) ----
@@ -374,7 +435,25 @@ function marketDesc(v: MarketPluginView): string {
 const marketCategories = computed<string[]>(() => {
   const set = new Set<string>();
   for (const p of market.value) for (const c of p.categories) set.add(c);
-  return [...set].sort();
+  // Known slugs first, in curated order; unknown slugs after, alphabetically.
+  const known = MARKET_CATEGORIES.filter((c) => set.has(c));
+  const unknown = [...set]
+    .filter((c) => !(MARKET_CATEGORIES as readonly string[]).includes(c))
+    .sort();
+  return [...known, ...unknown];
+});
+
+const marketCategoryCounts = computed<Record<string, number>>(() => {
+  const counts: Record<string, number> = {};
+  for (const p of market.value)
+    for (const c of p.categories) counts[c] = (counts[c] ?? 0) + 1;
+  return counts;
+});
+
+// A category can disappear after a refresh; never leave the filter stranded.
+watch(marketCategories, (cats) => {
+  if (marketCategory.value && !cats.includes(marketCategory.value))
+    marketCategory.value = "";
 });
 
 const marketFiltered = computed<MarketPluginView[]>(() => {
@@ -399,7 +478,13 @@ const marketFiltered = computed<MarketPluginView[]>(() => {
 
 function categoryLabel(c: string): string {
   const key = `settings.plugins.cats.${c}`;
-  return te(key) ? t(key) : c;
+  if (te(key)) return t(key);
+  // Unknown slug: prettify instead of leaking the raw id.
+  return c
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 type MarketAction = "install" | "update" | "installed" | "incompatible";
@@ -521,6 +606,25 @@ const closeMode = computed<CloseMode>({
   },
 });
 
+const simpleMode = computed<boolean>({
+  get: () => settings.settings.simpleMode,
+  set: (v: boolean) => {
+    void patchSettings({ simpleMode: v });
+  },
+});
+
+/** Categories shown in the nav; expert categories are hidden in simple mode. */
+const visibleCats = computed(() =>
+  simpleMode.value
+    ? cats.filter((c) => !SIMPLE_HIDDEN_CATS.includes(c.key))
+    : cats,
+);
+
+// Never leave the user stranded on a category that simple mode just hid.
+watch(simpleMode, (on) => {
+  if (on && SIMPLE_HIDDEN_CATS.includes(cat.value)) cat.value = "general";
+});
+
 const devEnabled = computed({
   get: () => settings.settings.devEnabled,
   set: (v: boolean) => {
@@ -564,10 +668,10 @@ const language = computed<string>({
   },
 });
 
-const DEFAULT_APP_NAME = "Beat Data Generator";
 const appName = computed<string>({
-  get: () => settings.settings.appName.trim() || DEFAULT_APP_NAME,
-  set: (v) => patchSettings({ appName: v.trim() ? v : DEFAULT_APP_NAME }),
+  // Empty means "use the localized default"; show that default in the field.
+  get: () => settings.settings.appName.trim() || appDisplayName(),
+  set: (v) => patchSettings({ appName: v.trim() }),
 });
 
 const languageOptions = computed(() =>
@@ -602,11 +706,98 @@ const uiMotion = computed({
   },
 });
 
+// Page zoom reflows the whole UI (including this panel), so applying it on
+// every tick would make the slider jump under the pointer. Hold the value
+// locally while dragging and commit once on release.
+const uiZoomDraft = ref(settings.settings.uiZoom);
+watch(
+  () => settings.settings.uiZoom,
+  (v) => {
+    uiZoomDraft.value = v;
+  },
+);
+function commitUiZoom(v: number): void {
+  if (v !== settings.settings.uiZoom) void patchSettings({ uiZoom: v });
+}
+
+const uiFontScale = computed({
+  get: () => settings.settings.uiFontScale,
+  set: (v: number) => {
+    void patchSettings({ uiFontScale: v });
+  },
+});
+
 const uiBlur = computed({
   get: () => settings.settings.uiBlur,
   set: (v: boolean) => {
     void patchSettings({ uiBlur: v });
   },
+});
+
+const uiBlurAmount = computed({
+  get: () => settings.settings.uiBlurAmount,
+  set: (v: number) => {
+    void patchSettings({ uiBlurAmount: v });
+  },
+});
+
+const uiRadius = computed({
+  get: () => settings.settings.uiRadius,
+  set: (v: number) => {
+    void patchSettings({ uiRadius: v });
+  },
+});
+
+const uiShadow = computed({
+  get: () => settings.settings.uiShadow,
+  set: (v: number) => {
+    void patchSettings({ uiShadow: v });
+  },
+});
+
+const backgroundImage = computed({
+  get: () => settings.settings.backgroundImage,
+  set: (v: string) => void patchSettings({ backgroundImage: v }),
+});
+const backgroundName = computed(() => {
+  const p = settings.settings.backgroundImage;
+  if (!p) return "";
+  const parts = p.split(/[\\/]/);
+  return parts[parts.length - 1] || p;
+});
+const BG_IMAGE_FILTERS = [
+  { name: "Images", extensions: ["png", "jpg", "jpeg", "webp", "gif", "bmp"] },
+];
+async function pickBackgroundImage(): Promise<void> {
+  const path = await window.api.pickFile(
+    t("settings.theme.appearance.bgPick"),
+    BG_IMAGE_FILTERS,
+  );
+  if (path) backgroundImage.value = path;
+}
+function clearBackgroundImage(): void {
+  backgroundImage.value = "";
+}
+const backgroundFit = computed<string>({
+  get: () => settings.settings.backgroundFit,
+  set: (v: string) => void patchSettings({ backgroundFit: v as BackgroundFit }),
+});
+const backgroundFitOptions = computed(() => [
+  { value: "cover", label: t("settings.theme.appearance.fitCover") },
+  { value: "contain", label: t("settings.theme.appearance.fitContain") },
+  { value: "tile", label: t("settings.theme.appearance.fitTile") },
+]);
+const backgroundBlur = computed({
+  get: () => settings.settings.backgroundBlur,
+  set: (v: number) => void patchSettings({ backgroundBlur: v }),
+});
+const backgroundDim = computed({
+  get: () => settings.settings.backgroundDim,
+  set: (v: number) => void patchSettings({ backgroundDim: v }),
+});
+const surfaceOpacity = computed({
+  get: () => settings.settings.surfaceOpacity,
+  set: (v: number) => void patchSettings({ surfaceOpacity: v }),
 });
 
 const followScroll = computed({
@@ -625,6 +816,12 @@ const rememberWindow = computed({
   get: () => settings.settings.rememberWindow,
   set: (v: boolean) => {
     void patchSettings({ rememberWindow: v });
+  },
+});
+const showWelcome = computed({
+  get: () => settings.settings.showWelcome,
+  set: (v: boolean) => {
+    void patchSettings({ showWelcome: v });
   },
 });
 const autoSave = computed({
@@ -744,6 +941,7 @@ type FieldControl =
       set: (v: number) => void;
       min: number;
       max: number;
+      step?: number;
       suffix?: string;
     };
 type RowDef =
@@ -754,6 +952,8 @@ type RowDef =
       key: string;
       col?: boolean;
       showIf?: () => boolean;
+      /** Hidden while simple mode is on. */
+      expert?: boolean;
       control: FieldControl;
     };
 
@@ -797,6 +997,7 @@ const slider = (
   min: number,
   max: number,
   suffix?: string,
+  step?: number,
 ): FieldControl => ({
   type: "slider",
   get: () => m.value,
@@ -806,6 +1007,7 @@ const slider = (
   min,
   max,
   suffix,
+  step,
 });
 
 // Typed setters: the discriminated union can't be narrowed inside a template
@@ -830,13 +1032,14 @@ const freeMax = (max: number) => (): number | undefined =>
 // Each category is split into sub-groups shown as a second-level tab row. A
 // category with a single group renders no tab row (e.g. General). Sub-head rows
 // were replaced by these groups so a page no longer needs one long scroll.
-type GroupDef = { key: string; rows: RowDef[] };
+type GroupDef = { key: string; rows: RowDef[]; expert?: boolean };
 
 const FIELD_GROUPS: Partial<Record<CatKey, GroupDef[]>> = {
   general: [
     {
       key: "general",
       rows: [
+        { kind: "field", key: "simpleMode", control: sw(simpleMode) },
         {
           kind: "field",
           key: "language",
@@ -847,6 +1050,14 @@ const FIELD_GROUPS: Partial<Record<CatKey, GroupDef[]>> = {
           key: "closeMode",
           control: radio(closeMode, () => closeModeOptions.value),
         },
+      ],
+    },
+    {
+      key: "window",
+      rows: [
+        { kind: "field", key: "showWelcome", control: sw(showWelcome) },
+        { kind: "field", key: "rememberWindow", control: sw(rememberWindow) },
+        { kind: "field", key: "checkUpdates", control: sw(checkUpdates) },
       ],
     },
   ],
@@ -860,18 +1071,21 @@ const FIELD_GROUPS: Partial<Record<CatKey, GroupDef[]>> = {
           key: "followPercent",
           col: true,
           showIf: () => followScroll.value,
+          expert: true,
           control: slider(followPercent, 0, 100, "%"),
         },
       ],
     },
     {
       key: "playback",
+      expert: true,
       rows: [
         { kind: "field", key: "ctrlSpeedPlay", control: sw(ctrlSpeedPlay) },
       ],
     },
     {
       key: "align",
+      expert: true,
       rows: [
         {
           kind: "field",
@@ -928,6 +1142,7 @@ const FIELD_GROUPS: Partial<Record<CatKey, GroupDef[]>> = {
     },
     {
       key: "playback",
+      expert: true,
       rows: [
         {
           kind: "field",
@@ -945,26 +1160,17 @@ const FIELD_GROUPS: Partial<Record<CatKey, GroupDef[]>> = {
     },
     {
       key: "motion",
+      expert: true,
       rows: [
         { kind: "field", key: "editor", control: sw(animEnabled) },
         { kind: "field", key: "uiMotion", control: sw(uiMotion) },
       ],
     },
-    {
-      key: "appearance",
-      rows: [{ kind: "field", key: "uiBlur", control: sw(uiBlur) }],
-    },
   ],
   advanced: [
     {
-      key: "window",
-      rows: [
-        { kind: "field", key: "rememberWindow", control: sw(rememberWindow) },
-        { kind: "field", key: "checkUpdates", control: sw(checkUpdates) },
-      ],
-    },
-    {
       key: "developer",
+      expert: true,
       rows: [
         { kind: "field", key: "master", control: sw(devEnabled) },
         { kind: "field", key: "freeInput", control: sw(devFreeInput, devOnly) },
@@ -985,7 +1191,8 @@ const FIELD_GROUPS: Partial<Record<CatKey, GroupDef[]>> = {
 const fieldCats = Object.keys(FIELD_GROUPS) as CatKey[];
 
 function groupsOf(key: CatKey): GroupDef[] {
-  return FIELD_GROUPS[key] ?? [];
+  const groups = FIELD_GROUPS[key] ?? [];
+  return simpleMode.value ? groups.filter((g) => !g.expert) : groups;
 }
 
 // Selected sub-tab per category; falls back to the first group when unset.
@@ -1002,7 +1209,10 @@ function setSubCat(key: CatKey, group: string): void {
 }
 function rowsInGroup(key: CatKey): RowDef[] {
   const g = groupsOf(key).find((x) => x.key === activeGroup(key));
-  return g?.rows ?? [];
+  const rows = g?.rows ?? [];
+  return simpleMode.value
+    ? rows.filter((r) => r.kind !== "field" || !r.expert)
+    : rows;
 }
 
 // ---- metronome folder picker ----
@@ -1086,30 +1296,198 @@ function catLabel(key: string): string {
 // Index derived from FIELD_GROUPS (plus theme colors), so a row only has to be
 // declared once to be both rendered and searchable. Theme color tokens are
 // pulled from THEME_TOKEN_ORDER since they are rendered by their own loop.
-type SearchEntry = { cat: CatKey; group?: string; key: string };
+type SearchEntry = {
+  cat: CatKey;
+  group?: string;
+  key: string;
+  keywords?: string[];
+  /** Hidden from results while simple mode is on. */
+  expert?: boolean;
+};
+
+// Extra synonyms per setting (keyed by `${cat}.${key}`) so beginners can find a
+// setting with everyday words like “音量 / 加速 / 颜色” instead of its label.
+const SEARCH_KEYWORDS: Record<string, string[]> = {
+  "general.simpleMode": [
+    "简化",
+    "简单",
+    "基础",
+    "进阶",
+    "全部",
+    "simple",
+    "advanced",
+  ],
+  "general.language": ["语言", "中文", "英文", "界面语言", "language", "lang"],
+  "general.closeMode": ["关闭", "退出", "关闭按钮", "close", "exit", "quit"],
+  "general.showWelcome": [
+    "欢迎",
+    "欢迎窗口",
+    "启动",
+    "welcome",
+    "startup",
+    "splash",
+  ],
+  "general.rememberWindow": [
+    "窗口",
+    "大小",
+    "尺寸",
+    "位置",
+    "window",
+    "size",
+    "position",
+  ],
+  "general.checkUpdates": ["更新", "升级", "版本", "update", "upgrade"],
+  "edit.autoFollow": ["滚动", "跟随", "scroll", "follow"],
+  "edit.followPercent": ["触发位置", "触发点", "百分比", "percent", "trigger"],
+  "edit.ctrlSpeedPlay": ["变速", "倍速", "快放", "speed", "playback"],
+  "edit.alignDecimals": ["小数", "精度", "decimal", "precision", "align"],
+  "edit.alignRounding": ["取整", "舍入", "rounding", "align"],
+  "edit.autoSave": ["保存", "自动保存", "save", "autosave"],
+  "edit.autoSaveMinutes": ["间隔", "分钟", "interval", "minutes", "save"],
+  "audio.autoBpm": ["bpm", "速度", "节拍", "tempo", "detect"],
+  "audio.autoBeats": ["节拍", "打点", "标记", "beat", "marker"],
+  "audio.loopDetect": ["循环", "loop", "段落"],
+  "audio.liveBpm": ["实时", "live", "bpm", "速度"],
+  "audio.spectrum": ["频谱", "spectrum", "分析", "梅尔", "mel"],
+  "audio.panel": ["面板", "panel", "分析"],
+  "audio.metronome": [
+    "节拍器",
+    "打拍",
+    "打拍音",
+    "节拍",
+    "音量",
+    "click",
+    "metronome",
+  ],
+  "audio.stretchEngine": ["变速", "音高", "拉伸", "stretch", "engine", "pitch"],
+  "display.autoHideGrid": ["网格", "网格线", "grid", "隐藏", "细线"],
+  "display.editor": ["动画", "动效", "时间轴", "editor", "animation", "zoom"],
+  "display.uiMotion": [
+    "动画",
+    "动效",
+    "过渡",
+    "motion",
+    "transition",
+    "animation",
+  ],
+  "theme.appearance.uiZoom": [
+    "缩放",
+    "界面缩放",
+    "整体缩放",
+    "大小",
+    "zoom",
+    "scale",
+    "dpi",
+  ],
+  "theme.appearance.uiFontScale": [
+    "字号",
+    "字体",
+    "文字大小",
+    "缩放",
+    "font",
+    "text",
+    "scale",
+  ],
+  "theme.appearance.uiBlur": ["模糊", "毛玻璃", "blur", "背景"],
+  "theme.appearance.uiBlurAmount": [
+    "模糊",
+    "模糊强度",
+    "毛玻璃",
+    "blur",
+    "radius",
+    "强度",
+  ],
+  "theme.appearance.uiRadius": [
+    "圆角",
+    "圆角半径",
+    "radius",
+    "corner",
+    "外观",
+    "appearance",
+  ],
+  "theme.appearance.uiShadow": [
+    "阴影",
+    "投影",
+    "立体",
+    "shadow",
+    "elevation",
+    "shadow",
+  ],
+  "theme.accentPick": ["强调色", "主题色", "高亮色", "accent", "color"],
+  "theme.preview": ["预览", "外观预览", "preview", "theme"],
+  "advanced.master": ["开发者", "调试", "dev", "debug", "developer"],
+  "advanced.freeInput": ["输入", "限制", "上限", "下限", "input", "limit"],
+  "advanced.logToFile": ["日志", "记录", "文件", "log", "file"],
+  "advanced.openTools": ["调试", "开发者工具", "devtools", "debug", "console"],
+  "network.proxy": ["代理", "proxy", "网络", "network"],
+  "network.ghProxy": ["github", "加速", "镜像", "下载", "proxy", "ghproxy"],
+  "network.ghProxyHost": ["加速地址", "镜像", "地址", "host", "mirror"],
+};
+
+// Hand-written entries for sections rendered outside FIELD_GROUPS (their label
+// keys live under `settings.network.*`, so the same lookup still works).
+const EXTRA_SEARCH: SearchEntry[] = [
+  { cat: "network", key: "proxy", expert: true },
+  { cat: "network", key: "ghProxy", expert: true },
+  { cat: "network", key: "ghProxyHost", expert: true },
+  { cat: "theme", key: "accentPick", group: "custom" },
+  { cat: "theme", key: "appearance.uiZoom", group: "appearance" },
+  { cat: "theme", key: "appearance.uiFontScale", group: "appearance" },
+  { cat: "theme", key: "appearance.uiBlur", group: "appearance" },
+  {
+    cat: "theme",
+    key: "appearance.uiBlurAmount",
+    group: "appearance",
+    expert: true,
+  },
+  { cat: "theme", key: "appearance.uiRadius", group: "appearance" },
+  { cat: "theme", key: "appearance.uiShadow", group: "appearance" },
+];
+
 const SEARCH_INDEX: SearchEntry[] = [];
 for (const [catKey, groups] of Object.entries(FIELD_GROUPS) as Array<
   [CatKey, GroupDef[]]
 >) {
   for (const group of groups) {
     for (const row of group.rows) {
+      const expert =
+        group.expert === true ||
+        (row.kind === "field" && row.expert === true) ||
+        undefined;
       if (row.kind === "field")
-        SEARCH_INDEX.push({ cat: catKey, group: group.key, key: row.key });
+        SEARCH_INDEX.push({
+          cat: catKey,
+          group: group.key,
+          key: row.key,
+          keywords: SEARCH_KEYWORDS[`${catKey}.${row.key}`],
+          expert,
+        });
       else if (row.kind === "custom" && row.searchKey)
         SEARCH_INDEX.push({
           cat: catKey,
           group: group.key,
           key: row.searchKey,
+          keywords: SEARCH_KEYWORDS[`${catKey}.${row.searchKey}`],
+          expert,
         });
     }
   }
 }
 for (const token of THEME_TOKEN_ORDER) {
-  SEARCH_INDEX.push({ cat: "theme", group: "custom", key: `tokens.${token}` });
+  SEARCH_INDEX.push({
+    cat: "theme",
+    group: "custom",
+    key: `tokens.${token}`,
+    keywords: [token, "颜色", "color"],
+  });
 }
+SEARCH_INDEX.push(...EXTRA_SEARCH);
 
 const search = ref("");
 const contentEl = ref<HTMLElement | null>(null);
+
+/** Normalized query, reused by matching and highlighting. */
+const searchQuery = computed(() => search.value.trim().toLowerCase());
 
 function labelKeyOf(entry: SearchEntry): string {
   return `settings.${entry.cat}.${entry.key}`;
@@ -1118,28 +1496,50 @@ function labelKeyOf(entry: SearchEntry): string {
 const searchResults = computed<
   Array<SearchEntry & { label: string; desc: string }>
 >(() => {
-  const q = search.value.trim().toLowerCase();
+  const q = searchQuery.value;
   if (!q) return [];
   const hits: Array<SearchEntry & { label: string; desc: string }> = [];
   for (const entry of SEARCH_INDEX) {
+    if (simpleMode.value && entry.expert) continue;
     const key = labelKeyOf(entry);
     const label = t(key);
     const descKey = `${key}Desc`;
     const desc = te(descKey) ? t(descKey) : "";
-    if (
-      label.toLowerCase().includes(q) ||
-      desc.toLowerCase().includes(q) ||
-      catLabel(entry.cat).toLowerCase().includes(q)
-    ) {
+    const haystack = [
+      label,
+      desc,
+      catLabel(entry.cat),
+      ...(entry.keywords ?? []),
+    ]
+      .join(" ")
+      .toLowerCase();
+    if (haystack.includes(q)) {
       hits.push({ ...entry, label, desc });
     }
   }
   return hits;
 });
 
+/** Split `text` into segments so the matched query can be marked in the list. */
+function highlightParts(
+  text: string,
+  q: string,
+): Array<{ text: string; hit: boolean }> {
+  if (!q) return [{ text, hit: false }];
+  const idx = text.toLowerCase().indexOf(q);
+  if (idx < 0) return [{ text, hit: false }];
+  const parts: Array<{ text: string; hit: boolean }> = [];
+  if (idx > 0) parts.push({ text: text.slice(0, idx), hit: false });
+  parts.push({ text: text.slice(idx, idx + q.length), hit: true });
+  if (idx + q.length < text.length)
+    parts.push({ text: text.slice(idx + q.length), hit: false });
+  return parts;
+}
+
 function goToSetting(hit: SearchEntry & { label: string }): void {
   cat.value = hit.cat;
-  if (hit.cat === "theme") themeSub.value = "custom";
+  if (hit.cat === "theme")
+    themeSub.value = hit.group === "appearance" ? "appearance" : "custom";
   else if (hit.group) setSubCat(hit.cat, hit.group);
   search.value = "";
   void nextTick(() => {
@@ -1182,12 +1582,13 @@ function onSearchEnter(): void {
           />
           <header class="head">
             <span class="title">{{ t("settings.title") }}</span>
-            <div class="search">
+            <div class="search" role="search">
               <Search class="search-icon size-3.5" />
               <input
                 v-model="search"
                 class="search-input"
                 :placeholder="t('settings.searchPlaceholder')"
+                :aria-label="t('settings.searchPlaceholder')"
                 @keydown.enter.prevent="onSearchEnter()"
                 @keydown.esc="search = ''"
               />
@@ -1195,6 +1596,7 @@ function onSearchEnter(): void {
                 v-if="search"
                 class="search-clear"
                 :title="t('settings.searchClear')"
+                :aria-label="t('settings.searchClear')"
                 @click="search = ''"
               >
                 <X class="size-3.5" />
@@ -1208,12 +1610,23 @@ function onSearchEnter(): void {
                     ? t('settings.expand')
                     : t('settings.collapse')
                 "
+                :aria-label="
+                  layout === 'drawer'
+                    ? t('settings.expand')
+                    : t('settings.collapse')
+                "
                 @click="toggleLayout()"
               >
                 <Minimize v-if="layout === 'full'" class="size-3.5" />
                 <Maximize v-else class="size-3.5" />
               </button>
-              <button class="close-x" @click="setSettingsOpen(false)">✕</button>
+              <button
+                class="close-x"
+                :aria-label="t('settings.close')"
+                @click="setSettingsOpen(false)"
+              >
+                ✕
+              </button>
             </div>
           </header>
 
@@ -1225,24 +1638,52 @@ function onSearchEnter(): void {
                 class="search-result"
                 @click="goToSetting(hit)"
               >
-                <span class="sr-label">{{ hit.label }}</span>
-                <span class="sr-cat">{{ catLabel(hit.cat) }}</span>
+                <span class="sr-head">
+                  <span class="sr-label">
+                    <template
+                      v-for="(p, pi) in highlightParts(hit.label, searchQuery)"
+                      :key="pi"
+                    >
+                      <mark v-if="p.hit">{{ p.text }}</mark>
+                      <template v-else>{{ p.text }}</template>
+                    </template>
+                  </span>
+                  <span class="sr-cat">{{ catLabel(hit.cat) }}</span>
+                </span>
+                <span v-if="hit.desc" class="sr-desc">
+                  <template
+                    v-for="(p, pi) in highlightParts(hit.desc, searchQuery)"
+                    :key="pi"
+                  >
+                    <mark v-if="p.hit">{{ p.text }}</mark>
+                    <template v-else>{{ p.text }}</template>
+                  </template>
+                </span>
               </button>
               <div v-if="searchResults.length === 0" class="search-empty">
                 {{ t("settings.searchNoResults") }}
               </div>
             </div>
 
-            <nav class="nav">
+            <nav class="nav" :aria-label="t('settings.title')">
               <button
-                v-for="c in cats"
+                v-for="c in visibleCats"
                 :key="c.key"
                 class="nav-item"
                 :class="{ active: cat === c.key }"
                 @click="cat = c.key"
               >
-                <span class="nav-icon">{{ c.icon }}</span>
+                <span class="nav-icon">
+                  <component :is="c.icon" class="size-3.5" />
+                </span>
                 <span class="nav-label">{{ catLabel(c.key) }}</span>
+              </button>
+              <button
+                v-if="simpleMode"
+                class="nav-note"
+                @click="simpleMode = false"
+              >
+                {{ t("settings.simpleModeHint") }}
               </button>
             </nav>
 
@@ -1251,7 +1692,11 @@ function onSearchEnter(): void {
               <template v-for="key in fieldCats" :key="key">
                 <section v-if="cat === key">
                   <h3>{{ catLabel(key) }}</h3>
-                  <nav v-if="groupsOf(key).length > 1" class="subnav">
+                  <nav
+                    v-if="groupsOf(key).length > 1"
+                    class="subnav"
+                    :aria-label="catLabel(key)"
+                  >
                     <button
                       v-for="g in groupsOf(key)"
                       :key="g.key"
@@ -1384,7 +1829,9 @@ function onSearchEnter(): void {
                       "
                     >
                       <div class="about-card">
-                        <div class="about-logo">◈</div>
+                        <div class="about-logo">
+                          <Info class="size-8" />
+                        </div>
                         <div class="about-info">
                           <UiInput
                             v-model="appName"
@@ -1499,6 +1946,7 @@ function onSearchEnter(): void {
                             :model-value="row.control.get()"
                             :min="row.control.min"
                             :max="row.control.max"
+                            :step="row.control.step"
                             class="pct-slider"
                             @update:model-value="
                               (v: number) => setNumber(row.control, v)
@@ -1516,7 +1964,7 @@ function onSearchEnter(): void {
               </template>
 
               <!-- 主题 -->
-              <section v-if="cat === 'theme'">
+              <section v-if="cat === 'theme'" class="theme-section">
                 <h3>{{ t("settings.cats.theme") }}</h3>
                 <nav class="subnav">
                   <button
@@ -1530,119 +1978,469 @@ function onSearchEnter(): void {
                   </button>
                 </nav>
 
-                <template v-if="themeSub === 'preset'">
-                  <div class="sub-head">{{ t("settings.theme.preset") }}</div>
-                  <div class="theme-presets">
-                    <button
-                      v-for="p in THEME_PRESETS"
-                      :key="p.id"
-                      class="theme-preset"
-                      :class="{
-                        active: settings.settings.themePreset === p.id,
-                      }"
-                      @click="setThemePreset(p.id)"
-                    >
-                      <span class="swatches">
-                        <i :style="{ background: p.spec.bg }" />
-                        <i :style="{ background: p.spec.panel }" />
-                        <i :style="{ background: p.spec.accent }" />
-                        <i :style="{ background: p.spec.accent2 }" />
-                      </span>
-                      {{ t(`settings.theme.presets.${p.name}`) }}
-                    </button>
-                  </div>
-                </template>
-
-                <template v-else-if="themeSub === 'custom'">
-                  <div class="sub-head">{{ t("settings.theme.share") }}</div>
-                  <div class="theme-share">
-                    <UiButton size="sm" @click="onExportTheme()">
-                      {{ t("settings.theme.export") }}
-                    </UiButton>
-                    <div class="theme-code-wrap">
-                      <UiInput
-                        v-model="themeCode"
-                        size="sm"
-                        :placeholder="t('settings.theme.importPlaceholder')"
-                      />
-                    </div>
-                    <UiButton
-                      size="sm"
-                      variant="soft"
-                      :disabled="!themeCode.trim()"
-                      @click="onImportTheme()"
-                    >
-                      {{ t("settings.theme.importBtn") }}
-                    </UiButton>
-                  </div>
-
-                  <div class="sub-head theme-custom-head">
-                    <span>{{ t("settings.theme.custom") }}</span>
-                    <UiButton
-                      size="sm"
-                      :disabled="Object.keys(themeOverrides).length === 0"
-                      @click="resetThemeTokens()"
-                    >
-                      {{ t("settings.theme.reset") }}
-                    </UiButton>
-                  </div>
-                  <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
-
-                  <div v-if="contrastIssues.length" class="contrast-warn">
-                    <div class="contrast-warn-title">
-                      {{ t("settings.theme.contrastTitle") }}
-                    </div>
-                    <ul class="contrast-warn-list">
-                      <li v-for="(i, idx) in contrastIssues" :key="idx">
-                        {{
-                          t("settings.theme.contrastIssue", {
-                            fg: t(`settings.theme.tokens.${i.fg}`),
-                            bg: t(`settings.theme.tokens.${i.bg}`),
-                            ratio: i.ratio.toFixed(2),
-                          })
-                        }}
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div
-                    v-for="g in themeGroups"
-                    :key="g.key"
-                    class="theme-group"
-                  >
-                    <div class="theme-group-title">
-                      {{ t(`settings.theme.groups.${g.key}`) }}
-                    </div>
-                    <div
-                      v-for="token in g.tokens"
-                      :key="token"
-                      class="field-row theme-row"
-                    >
-                      <div class="field-info">
-                        <span class="field-name">{{
-                          t(`settings.theme.tokens.${token}`)
-                        }}</span>
+                <div class="theme-split">
+                  <div class="theme-main">
+                    <template v-if="themeSub === 'preset'">
+                      <div class="sub-head">
+                        {{ t("settings.theme.preset") }}
                       </div>
-                      <div class="theme-token-ctrl">
-                        <UiColorField
-                          :model-value="themeSpec[token]"
-                          @update:model-value="
-                            (v: string) => previewThemeToken(token, v)
-                          "
-                          @commit="(v: string) => setThemeToken(token, v)"
-                        />
+                      <div class="theme-presets">
                         <button
-                          class="theme-token-reset"
-                          :class="{ on: tokenOverridden(token) }"
-                          :title="t('settings.theme.reset')"
-                          @click="onThemeToken(token, null)"
+                          v-for="p in THEME_PRESETS"
+                          :key="p.id"
+                          class="theme-preset"
+                          :class="{
+                            active: settings.settings.themePreset === p.id,
+                          }"
+                          @click="setThemePreset(p.id)"
                         >
-                          ↺
+                          <ThemePreview
+                            :spec="p.spec"
+                            variant="card"
+                            class="theme-preset-preview"
+                          />
+                          <span class="theme-preset-meta">
+                            <span class="theme-preset-name">{{
+                              t(`settings.theme.presets.${p.name}`)
+                            }}</span>
+                            <span
+                              class="theme-preset-badge"
+                              :class="isLightPreset(p.spec) ? 'light' : 'dark'"
+                            >
+                              {{
+                                isLightPreset(p.spec)
+                                  ? t("settings.theme.modeLight")
+                                  : t("settings.theme.modeDark")
+                              }}
+                            </span>
+                          </span>
+                          <span
+                            v-if="settings.settings.themePreset === p.id"
+                            class="theme-preset-check"
+                          >
+                            <Check class="size-3" />
+                          </span>
                         </button>
                       </div>
-                    </div>
+                    </template>
+
+                    <template v-else-if="themeSub === 'custom'">
+                      <div class="sub-head">
+                        {{ t("settings.theme.accentPick") }}
+                      </div>
+                      <div class="accent-pick">
+                        <button
+                          v-for="c in ACCENT_SWATCHES"
+                          :key="c"
+                          type="button"
+                          class="accent-swatch"
+                          :class="{
+                            active: themeSpec.accent.toLowerCase() === c,
+                          }"
+                          :style="{ background: c }"
+                          :title="c"
+                          :aria-label="c"
+                          @click="setThemeToken('accent', c)"
+                        />
+                        <UiColorField
+                          :model-value="themeSpec.accent"
+                          @update:model-value="
+                            (v: string) => previewThemeToken('accent', v)
+                          "
+                          @commit="(v: string) => setThemeToken('accent', v)"
+                        />
+                      </div>
+
+                      <div class="sub-head">
+                        {{ t("settings.theme.share") }}
+                      </div>
+                      <div class="theme-share">
+                        <UiButton size="sm" @click="onExportTheme()">
+                          {{ t("settings.theme.export") }}
+                        </UiButton>
+                        <div class="theme-code-wrap">
+                          <UiInput
+                            v-model="themeCode"
+                            size="sm"
+                            :placeholder="t('settings.theme.importPlaceholder')"
+                          />
+                        </div>
+                        <UiButton
+                          size="sm"
+                          variant="soft"
+                          :disabled="!themeCode.trim()"
+                          @click="onImportTheme()"
+                        >
+                          {{ t("settings.theme.importBtn") }}
+                        </UiButton>
+                      </div>
+
+                      <div class="sub-head theme-custom-head">
+                        <span>{{ t("settings.theme.custom") }}</span>
+                        <UiButton
+                          size="sm"
+                          :disabled="Object.keys(themeOverrides).length === 0"
+                          @click="resetThemeTokens()"
+                        >
+                          {{ t("settings.theme.reset") }}
+                        </UiButton>
+                      </div>
+                      <p class="muted theme-hint">
+                        {{ t("settings.theme.hint") }}
+                      </p>
+
+                      <div v-if="contrastIssues.length" class="contrast-warn">
+                        <div class="contrast-warn-title">
+                          {{ t("settings.theme.contrastTitle") }}
+                        </div>
+                        <ul class="contrast-warn-list">
+                          <li v-for="(i, idx) in contrastIssues" :key="idx">
+                            {{
+                              t("settings.theme.contrastIssue", {
+                                fg: t(`settings.theme.tokens.${i.fg}`),
+                                bg: t(`settings.theme.tokens.${i.bg}`),
+                                ratio: i.ratio.toFixed(2),
+                              })
+                            }}
+                          </li>
+                        </ul>
+                      </div>
+
+                      <div
+                        v-for="g in themeGroups"
+                        :key="g.key"
+                        class="theme-card"
+                      >
+                        <div class="theme-card-head">
+                          <span class="theme-card-title">{{
+                            t(`settings.theme.groups.${g.key}`)
+                          }}</span>
+                          <span class="theme-card-swatches">
+                            <i
+                              v-for="tk in g.tokens.slice(0, 5)"
+                              :key="tk"
+                              :style="{ background: themeSpec[tk] }"
+                            />
+                          </span>
+                          <button
+                            class="theme-group-reset"
+                            :class="{ on: groupOverridden(g.tokens) }"
+                            :disabled="!groupOverridden(g.tokens)"
+                            :title="t('settings.theme.resetGroup')"
+                            :aria-label="t('settings.theme.resetGroup')"
+                            @click="resetThemeGroup(g.tokens)"
+                          >
+                            <RotateCcw class="size-3" />
+                          </button>
+                        </div>
+                        <div
+                          v-for="token in g.tokens"
+                          :key="token"
+                          class="field-row theme-row"
+                        >
+                          <div class="field-info">
+                            <span class="field-name">{{
+                              t(`settings.theme.tokens.${token}`)
+                            }}</span>
+                          </div>
+                          <div class="theme-token-ctrl">
+                            <UiColorField
+                              :model-value="themeSpec[token]"
+                              @update:model-value="
+                                (v: string) => previewThemeToken(token, v)
+                              "
+                              @commit="(v: string) => setThemeToken(token, v)"
+                            />
+                            <button
+                              class="theme-token-reset"
+                              :class="{ on: tokenOverridden(token) }"
+                              :title="t('settings.theme.reset')"
+                              :aria-label="t('settings.theme.reset')"
+                              @click="onThemeToken(token, null)"
+                            >
+                              ↺
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template v-else-if="themeSub === 'appearance'">
+                      <div class="field-row">
+                        <div class="field-info">
+                          <span class="field-name">{{
+                            t("settings.theme.appearance.bgImage")
+                          }}</span>
+                          <span class="field-desc">{{
+                            t("settings.theme.appearance.bgImageDesc")
+                          }}</span>
+                        </div>
+                        <div class="bg-pick">
+                          <span
+                            v-if="backgroundName"
+                            class="muted bg-name"
+                            :title="settings.settings.backgroundImage"
+                            >{{ backgroundName }}</span
+                          >
+                          <UiButton size="sm" @click="pickBackgroundImage()">
+                            {{ t("settings.theme.appearance.bgPick") }}
+                          </UiButton>
+                          <UiButton
+                            v-if="settings.settings.backgroundImage"
+                            size="sm"
+                            variant="soft"
+                            @click="clearBackgroundImage()"
+                          >
+                            {{ t("settings.theme.appearance.bgClear") }}
+                          </UiButton>
+                        </div>
+                      </div>
+
+                      <div
+                        v-if="backgroundImageUrl"
+                        class="bg-preview"
+                        role="img"
+                        :aria-label="t('settings.theme.appearance.bgImage')"
+                      />
+
+                      <template v-if="settings.settings.backgroundImage">
+                        <div class="field-row col">
+                          <div class="field-info">
+                            <span class="field-name">{{
+                              t("settings.theme.appearance.bgFit")
+                            }}</span>
+                            <span class="field-desc">{{
+                              t("settings.theme.appearance.bgFitDesc")
+                            }}</span>
+                          </div>
+                          <UiRadioGroup
+                            :model-value="backgroundFit"
+                            :options="backgroundFitOptions"
+                            @update:model-value="
+                              (v: string) => (backgroundFit = v)
+                            "
+                          />
+                        </div>
+
+                        <div class="field-row col">
+                          <div class="field-info">
+                            <span class="field-name">{{
+                              t("settings.theme.appearance.bgBlur")
+                            }}</span>
+                            <span class="field-desc">{{
+                              t("settings.theme.appearance.bgBlurDesc")
+                            }}</span>
+                          </div>
+                          <div class="pct-row">
+                            <UiSlider
+                              :model-value="backgroundBlur"
+                              :min="0"
+                              :max="40"
+                              class="pct-slider"
+                              @update:model-value="
+                                (v: number) => (backgroundBlur = v)
+                              "
+                            />
+                            <span class="num pct-value"
+                              >{{ backgroundBlur }}px</span
+                            >
+                          </div>
+                        </div>
+
+                        <div class="field-row col">
+                          <div class="field-info">
+                            <span class="field-name">{{
+                              t("settings.theme.appearance.bgDim")
+                            }}</span>
+                            <span class="field-desc">{{
+                              t("settings.theme.appearance.bgDimDesc")
+                            }}</span>
+                          </div>
+                          <div class="pct-row">
+                            <UiSlider
+                              :model-value="backgroundDim"
+                              :min="0"
+                              :max="100"
+                              class="pct-slider"
+                              @update:model-value="
+                                (v: number) => (backgroundDim = v)
+                              "
+                            />
+                            <span class="num pct-value"
+                              >{{ backgroundDim }}%</span
+                            >
+                          </div>
+                        </div>
+                      </template>
+
+                      <div class="field-row col">
+                        <div class="field-info">
+                          <span class="field-name">{{
+                            t("settings.theme.appearance.surfaceOpacity")
+                          }}</span>
+                          <span class="field-desc">{{
+                            t("settings.theme.appearance.surfaceOpacityDesc")
+                          }}</span>
+                        </div>
+                        <div class="pct-row">
+                          <UiSlider
+                            :model-value="surfaceOpacity"
+                            :min="20"
+                            :max="100"
+                            class="pct-slider"
+                            @update:model-value="
+                              (v: number) => (surfaceOpacity = v)
+                            "
+                          />
+                          <span class="num pct-value"
+                            >{{ surfaceOpacity }}%</span
+                          >
+                        </div>
+                      </div>
+
+                      <div class="field-row col">
+                        <div class="field-info">
+                          <span class="field-name">{{
+                            t("settings.theme.appearance.uiZoom")
+                          }}</span>
+                          <span class="field-desc">{{
+                            t("settings.theme.appearance.uiZoomDesc")
+                          }}</span>
+                        </div>
+                        <div class="pct-row">
+                          <UiSlider
+                            :model-value="uiZoomDraft"
+                            :min="75"
+                            :max="150"
+                            :step="5"
+                            class="pct-slider"
+                            @update:model-value="
+                              (v: number) => (uiZoomDraft = v)
+                            "
+                            @commit="commitUiZoom"
+                          />
+                          <span class="num pct-value">{{ uiZoomDraft }}%</span>
+                        </div>
+                      </div>
+
+                      <div class="field-row col">
+                        <div class="field-info">
+                          <span class="field-name">{{
+                            t("settings.theme.appearance.uiFontScale")
+                          }}</span>
+                          <span class="field-desc">{{
+                            t("settings.theme.appearance.uiFontScaleDesc")
+                          }}</span>
+                        </div>
+                        <div class="pct-row">
+                          <UiSlider
+                            :model-value="uiFontScale"
+                            :min="85"
+                            :max="150"
+                            :step="5"
+                            class="pct-slider"
+                            @update:model-value="
+                              (v: number) => (uiFontScale = v)
+                            "
+                          />
+                          <span class="num pct-value">{{ uiFontScale }}%</span>
+                        </div>
+                      </div>
+
+                      <div class="field-row">
+                        <div class="field-info">
+                          <span class="field-name">{{
+                            t("settings.theme.appearance.uiBlur")
+                          }}</span>
+                          <span class="field-desc">{{
+                            t("settings.theme.appearance.uiBlurDesc")
+                          }}</span>
+                        </div>
+                        <UiSwitch
+                          :model-value="uiBlur"
+                          @update:model-value="(v: boolean) => (uiBlur = v)"
+                        />
+                      </div>
+
+                      <div v-if="uiBlur && !simpleMode" class="field-row col">
+                        <div class="field-info">
+                          <span class="field-name">{{
+                            t("settings.theme.appearance.uiBlurAmount")
+                          }}</span>
+                          <span class="field-desc">{{
+                            t("settings.theme.appearance.uiBlurAmountDesc")
+                          }}</span>
+                        </div>
+                        <div class="pct-row">
+                          <UiSlider
+                            :model-value="uiBlurAmount"
+                            :min="0"
+                            :max="24"
+                            class="pct-slider"
+                            @update:model-value="
+                              (v: number) => (uiBlurAmount = v)
+                            "
+                          />
+                          <span class="num pct-value"
+                            >{{ uiBlurAmount }}px</span
+                          >
+                        </div>
+                      </div>
+
+                      <div class="field-row col">
+                        <div class="field-info">
+                          <span class="field-name">{{
+                            t("settings.theme.appearance.uiRadius")
+                          }}</span>
+                          <span class="field-desc">{{
+                            t("settings.theme.appearance.uiRadiusDesc")
+                          }}</span>
+                        </div>
+                        <div class="pct-row">
+                          <UiSlider
+                            :model-value="uiRadius"
+                            :min="0"
+                            :max="20"
+                            class="pct-slider"
+                            @update:model-value="(v: number) => (uiRadius = v)"
+                          />
+                          <span class="num pct-value">{{ uiRadius }}px</span>
+                        </div>
+                      </div>
+
+                      <div class="field-row col">
+                        <div class="field-info">
+                          <span class="field-name">{{
+                            t("settings.theme.appearance.uiShadow")
+                          }}</span>
+                          <span class="field-desc">{{
+                            t("settings.theme.appearance.uiShadowDesc")
+                          }}</span>
+                        </div>
+                        <div class="pct-row">
+                          <UiSlider
+                            :model-value="uiShadow"
+                            :min="0"
+                            :max="100"
+                            class="pct-slider"
+                            @update:model-value="(v: number) => (uiShadow = v)"
+                          />
+                          <span class="num pct-value">{{ uiShadow }}%</span>
+                        </div>
+                      </div>
+                    </template>
                   </div>
-                </template>
+
+                  <aside class="theme-preview">
+                    <div class="sub-head">
+                      {{ t("settings.theme.preview") }}
+                    </div>
+                    <ThemePreview :spec="themeSpec" variant="panel" />
+                    <p class="muted theme-hint">
+                      {{ t("settings.theme.previewHint") }}
+                    </p>
+                  </aside>
+                </div>
               </section>
 
               <!-- 快捷键 -->
@@ -1782,13 +2580,17 @@ function onSearchEnter(): void {
                       :placeholder="t('settings.plugins.marketSearch')"
                     />
                   </div>
-                  <nav class="subnav market-cats">
+                  <nav
+                    v-if="marketCategories.length"
+                    class="subnav market-cats"
+                  >
                     <button
                       class="subnav-item"
                       :class="{ active: marketCategory === '' }"
                       @click="marketCategory = ''"
                     >
                       {{ t("settings.plugins.marketAll") }}
+                      <span class="num">{{ market.length }}</span>
                     </button>
                     <button
                       v-for="c in marketCategories"
@@ -1798,10 +2600,20 @@ function onSearchEnter(): void {
                       @click="marketCategory = c"
                     >
                       {{ categoryLabel(c) }}
+                      <span class="num">{{
+                        marketCategoryCounts[c] ?? 0
+                      }}</span>
                     </button>
                   </nav>
 
                   <p v-if="marketError" class="plugin-err">{{ marketError }}</p>
+
+                  <p
+                    v-if="!marketLoading && marketFiltered.length === 0"
+                    class="plugin-empty"
+                  >
+                    {{ t("settings.plugins.marketNoMatch") }}
+                  </p>
 
                   <div
                     v-for="p in marketFiltered"
@@ -1927,28 +2739,30 @@ function onSearchEnter(): void {
               <section v-if="cat === 'network'">
                 <h3>{{ t("settings.cats.network") }}</h3>
 
-                <div class="sub-head">{{ t("settings.network.proxy") }}</div>
-                <div class="field-row col">
-                  <div class="field-info">
-                    <span class="field-name">{{
-                      t("settings.network.proxy")
-                    }}</span>
-                    <span class="field-desc">{{
-                      t("settings.network.proxyDesc")
-                    }}</span>
+                <template v-if="!simpleMode">
+                  <div class="sub-head">{{ t("settings.network.proxy") }}</div>
+                  <div class="field-row col">
+                    <div class="field-info">
+                      <span class="field-name">{{
+                        t("settings.network.proxy")
+                      }}</span>
+                      <span class="field-desc">{{
+                        t("settings.network.proxyDesc")
+                      }}</span>
+                    </div>
+                    <UiRadioGroup
+                      :model-value="settings.settings.proxyMode"
+                      :options="proxyOptions"
+                      @update:model-value="onProxyMode"
+                    />
                   </div>
-                  <UiRadioGroup
-                    :model-value="settings.settings.proxyMode"
-                    :options="proxyOptions"
-                    @update:model-value="onProxyMode"
-                  />
-                </div>
-                <p
-                  v-if="settings.settings.proxyMode === 'env'"
-                  class="field-desc network-note"
-                >
-                  {{ t("settings.network.proxyEnvHint") }}
-                </p>
+                  <p
+                    v-if="settings.settings.proxyMode === 'env'"
+                    class="field-desc network-note"
+                  >
+                    {{ t("settings.network.proxyEnvHint") }}
+                  </p>
+                </template>
 
                 <div class="sub-head">{{ t("settings.network.ghProxy") }}</div>
                 <div class="field-row">
@@ -2120,7 +2934,7 @@ function onSearchEnter(): void {
   width: min(1200px, 96vw);
   height: min(860px, 94vh);
   border: 1px solid var(--bdg-border-strong);
-  border-radius: 12px;
+  border-radius: calc(var(--bdg-radius, 6px) * 2);
   box-shadow: 0 18px 60px var(--bdg-shadow);
 }
 .panel.drawer {
@@ -2174,11 +2988,11 @@ function onSearchEnter(): void {
   width: 100%;
   height: 30px;
   padding: 0 28px 0 30px;
-  border-radius: 8px;
+  border-radius: var(--bdg-radius, 6px);
   border: 1px solid var(--bdg-border);
   background: var(--bdg-bg-sunken);
   color: var(--bdg-text);
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
   font-family: inherit;
   outline: none;
 }
@@ -2221,9 +3035,9 @@ function onSearchEnter(): void {
 }
 .search-result {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
   width: 100%;
   padding: 10px 18px;
   border: none;
@@ -2232,10 +3046,21 @@ function onSearchEnter(): void {
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
 }
 .search-result:hover {
   background: rgb(var(--bdg-accent-rgb) / 0.12);
+}
+.search-result mark {
+  background: rgb(var(--bdg-accent-rgb) / 0.3);
+  color: inherit;
+  border-radius: 2px;
+}
+.sr-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 .sr-label {
   min-width: 0;
@@ -2245,12 +3070,19 @@ function onSearchEnter(): void {
 }
 .sr-cat {
   flex: none;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
+}
+.sr-desc {
+  font-size: calc(11px * var(--bdg-font-scale, 1));
+  color: var(--bdg-text-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .search-empty {
   padding: 16px 18px;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
 }
 .search-hit {
@@ -2279,7 +3111,7 @@ function onSearchEnter(): void {
   border: none;
   background: none;
   color: var(--bdg-text-dim);
-  border-radius: 6px;
+  border-radius: var(--bdg-radius, 6px);
   cursor: pointer;
 }
 .icon-btn:hover {
@@ -2291,7 +3123,7 @@ function onSearchEnter(): void {
   border: none;
   color: var(--bdg-text-dim);
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
 }
 .close-x:hover {
   color: var(--bdg-text);
@@ -2325,9 +3157,9 @@ function onSearchEnter(): void {
   background: transparent;
   color: var(--bdg-text);
   padding: 9px 12px;
-  border-radius: 8px;
+  border-radius: var(--bdg-radius, 6px);
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
   text-align: left;
   font-family: inherit;
 }
@@ -2340,9 +3172,28 @@ function onSearchEnter(): void {
   font-weight: 600;
 }
 .nav-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
-  text-align: center;
   opacity: 0.9;
+}
+.nav-note {
+  margin-top: auto;
+  padding: 8px 12px;
+  border: none;
+  border-radius: var(--bdg-radius, 6px);
+  background: transparent;
+  color: var(--bdg-text-dim);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
+  line-height: 1.4;
+  text-align: left;
+}
+.nav-note:hover {
+  background: rgb(var(--bdg-neutral) / 0.1);
+  color: var(--bdg-text);
 }
 .content {
   flex: 1;
@@ -2351,7 +3202,7 @@ function onSearchEnter(): void {
 }
 .content h3 {
   margin: 0 0 14px;
-  font-size: 15px;
+  font-size: calc(15px * var(--bdg-font-scale, 1));
 }
 .content section {
   max-width: 768px;
@@ -2368,7 +3219,7 @@ function onSearchEnter(): void {
   margin: 18px 0 2px;
   padding-top: 14px;
   border-top: 1px solid var(--bdg-border);
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   font-weight: 700;
   color: var(--bdg-text-dim);
   letter-spacing: 0.04em;
@@ -2389,7 +3240,7 @@ function onSearchEnter(): void {
   color: var(--bdg-text-dim);
   padding: 4px 12px;
   border-radius: 999px;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
@@ -2422,7 +3273,7 @@ function onSearchEnter(): void {
 }
 .field-desc,
 .muted {
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   margin: 0;
 }
@@ -2441,7 +3292,7 @@ function onSearchEnter(): void {
 .keys-table td {
   padding: 7px 4px;
   border-bottom: 1px solid var(--bdg-border);
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
 }
 .act {
   color: var(--bdg-text-dim);
@@ -2458,7 +3309,7 @@ function onSearchEnter(): void {
   padding: 1px 8px;
   margin-left: 6px;
   font-family: "Consolas", monospace;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
 }
 .about-card {
   display: flex;
@@ -2467,7 +3318,7 @@ function onSearchEnter(): void {
   padding: 14px;
   background: rgb(var(--bdg-accent-rgb) / 0.07);
   border: 1px solid rgb(var(--bdg-accent-rgb) / 0.18);
-  border-radius: 10px;
+  border-radius: calc(var(--bdg-radius, 6px) * 2);
 }
 .about-update {
   margin-top: 14px;
@@ -2478,10 +3329,10 @@ function onSearchEnter(): void {
 }
 .about-update p {
   margin: 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
 }
 .about-logo {
-  font-size: 34px;
+  font-size: calc(34px * var(--bdg-font-scale, 1));
   color: var(--bdg-accent);
 }
 .about-info {
@@ -2492,7 +3343,7 @@ function onSearchEnter(): void {
   min-width: 0;
 }
 .about-name-input {
-  font-size: 16px;
+  font-size: calc(16px * var(--bdg-font-scale, 1));
   font-weight: 800;
   height: auto;
   padding-left: 0px;
@@ -2518,7 +3369,7 @@ function onSearchEnter(): void {
 .about-meta dd {
   margin: 0;
   font-family: "Consolas", monospace;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
 }
 .foot {
   flex: none;
@@ -2529,7 +3380,7 @@ function onSearchEnter(): void {
   border-top: 1px solid var(--bdg-border);
 }
 .autosave {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
 }
 .plugin-tools {
@@ -2539,7 +3390,7 @@ function onSearchEnter(): void {
 }
 .plugin-empty {
   color: var(--bdg-text-dim);
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
 }
 .plugin-card {
   padding: 10px 0;
@@ -2559,25 +3410,25 @@ function onSearchEnter(): void {
 }
 .plugin-name {
   font-weight: 700;
-  font-size: 13.5px;
+  font-size: calc(13.5px * var(--bdg-font-scale, 1));
   display: flex;
   align-items: center;
   gap: 8px;
 }
 .plugin-ver {
-  font-size: 10px;
+  font-size: calc(10px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   font-weight: 400;
 }
 .plugin-desc {
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .plugin-err {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-danger);
 }
 .plugin-meta {
@@ -2587,7 +3438,7 @@ function onSearchEnter(): void {
   flex: none;
 }
 .plugin-meta .badge {
-  font-size: 9px;
+  font-size: calc(9px * var(--bdg-font-scale, 1));
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--bdg-accent);
@@ -2597,7 +3448,7 @@ function onSearchEnter(): void {
   border-radius: 5px;
 }
 .plugin-dir {
-  font-size: 10px;
+  font-size: calc(10px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   margin-top: 4px;
   opacity: 0.8;
@@ -2606,7 +3457,7 @@ function onSearchEnter(): void {
   white-space: nowrap;
 }
 .plugin-sub {
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
 }
 .plugin-meta .badge.warn {
   color: var(--bdg-amber);
@@ -2621,11 +3472,46 @@ function onSearchEnter(): void {
 .market-cats {
   margin: 0 0 12px;
 }
+.market-cats .num {
+  margin-left: 6px;
+  opacity: 0.6;
+  font-size: 0.9em;
+}
+.bg-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.bg-pick .bg-name {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
+}
+/* Mirrors the real `.app-bg` layer so the thumbnail follows the fill mode
+   (and any future background treatment) without duplicating logic. */
+.bg-preview {
+  height: 160px;
+  margin: -4px 0 12px;
+  border-radius: var(--bdg-radius, 6px);
+  border: 1px solid var(--bdg-border);
+  background-color: var(--bdg-bg);
+  background-image: var(--bdg-bg-image, none);
+  background-position: center;
+  background-size: var(--bdg-bg-size, cover);
+  background-repeat: var(--bdg-bg-repeat, no-repeat);
+}
+/* Keep settings button labels from breaking mid-word (notably CJK). */
+.panel button {
+  word-break: keep-all;
+}
 .ttl-field {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
 }
 .ttl-chips {
   margin: 0;
@@ -2648,7 +3534,7 @@ function onSearchEnter(): void {
   background: transparent;
   color: var(--bdg-text);
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   cursor: pointer;
   text-align: left;
 }
@@ -2668,7 +3554,7 @@ function onSearchEnter(): void {
 }
 .ghproxy-ms {
   flex: none;
-  font-size: 11px;
+  font-size: calc(11px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
 }
 .ghproxy-item.active .ghproxy-ms {
@@ -2681,7 +3567,7 @@ function onSearchEnter(): void {
   border: none;
   background: transparent;
   color: var(--bdg-danger);
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   font-family: inherit;
   cursor: pointer;
   padding: 0;
@@ -2707,10 +3593,10 @@ function onSearchEnter(): void {
   gap: 2px;
   margin-top: 8px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--bdg-radius, 6px);
   background: rgb(var(--bdg-amber-rgb) / 0.1);
   border: 1px solid rgb(var(--bdg-amber-rgb) / 0.25);
-  font-size: 11.5px;
+  font-size: calc(11.5px * var(--bdg-font-scale, 1));
   line-height: 1.4;
 }
 .trust-box strong {
@@ -2733,7 +3619,7 @@ function onSearchEnter(): void {
   min-width: 0;
 }
 .pct-value {
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   min-width: 34px;
   text-align: right;
   color: var(--bdg-accent);
@@ -2761,8 +3647,8 @@ function onSearchEnter(): void {
   background: transparent;
   color: var(--bdg-text);
   padding: 5px 12px;
-  border-radius: 8px;
-  font-size: 12px;
+  border-radius: var(--bdg-radius, 6px);
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   font-family: inherit;
   cursor: pointer;
   max-width: 100%;
@@ -2781,7 +3667,7 @@ function onSearchEnter(): void {
 }
 .metronome-empty {
   margin: 4px 0 0;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
 }
 .metronome-volume {
   display: flex;
@@ -2793,46 +3679,129 @@ function onSearchEnter(): void {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   color: var(--bdg-text-dim);
   cursor: pointer;
 }
-.theme-presets {
+/* Theme page: content column + sticky live-preview column. */
+.theme-section {
+  max-width: 940px;
+}
+.theme-split {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 20px;
+}
+.theme-main {
+  flex: 2 1 380px;
+  min-width: 0;
+}
+.theme-preview {
+  flex: 1 1 220px;
+  max-width: 320px;
+  min-width: 0;
+  position: sticky;
+  top: 0;
+}
+.theme-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 10px;
 }
 .theme-preset {
+  position: relative;
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
   background: var(--bdg-bg-raised);
   border: 1px solid var(--bdg-border);
   color: var(--bdg-text);
-  border-radius: 8px;
-  padding: 6px 10px;
+  border-radius: var(--bdg-radius, 6px);
+  padding: 8px;
   cursor: pointer;
   font-family: inherit;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    box-shadow 0.16s ease;
 }
 .theme-preset:hover {
   border-color: var(--bdg-border-strong);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px var(--bdg-shadow);
 }
 .theme-preset.active {
   border-color: var(--bdg-accent);
   background: rgb(var(--bdg-accent-rgb) / 0.12);
-  color: var(--bdg-accent);
 }
-.swatches {
+.theme-preset-preview {
+  pointer-events: none;
+}
+.theme-preset-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 0 2px;
+}
+.theme-preset-name {
+  font-weight: 600;
+}
+.theme-preset-badge {
+  flex: none;
+  font-size: calc(10px * var(--bdg-font-scale, 1));
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--bdg-border);
+  color: var(--bdg-text-dim);
+}
+.theme-preset-badge.light {
+  background: rgb(255 255 255 / 0.12);
+}
+.theme-preset-badge.dark {
+  background: rgb(0 0 0 / 0.22);
+}
+.theme-preset-check {
+  position: absolute;
+  top: 6px;
+  right: 6px;
   display: inline-flex;
-  border-radius: 4px;
-  overflow: hidden;
-  border: 1px solid var(--bdg-border-strong);
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bdg-accent);
+  color: var(--bdg-bg);
+  box-shadow: 0 2px 6px var(--bdg-shadow);
 }
-.swatches i {
-  width: 11px;
-  height: 11px;
-  display: block;
+.accent-pick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.accent-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  box-shadow: 0 0 0 1px var(--bdg-border-strong) inset;
+  transition: transform 0.14s ease;
+}
+.accent-swatch:hover {
+  transform: scale(1.14);
+}
+.accent-swatch.active {
+  border-color: var(--bdg-text);
+  box-shadow:
+    0 0 0 1px var(--bdg-border-strong) inset,
+    0 0 0 2px var(--bdg-accent);
 }
 .theme-share {
   display: flex;
@@ -2854,10 +3823,10 @@ function onSearchEnter(): void {
 .contrast-warn {
   background: rgb(var(--bdg-amber-rgb) / 0.1);
   border: 1px solid rgb(var(--bdg-amber-rgb) / 0.32);
-  border-radius: 8px;
+  border-radius: var(--bdg-radius, 6px);
   padding: 8px 10px;
   margin: 0 0 10px;
-  font-size: 12px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
 }
 .contrast-warn-title {
   font-weight: 700;
@@ -2872,14 +3841,58 @@ function onSearchEnter(): void {
 .contrast-warn-list li {
   margin: 2px 0;
 }
-.theme-group {
-  margin-bottom: 6px;
+.theme-card {
+  border: 1px solid var(--bdg-border);
+  border-radius: var(--bdg-radius, 6px);
+  background: rgb(var(--bdg-neutral) / 0.04);
+  padding: 2px 12px 6px;
+  margin-bottom: 12px;
 }
-.theme-group-title {
-  font-size: 12px;
+.theme-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 0 6px;
+  border-bottom: 1px solid var(--bdg-border);
+}
+.theme-card-title {
+  font-size: calc(12px * var(--bdg-font-scale, 1));
   font-weight: 700;
+  color: var(--bdg-text);
+  letter-spacing: 0.03em;
+}
+.theme-card-swatches {
+  display: inline-flex;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--bdg-border-strong);
+  margin-left: auto;
+}
+.theme-card-swatches i {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+.theme-group-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--bdg-border);
+  border-radius: 5px;
+  background: none;
   color: var(--bdg-text-dim);
-  margin: 10px 0 2px;
+  cursor: pointer;
+  opacity: 0.4;
+}
+.theme-group-reset.on {
+  opacity: 1;
+  color: var(--bdg-accent);
+  border-color: rgb(var(--bdg-accent-rgb) / 0.4);
+}
+.theme-group-reset:disabled {
+  cursor: default;
 }
 .theme-row {
   padding: 8px 0;
@@ -2894,7 +3907,7 @@ function onSearchEnter(): void {
   border: none;
   color: var(--bdg-text-dim);
   cursor: pointer;
-  font-size: 13px;
+  font-size: calc(13px * var(--bdg-font-scale, 1));
   opacity: 0.25;
   padding: 0 2px;
 }

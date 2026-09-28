@@ -36,6 +36,7 @@ const api: IpcApi = {
   updateSettings: (patch) => ipcRenderer.invoke("settings:update", patch),
   checkForUpdates: () => ipcRenderer.invoke("updates:check"),
   toggleDevTools: () => ipcRenderer.invoke("dev:tools"),
+  setZoom: (factor) => ipcRenderer.invoke("ui:zoom", factor),
   writeProjectFile: (filePath: string, content: string) =>
     ipcRenderer.invoke("text:write", filePath, content),
   computeMd5: (filePath: string) => ipcRenderer.invoke("audio:md5", filePath),
@@ -44,6 +45,8 @@ const api: IpcApi = {
   readMetronome: (file: string) => ipcRenderer.invoke("metronome:read", file),
   notifyAppReady: () => ipcRenderer.invoke("app:ready"),
   readTextFile: (filePath: string) => ipcRenderer.invoke("text:read", filePath),
+  readImageAsDataUrl: (filePath: string) =>
+    ipcRenderer.invoke("image:read-data-url", filePath),
   recordRecent: (filePath: string, title?: string) =>
     ipcRenderer.invoke("recents:add", filePath, title),
   getRecents: () => ipcRenderer.invoke("recents:get"),
