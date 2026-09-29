@@ -11,6 +11,7 @@ import type { BpmPoint, Marker, MarkerTrack, ProjectNote } from "../types";
 interface Snap {
   baseBpm: number;
   offsetMs: number;
+  bpmLocked: boolean;
   tracks: unknown;
   markers: unknown;
   bpmPoints: unknown;
@@ -21,6 +22,7 @@ const undoStack: Snap[] = [];
 const redoStack: Snap[] = [];
 let editingGesture = false;
 let gestureSnapshot: Snap | null = null;
+let transactionSnapshot: Snap | null = null;
 
 function snapshotNow(): Snap {
   const p = useProjectStore();
@@ -28,6 +30,7 @@ function snapshotNow(): Snap {
     JSON.stringify({
       baseBpm: p.baseBpm,
       offsetMs: p.offsetMs,
+      bpmLocked: p.bpmLocked,
       tracks: p.tracks,
       markers: p.markers,
       bpmPoints: p.bpmPoints,
@@ -36,10 +39,17 @@ function snapshotNow(): Snap {
   ) as Snap;
 }
 
+function commitSnapshot(snap: Snap): void {
+  undoStack.push(snap);
+  if (undoStack.length > 100) undoStack.shift();
+  redoStack.length = 0;
+}
+
 function applySnap(snap: Snap): void {
   const p = useProjectStore();
   p.baseBpm = snap.baseBpm;
   p.offsetMs = snap.offsetMs;
+  p.bpmLocked = snap.bpmLocked;
   p.tracks = snap.tracks as MarkerTrack[];
   p.markers = snap.markers as Marker[];
   p.bpmPoints = snap.bpmPoints as BpmPoint[];
@@ -52,19 +62,34 @@ function applySnap(snap: Snap): void {
 }
 
 export function pushHistory(): void {
-  if (editingGesture) return;
-  undoStack.push(snapshotNow());
-  if (undoStack.length > 100) undoStack.shift();
-  redoStack.length = 0;
+  if (editingGesture || transactionSnapshot) return;
+  commitSnapshot(snapshotNow());
+}
+
+/**
+ * Record an edit that may turn out to be a no-op. The caller captures the state
+ * up front and commits a single undo step only if the document actually changed
+ * by the time the transaction ends — so a blocked delete or a paste that adds
+ * nothing never leaves a phantom entry on the undo stack. Nesting is ignored.
+ */
+export function beginEditTransaction(): void {
+  if (transactionSnapshot || editingGesture) return;
+  transactionSnapshot = snapshotNow();
+}
+
+export function endEditTransaction(): void {
+  const snap = transactionSnapshot;
+  transactionSnapshot = null;
+  if (!snap) return;
+  if (JSON.stringify(snapshotNow()) === JSON.stringify(snap)) return;
+  commitSnapshot(snap);
 }
 
 export function historyGestureBegin(): void {
-  if (editingGesture) return;
+  if (editingGesture || transactionSnapshot) return;
   editingGesture = true;
   gestureSnapshot = snapshotNow();
-  undoStack.push(gestureSnapshot);
-  if (undoStack.length > 100) undoStack.shift();
-  redoStack.length = 0;
+  commitSnapshot(gestureSnapshot);
 }
 
 export function historyGestureEnd(): void {
@@ -83,6 +108,8 @@ export function resetHistory(): void {
   undoStack.length = 0;
   redoStack.length = 0;
   editingGesture = false;
+  gestureSnapshot = null;
+  transactionSnapshot = null;
 }
 
 export function canUndo(): boolean {

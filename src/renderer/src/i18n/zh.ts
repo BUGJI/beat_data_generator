@@ -110,8 +110,6 @@ export default {
     hintNew: "点击 BPM 轨/踩点轨以放置点（默认吸附节拍轴）",
     hintBeatAxis: "拖动调整位置 · 点选后在浮动卡编辑拍位/速度",
     tempoHint: "BPM 轨：放置 BPM 点改变其后所有拍轴疏密（更快→更密）",
-    clickHint: "点击添加标记（自动吸附），右键删除，拖动可微调",
-    msSuffix: "",
   },
   transport: {
     play: "播放",
@@ -377,6 +375,8 @@ export default {
       home: "回到起点（播放头归零，时间线滚动回开头）",
       zoom: "缩放（时间线 Ctrl+滚轮）",
       pan: "上下/左右滚动",
+      wheel: "滚轮",
+      wheelShift: "Shift + 滚轮",
     },
     advanced: {
       developer: "开发者",
@@ -483,6 +483,17 @@ export default {
       pingTesting: "测试中",
       pingFail: "超时",
     },
+  },
+  a11y: {
+    close: "关闭",
+    dismiss: "关闭提示",
+    moveTrackUp: "上移轨道",
+    moveTrackDown: "下移轨道",
+    removeTrack: "删除轨道",
+    lockTrack: "锁定 / 解锁轨道",
+    hideTrack: "隐藏 / 显示轨道",
+    lockNote: "锁定 / 解锁便签",
+    deleteNote: "删除便签",
   },
   keys: {
     marker: "踩点",

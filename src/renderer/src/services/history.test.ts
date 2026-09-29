@@ -83,6 +83,18 @@ describe("history", () => {
     expect(sel.cardOpen).toBe(false);
   });
 
+  it("restores the bpm-lock flag on undo and redo", () => {
+    const p = useProjectStore();
+    p.bpmLocked = false;
+    pushHistory();
+    p.bpmLocked = true;
+
+    undo();
+    expect(p.bpmLocked).toBe(false);
+    redo();
+    expect(p.bpmLocked).toBe(true);
+  });
+
   it("caps the undo stack at 100 steps", () => {
     const p = useProjectStore();
     for (let i = 0; i < 150; i++) {

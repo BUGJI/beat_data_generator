@@ -18,7 +18,11 @@ import {
   markerSelectionIds,
   select,
 } from "./selection";
-import { pushHistory } from "../services/history";
+import {
+  beginEditTransaction,
+  endEditTransaction,
+  pushHistory,
+} from "../services/history";
 import { bpmAtBeat, effectiveBpmFor, tempoMap } from "../services/timeline";
 import type {
   BpmMode,
@@ -226,14 +230,20 @@ export function removeSelectedMarkers(): boolean {
   const ids = markerSelectionIds();
   if (!ids.length) return false;
   const p = useProjectStore();
-  pushHistory();
   let removed = false;
-  for (const id of ids) {
-    const m = findMarker(id);
-    if (m && !isTrackBlocked(m.trackId)) {
-      p.markers = p.markers.filter((x) => x.id !== m.id && x.parentId !== m.id);
-      removed = true;
+  beginEditTransaction();
+  try {
+    for (const id of ids) {
+      const m = findMarker(id);
+      if (m && !isTrackBlocked(m.trackId)) {
+        p.markers = p.markers.filter(
+          (x) => x.id !== m.id && x.parentId !== m.id,
+        );
+        removed = true;
+      }
     }
+  } finally {
+    endEditTransaction();
   }
   if (!removed) return false;
   p.dirty = true;
@@ -297,7 +307,7 @@ export function renameTrack(trackId: string, name: string): void {
   if (isTrackLocked(trackId)) return;
   const p = useProjectStore();
   const tr = p.tracks.find((x) => x.id === trackId);
-  if (tr) {
+  if (tr && tr.name !== name) {
     pushHistory();
     tr.name = name;
     p.dirty = true;
@@ -308,7 +318,7 @@ export function colorTrack(trackId: string, color: string): void {
   if (isTrackLocked(trackId)) return;
   const p = useProjectStore();
   const tr = p.tracks.find((x) => x.id === trackId);
-  if (tr) {
+  if (tr && tr.color !== color) {
     pushHistory();
     tr.color = color;
     p.dirty = true;
@@ -361,7 +371,7 @@ export const isTrackBlocked = (trackId: string): boolean =>
 export function setTrackLocked(trackId: string, v: boolean): void {
   const p = useProjectStore();
   const tr = p.tracks.find((x) => x.id === trackId);
-  if (!tr) return;
+  if (!tr || !!tr.locked === v) return;
   pushHistory();
   tr.locked = v;
   p.dirty = true;
@@ -370,7 +380,7 @@ export function setTrackLocked(trackId: string, v: boolean): void {
 export function setTrackHidden(trackId: string, v: boolean): void {
   const p = useProjectStore();
   const tr = p.tracks.find((x) => x.id === trackId);
-  if (!tr) return;
+  if (!tr || !!tr.hidden === v) return;
   pushHistory();
   tr.hidden = v;
   p.dirty = true;
@@ -556,6 +566,7 @@ function moveMarkerImpl(id: string, rawBeat: number, force = false): boolean {
       Math.abs(x.beat - beat) < 1 / 128,
   );
   if (blocked) return false;
+  if (m.beat === beat) return true;
   pushHistory();
   m.beat = beat;
   if (m.loop) refreshChildren(m);
@@ -726,6 +737,10 @@ export function addBpmPoint(
 ): BpmPoint | null {
   const p = useProjectStore();
   const beat = clampBeat(snapped(rawBeat));
+  // A tempo change at beat 0 is just the base BPM: the tempo map and the saved
+  // schema both ignore non-positive beats, so never create one (it would be
+  // silently dropped on reload). Free-input mode stays unrestricted.
+  if (!isFreeInput() && beat <= 0) return null;
   const existing = p.bpmPoints.find((pt) => Math.abs(pt.beat - beat) < 1e-6);
   if (isBpmLocked()) {
     if (existing) {
@@ -763,7 +778,12 @@ function updateBpmPointImpl(
   if (!pt || isBpmLocked()) return;
   const beat =
     patch.beat !== undefined ? clampBeat(snapped(patch.beat)) : undefined;
+  if (beat !== undefined && !isFreeInput() && beat <= 0) return;
   if (beat !== undefined && pointHasBeat(beat, id)) return;
+  const beatChanges = beat !== undefined && beat !== pt.beat;
+  const modeChanges = patch.mode !== undefined && patch.mode !== pt.mode;
+  const valueChanges = patch.value !== undefined;
+  if (!beatChanges && !modeChanges && !valueChanges) return;
   pushHistory();
   withTimeAlign(() => {
     if (beat !== undefined) pt.beat = beat;

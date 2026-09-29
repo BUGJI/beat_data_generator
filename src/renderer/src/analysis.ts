@@ -81,6 +81,10 @@ function downsample(
 
 let worker: Worker | null = null;
 let workerId = 0;
+/** Identifies the most recently requested full analysis; older in-flight
+ *  results are dropped so a slow load can never overwrite a newer one. */
+let analysisSeq = 0;
+let analyzingCount = 0;
 const pending = new Map<number, (res: AnalyseResponse) => void>();
 
 function ensureWorker(): Worker {
@@ -104,6 +108,26 @@ function ensureWorker(): Worker {
   };
   worker.onerror = (err) => {
     console.error("[analysis] worker error", err?.message ?? err);
+    // Fail every waiting request instead of leaving them pending forever, then
+    // drop the broken worker so the next request spins up a fresh one.
+    const message = err instanceof Error ? err.message : String(err);
+    for (const [id, resolve] of pending) {
+      resolve({
+        kind: "analyze",
+        id,
+        bpm: null,
+        beats: [],
+        loopStart: null,
+        loopEnd: null,
+        loopConfidence: null,
+        spectrum: null,
+        error: message,
+      });
+    }
+    pending.clear();
+    for (const [, resolve] of livePending) resolve(null);
+    livePending.clear();
+    worker = null;
   };
   return worker;
 }
@@ -156,42 +180,50 @@ function applyWorkerResult(res: AnalyseResponse): void {
   }
 }
 
-/**
- * Re-run analysis for the current audio, honouring loop/spectrum toggles.
- * Returns immediately; state updates when the worker reports back.
- */
-export async function analyzeCurrent(): Promise<void> {
-  if (analysis.analyzing) return;
+/** Shared analysis run: the latest request wins, and `analyzing` tracks any
+ *  in-flight run. `autoApply` gates writing detected BPM/beats into the project
+ *  (off when re-analyzing or when opening an existing project). */
+async function runAnalysis(autoApply: boolean): Promise<void> {
+  const mySeq = ++analysisSeq;
+  analyzingCount++;
   analysis.analyzing = true;
   try {
     const res = await requestAnalysis(
       useSettingsStore().settings.audioLoopDetect,
       useSettingsStore().settings.audioSpectrum,
     );
+    if (mySeq !== analysisSeq) return; // superseded by a newer audio load
     if (res.error) console.error("[analysis]", res.error);
     applyWorkerResult(res);
+    if (!autoApply) return;
+    // Never auto-touch the project mid-playback: a reload while playing should
+    // only fill the readout, not rewrite BPM / tracks under the user.
+    if (useTransportStore().playing) return;
+    if (useSettingsStore().settings.audioAutoBpm && res.bpm && !isBpmLocked()) {
+      setBaseBpm(Math.round(res.bpm));
+    }
+    if (useSettingsStore().settings.audioAutoBeats && res.beats.length) {
+      generateBeatMarkers();
+    }
   } finally {
-    analysis.analyzing = false;
+    analyzingCount = Math.max(0, analyzingCount - 1);
+    if (analyzingCount === 0) analysis.analyzing = false;
   }
 }
 
+/**
+ * Re-run analysis for the current audio, honouring loop/spectrum toggles.
+ * Returns immediately; state updates when the worker reports back.
+ */
+export async function analyzeCurrent(): Promise<void> {
+  if (analysis.analyzing) return;
+  await runAnalysis(false);
+}
+
 /** Run on every audio load, honouring each independent toggle. */
-export async function onAudioLoaded(): Promise<void> {
+export async function onAudioLoaded(autoApply = true): Promise<void> {
   analysis.liveBpm = null;
-  const wantLoop = useSettingsStore().settings.audioLoopDetect;
-  const wantSpectrum = useSettingsStore().settings.audioSpectrum;
-  const res = await requestAnalysis(wantLoop, wantSpectrum);
-  if (res.error) console.error("[analysis]", res.error);
-  applyWorkerResult(res);
-  // Never auto-touch the project mid-playback: a reload while playing should
-  // only fill the readout, not rewrite BPM / tracks under the user.
-  if (useTransportStore().playing) return;
-  if (useSettingsStore().settings.audioAutoBpm && res.bpm && !isBpmLocked()) {
-    setBaseBpm(Math.round(res.bpm));
-  }
-  if (useSettingsStore().settings.audioAutoBeats && res.beats.length) {
-    generateBeatMarkers();
-  }
+  await runAnalysis(autoApply);
 }
 
 /** Apply detected BPM to the project baseBpm. */

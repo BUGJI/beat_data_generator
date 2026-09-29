@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from "@lucide/vue";
+import { useI18n } from "vue-i18n";
 import { dismissToast, toasts, type ToastType } from "../../ui/toast";
+
+const { t } = useI18n();
 
 const ICONS = {
   success: CircleCheck,
@@ -20,6 +23,9 @@ const COLOR: Record<ToastType, string> = {
 <template>
   <div
     class="pointer-events-none fixed top-3 left-1/2 z-[300] flex -translate-x-1/2 flex-col items-center gap-2"
+    role="status"
+    aria-live="polite"
+    aria-atomic="false"
   >
     <TransitionGroup name="toast">
       <div
@@ -35,6 +41,8 @@ const COLOR: Record<ToastType, string> = {
         <span>{{ item.message }}</span>
         <button
           class="ml-1 text-fg-dim hover:text-fg"
+          :title="t('a11y.dismiss')"
+          :aria-label="t('a11y.dismiss')"
           @click="dismissToast(item.id)"
         >
           <X class="size-3" />

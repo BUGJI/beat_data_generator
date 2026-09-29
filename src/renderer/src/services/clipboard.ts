@@ -12,7 +12,7 @@ import {
 import { markerSelectionIds } from "../stores/selection";
 import { useViewStore } from "../stores/view";
 import { useTransportStore } from "../stores/transport";
-import { pushHistory } from "./history";
+import { beginEditTransaction, endEditTransaction } from "./history";
 import { beatOfTime } from "./timeline";
 import type { Marker } from "../types";
 
@@ -72,37 +72,43 @@ export function pasteMarkerGroup(): boolean {
     view.snapEnabled ? snapBeat(raw, view.snapDiv) : raw,
   );
   const trackIds = new Set(p.tracks.map((t) => t.id));
-  pushHistory();
   let created = false;
-  for (const clip of clipMarkers) {
-    const beat = anchor + clip.beat;
-    if (!trackIds.has(clip.trackId)) continue;
-    if (isTrackLocked(clip.trackId)) continue;
-    if (trackHasBeat(clip.trackId, beat)) continue;
-    const m = addMarkerToStore(clip.trackId, beat);
-    if (!m) continue;
-    if (clip.attrs) {
-      m.attrs = { ...clip.attrs };
-    } else {
-      const clipTrack = p.tracks.find((x) => x.id === clip.trackId);
-      if (clipTrack?.type && clipTrack.type !== "beat") {
-        m.attrs = defaultAttrsFor(clipTrack.type);
+  // A paste whose clips are all blocked or already occupied must not leave an
+  // empty undo entry; the transaction commits only when something changed.
+  beginEditTransaction();
+  try {
+    for (const clip of clipMarkers) {
+      const beat = anchor + clip.beat;
+      if (!trackIds.has(clip.trackId)) continue;
+      if (isTrackLocked(clip.trackId)) continue;
+      if (trackHasBeat(clip.trackId, beat)) continue;
+      const m = addMarkerToStore(clip.trackId, beat);
+      if (!m) continue;
+      if (clip.attrs) {
+        m.attrs = { ...clip.attrs };
+      } else {
+        const clipTrack = p.tracks.find((x) => x.id === clip.trackId);
+        if (clipTrack?.type && clipTrack.type !== "beat") {
+          m.attrs = defaultAttrsFor(clipTrack.type);
+        }
       }
+      if (clip.loop) {
+        m.loop = {
+          interval: clip.loop.interval,
+          count: Math.min(
+            MAX_LOOP_CHILDREN,
+            Math.max(1, Math.floor(clip.loop.count)),
+          ),
+          ...(clip.loop.exclude?.length
+            ? { exclude: [...clip.loop.exclude] }
+            : {}),
+        };
+        refreshChildren(m);
+      }
+      created = true;
     }
-    if (clip.loop) {
-      m.loop = {
-        interval: clip.loop.interval,
-        count: Math.min(
-          MAX_LOOP_CHILDREN,
-          Math.max(1, Math.floor(clip.loop.count)),
-        ),
-        ...(clip.loop.exclude?.length
-          ? { exclude: [...clip.loop.exclude] }
-          : {}),
-      };
-      refreshChildren(m);
-    }
-    created = true;
+  } finally {
+    endEditTransaction();
   }
   if (!created) return false;
   p.dirty = true;

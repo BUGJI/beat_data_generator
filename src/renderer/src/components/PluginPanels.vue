@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive } from "vue";
+import { useI18n } from "vue-i18n";
 import {
   panels as allPanels,
   openPanels,
@@ -7,6 +8,8 @@ import {
   localeText,
 } from "../plugins/registry";
 import { pluginEntries, pluginName } from "../plugins/host";
+
+const { t } = useI18n();
 
 const cleanups = new Map<string, () => void>();
 // Cache the ref callback per panel key. An inline arrow would be recreated on
@@ -218,11 +221,20 @@ function onClose(card: Card): void {
       :key="card.key"
       class="plugin-win"
       :style="styleOf(card.key)"
+      role="dialog"
+      :aria-label="card.title"
       @pointerdown="bringToFront(card.key)"
     >
       <div class="pw-head" @pointerdown.stop="onHeaderDown($event, card)">
         <span class="pw-title">{{ card.title }}</span>
-        <button class="pw-x" @click.stop="onClose(card)">✕</button>
+        <button
+          class="pw-x"
+          :title="t('a11y.close')"
+          :aria-label="t('a11y.close')"
+          @click.stop="onClose(card)"
+        >
+          ✕
+        </button>
       </div>
       <div class="pw-body" :ref="panelRefFor(card.key)" />
       <div class="pw-resize" @pointerdown.stop="onResizeDown($event, card)" />

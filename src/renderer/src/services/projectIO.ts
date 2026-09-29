@@ -35,6 +35,15 @@ export function markSaved(): void {
   lastSavedAt = Date.now();
 }
 
+/**
+ * Mark the project clean only when the document still matches what was written.
+ * If the user edited while the async write was in flight the document differs,
+ * so the dirty flag stays set and the edit is not silently treated as saved.
+ */
+function markSavedIfUnchanged(payload: string): void {
+  if (projectJson() === payload) markSaved();
+}
+
 function recentTitle(): string {
   const p = useProjectStore();
   const n = p.audioName;
@@ -143,7 +152,10 @@ export async function openProject(explicitPath?: string): Promise<void> {
         audio = await window.api.readAudioFile(legacyAudioPath);
       }
       if (audio) {
-        await loadAudioResult(audio, false);
+        // Loading audio for an existing project must not auto-apply detected
+        // BPM/beats: await the analysis so it finishes before we mark the
+        // project clean, and never let it rewrite the loaded document.
+        await loadAudioResult(audio, false, false);
         setAudioNameRelative();
         p.dirty = false;
       } else {
@@ -197,9 +209,10 @@ export async function saveProject(saveAs = false): Promise<void> {
   if (res.canceled || !res.filePath) return;
   p.projectPath = res.filePath;
   setAudioNameRelative();
-  const ok = await window.api.writeProjectFile(res.filePath, projectJson());
+  const payload = projectJson();
+  const ok = await window.api.writeProjectFile(res.filePath, payload);
   if (ok) {
-    markSaved();
+    markSavedIfUnchanged(payload);
     recordRecentNow();
     toast.success(t("dialogs.saveOk"));
   } else {
@@ -215,9 +228,10 @@ export async function saveProjectQuick(): Promise<void> {
     return;
   }
   setAudioNameRelative();
-  const ok = await window.api.writeProjectFile(path, projectJson());
+  const payload = projectJson();
+  const ok = await window.api.writeProjectFile(path, payload);
   if (ok) {
-    markSaved();
+    markSavedIfUnchanged(payload);
     recordRecentNow();
   } else {
     toast.error(t("dialogs.saveFail"));
@@ -316,8 +330,9 @@ export async function autoSaveTick(): Promise<void> {
   const intervalMs = Math.max(1, st.autoSaveMinutes || 5) * 60_000;
   if (!p.dirty || !path) return;
   if (Date.now() - lastSavedAt < intervalMs) return;
-  const ok = await window.api.writeProjectFile(path, projectJson());
-  if (ok) markSaved();
+  const payload = projectJson();
+  const ok = await window.api.writeProjectFile(path, payload);
+  if (ok) markSavedIfUnchanged(payload);
 }
 
 export async function newProjectAt(filePath: string): Promise<void> {
@@ -325,9 +340,10 @@ export async function newProjectAt(filePath: string): Promise<void> {
   freshProject();
   p.projectPath = filePath;
   setAudioNameRelative();
-  const ok = await window.api.writeProjectFile(filePath, projectJson());
+  const payload = projectJson();
+  const ok = await window.api.writeProjectFile(filePath, payload);
   if (ok) {
-    markSaved();
+    markSavedIfUnchanged(payload);
     recordRecentNow();
     toast.success(t("dialogs.saveOk"));
   } else {

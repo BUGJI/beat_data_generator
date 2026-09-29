@@ -3,12 +3,14 @@ import { createPinia, setActivePinia } from "pinia";
 import {
   addMarker,
   addTrack,
+  setTrackLocked,
   updateMarkerAttrs,
   useProjectStore,
 } from "../stores/project";
 import { selectSingleMarker } from "../stores/selection";
 import { registerTrackType, typeKeyOf } from "../plugins/registry";
 import { copyMarkerGroup, pasteMarkerGroup } from "./clipboard";
+import { canUndo, resetHistory } from "./history";
 
 let seq = 0;
 
@@ -37,6 +39,7 @@ function typedTrackKey(): string {
 
 beforeEach(() => {
   setActivePinia(createPinia());
+  resetHistory();
 });
 
 describe("copyMarkerGroup / pasteMarkerGroup", () => {
@@ -53,5 +56,19 @@ describe("copyMarkerGroup / pasteMarkerGroup", () => {
     p.markers = [];
     expect(pasteMarkerGroup()).toBe(true);
     expect(p.markers[0]?.attrs).toEqual({ direction: "down", power: 5 });
+  });
+
+  it("records nothing when a paste adds no markers", () => {
+    const p = useProjectStore();
+    const track = addTrack("T", false);
+    const marker = addMarker(track.id, 1);
+    selectSingleMarker(marker!.id);
+    expect(copyMarkerGroup()).toBe(true);
+
+    setTrackLocked(track.id, true);
+    resetHistory();
+    expect(pasteMarkerGroup()).toBe(false);
+    expect(canUndo()).toBe(false);
+    expect(p.markers).toHaveLength(1);
   });
 });

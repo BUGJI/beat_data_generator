@@ -151,23 +151,37 @@ function onResize(): void {
   if (showSpectrum.value) drawSpectrum();
 }
 
+function onKeydown(e: KeyboardEvent): void {
+  // Escape dismisses the panel, but never steal it from the settings dialog.
+  if (e.key === "Escape" && ui.analysisOpen && !settings.settingsOpen) close();
+}
+
 onMounted(() => {
   startLiveBpm();
   window.addEventListener("resize", onResize);
+  window.addEventListener("keydown", onKeydown);
 });
 onBeforeUnmount(() => {
   stopLiveBpm();
   window.removeEventListener("resize", onResize);
+  window.removeEventListener("keydown", onKeydown);
 });
 </script>
 
 <template>
   <teleport to="body">
-    <div v-if="ui.analysisOpen" class="ana-mask" @click.self="close">
-      <div class="ana-win">
+    <div v-if="ui.analysisOpen" class="ana-mask">
+      <div class="ana-win" role="dialog" :aria-label="t('settings.cats.audio')">
         <header class="ana-head">
           <span class="ana-title">{{ t("settings.cats.audio") }}</span>
-          <button class="ana-x" @click="close">✕</button>
+          <button
+            class="ana-x"
+            :title="t('a11y.close')"
+            :aria-label="t('a11y.close')"
+            @click="close"
+          >
+            ✕
+          </button>
         </header>
 
         <div v-if="!hasAudio" class="ana-empty">

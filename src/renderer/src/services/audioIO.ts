@@ -74,6 +74,7 @@ async function decodeAndApply(
   bytes: Uint8Array,
   path: string,
   name: string,
+  autoApply: boolean,
 ): Promise<boolean> {
   const p = useProjectStore();
   const tr = useTransportStore();
@@ -92,18 +93,23 @@ async function decodeAndApply(
   }
   p.dirty = true;
   // Run pleco-xa analysis (BPM / beats / loop / spectrum) against the new
-  // audio, honoring each independent audio-analysis setting toggle.
-  void import("../analysis").then((m) => m.onAudioLoaded());
+  // audio, honoring each independent audio-analysis setting toggle. Awaited so
+  // callers that then mark the project clean (e.g. openProject) observe the
+  // final document state; passed autoApply=false to keep an opened project
+  // from being rewritten by auto-BPM / auto-beats.
+  const { onAudioLoaded } = await import("../analysis");
+  await onAudioLoaded(autoApply);
   return true;
 }
 
 export async function loadAudioResult(
   res: AudioFileResultLike,
   adopt = true,
+  autoApply = true,
 ): Promise<void> {
   const p = useProjectStore();
   const tr = useTransportStore();
-  const ok = await decodeAndApply(res.data, res.filePath, res.name);
+  const ok = await decodeAndApply(res.data, res.filePath, res.name, autoApply);
   if (!ok) {
     toast.error(t("dialogs.audioDecodeFail"));
     return;

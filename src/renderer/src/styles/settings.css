@@ -1,0 +1,107 @@
+/*
+ * Shared layout styles for the settings panel. These are global (not scoped)
+ * because the settings rows and category sections are rendered by child
+ * components whose elements a parent's scoped CSS cannot reach. Everything is
+ * namespaced under `.settings-panel` (the dialog panel root) so it cannot leak
+ * into the rest of the app.
+ */
+
+.settings-panel .content h3 {
+  margin: 0 0 14px;
+  font-size: calc(15px * var(--bdg-font-scale, 1));
+}
+
+.settings-panel .content section {
+  max-width: 768px;
+  margin: 0 auto;
+  padding: 0 10px;
+}
+
+.settings-panel .sub-head {
+  margin: 18px 0 2px;
+  padding-top: 14px;
+  border-top: 1px solid var(--bdg-border);
+  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-weight: 700;
+  color: var(--bdg-text-dim);
+  letter-spacing: 0.04em;
+}
+.settings-panel .sub-head:first-of-type {
+  border-top: none;
+}
+
+/* Second-level category tabs (chips) above the grouped rows. */
+.settings-panel .subnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 16px;
+}
+.settings-panel .subnav-item {
+  border: 1px solid var(--bdg-border);
+  background: transparent;
+  color: var(--bdg-text-dim);
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.settings-panel .subnav-item:hover {
+  background: rgb(var(--bdg-neutral) / 0.1);
+  color: var(--bdg-text);
+}
+.settings-panel .subnav-item.active {
+  background: rgb(var(--bdg-accent-rgb) / 0.16);
+  border-color: transparent;
+  color: var(--bdg-accent);
+  font-weight: 600;
+}
+
+.settings-panel .field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--bdg-border);
+}
+.settings-panel .field-row.col {
+  flex-direction: column;
+  align-items: stretch;
+}
+.settings-panel .field-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.settings-panel .field-name {
+  font-weight: 600;
+}
+.settings-panel .field-desc,
+.settings-panel .muted {
+  font-size: calc(12px * var(--bdg-font-scale, 1));
+  color: var(--bdg-text-dim);
+  margin: 0;
+}
+
+.settings-panel .pct-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.settings-panel .pct-slider {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+.settings-panel .pct-value {
+  font-size: calc(12px * var(--bdg-font-scale, 1));
+  min-width: 34px;
+  text-align: right;
+  color: var(--bdg-accent);
+}
+.settings-panel .decimals-input {
+  width: 84px;
+  flex: none;
+}

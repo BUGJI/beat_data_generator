@@ -9,6 +9,8 @@ const props = withDefaults(
     step?: number;
     precision?: number;
     disabled?: boolean;
+    /** Accessible name forwarded to the inner input element. */
+    label?: string;
   }>(),
   { step: 1, disabled: false },
 );
@@ -58,6 +60,7 @@ function stepBy(dir: 1 | -1): void {
     <input
       v-model="text"
       :disabled="disabled"
+      :aria-label="label"
       class="num h-full w-full min-w-0 bg-transparent px-2 text-fg outline-none"
       @blur="commit(text)"
       @keydown.enter="($event.target as HTMLInputElement).blur()"

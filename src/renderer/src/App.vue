@@ -47,11 +47,22 @@ function isTyping(el: EventTarget | null): boolean {
   );
 }
 
+/** Focused interactive controls own Space/Enter, so the global shortcuts must
+ *  not also fire while one of them is focused. */
+function ownsActivationKey(el: EventTarget | null): boolean {
+  if (!(el instanceof HTMLElement)) return false;
+  return !!el.closest("button, a[href], [role='button'], [role='tab']");
+}
+
 let unbindWelcome: (() => void) | null = null;
 
 function onKeydown(e: KeyboardEvent): void {
+  // The settings dialog is modal: suspend all global shortcuts while it is open.
+  if (settings.settingsOpen) return;
   if (isTyping(e.target)) return;
   const code = e.code;
+  if ((code === "Space" || code === "Enter") && ownsActivationKey(e.target))
+    return;
   if (e.ctrlKey || e.metaKey) {
     const k = e.key.toLowerCase();
     if (k === "s") {

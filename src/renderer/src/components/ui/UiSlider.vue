@@ -2,11 +2,20 @@
 import { computed } from "vue";
 import { SliderRange, SliderRoot, SliderThumb, SliderTrack } from "reka-ui";
 
-withDefaults(defineProps<{ min?: number; max?: number; step?: number }>(), {
-  min: 0,
-  max: 100,
-  step: 1,
-});
+withDefaults(
+  defineProps<{
+    min?: number;
+    max?: number;
+    step?: number;
+    /** Accessible name for the thumb (reka renders it as role="slider"). */
+    label?: string;
+  }>(),
+  {
+    min: 0,
+    max: 100,
+    step: 1,
+  },
+);
 
 const model = defineModel<number>({ required: true });
 const emit = defineEmits<{ commit: [value: number] }>();
@@ -40,6 +49,7 @@ function onValueCommit(v: number[]): void {
       <SliderRange class="absolute h-full rounded-full bg-accent" />
     </SliderTrack>
     <SliderThumb
+      :aria-label="label"
       class="block size-3.5 rounded-full bg-accent shadow outline-none focus-visible:ring-2 focus-visible:ring-accent/50"
     />
   </SliderRoot>

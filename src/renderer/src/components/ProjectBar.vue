@@ -301,6 +301,7 @@ async function onDetectBpm(): Promise<void> {
           size="sm"
           class="snap-select"
           creatable
+          :label="t('sidebar.snapToGrid')"
           :options="snapSelectOptions"
         />
         <span class="snap-unit">{{ t("sidebar.snapUnit") }}</span>
@@ -372,6 +373,7 @@ async function onDetectBpm(): Promise<void> {
           class="quick-icon"
           :class="{ on: ui.glowEnabled }"
           :title="t('follow.glowTip')"
+          :aria-pressed="ui.glowEnabled"
           @click="ui.glowEnabled = !ui.glowEnabled"
         >
           <svg
@@ -397,6 +399,7 @@ async function onDetectBpm(): Promise<void> {
           class="follow-btn"
           :class="{ on: followOn }"
           :title="followTip"
+          :aria-pressed="followOn"
           @click="clickFollow()"
         >
           <svg
@@ -417,6 +420,7 @@ async function onDetectBpm(): Promise<void> {
           class="quick-icon"
           :class="{ on: view.snapEnabled }"
           :title="t('sidebar.snapToGrid')"
+          :aria-pressed="view.snapEnabled"
           @click="toggleSnap()"
         >
           <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
@@ -431,6 +435,7 @@ async function onDetectBpm(): Promise<void> {
           class="quick-icon"
           :class="{ on: ui.quickPlace }"
           :title="t('follow.quickTip')"
+          :aria-pressed="ui.quickPlace"
           @click="ui.quickPlace = !ui.quickPlace"
         >
           <svg
@@ -459,6 +464,7 @@ async function onDetectBpm(): Promise<void> {
           class="quick-icon"
           :class="{ on: ui.timeAlign }"
           :title="t('follow.timeAlignTip')"
+          :aria-pressed="ui.timeAlign"
           @click="toggleTimeAlign()"
         >
           <svg

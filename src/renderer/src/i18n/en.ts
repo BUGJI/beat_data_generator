@@ -111,9 +111,12 @@ export default {
   },
   timeline: {
     none: "No project or audio loaded. Import from the File menu.",
-    clickHint:
-      "Click the marker lane to add (auto-snap), right-click to delete, drag to fine-tune",
-    msSuffix: "",
+    hintNew:
+      "Click the BPM / marker lane to place points (snapped to the beat axis by default)",
+    hintBeatAxis:
+      "Drag to adjust · select a point to edit its beat / BPM in the floating card",
+    tempoHint:
+      "BPM lane: add BPM points to change the beat-grid spacing after them (faster → denser)",
   },
   transport: {
     play: "Play",
@@ -404,6 +407,8 @@ export default {
       home: "Back to start (playhead to zero, timeline scrolls to beginning)",
       zoom: "Zoom (Ctrl + wheel)",
       pan: "Scroll vertically / horizontally",
+      wheel: "Scroll",
+      wheelShift: "Shift + Scroll",
     },
     advanced: {
       developer: "Developer",
@@ -515,6 +520,17 @@ export default {
       pingTesting: "testing",
       pingFail: "timeout",
     },
+  },
+  a11y: {
+    close: "Close",
+    dismiss: "Dismiss",
+    moveTrackUp: "Move track up",
+    moveTrackDown: "Move track down",
+    removeTrack: "Delete track",
+    lockTrack: "Lock / unlock track",
+    hideTrack: "Hide / show track",
+    lockNote: "Lock / unlock note",
+    deleteNote: "Delete note",
   },
   keys: {
     marker: "Marker",

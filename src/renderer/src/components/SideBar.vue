@@ -275,6 +275,8 @@ onBeforeUnmount(() => {
               class="mini icon"
               :class="{ on: row.track.locked }"
               :title="t('sidebar.lockTip')"
+              :aria-label="t('a11y.lockTrack')"
+              :aria-pressed="!!row.track.locked"
               @pointerdown.stop
               @click.stop="setTrackLocked(row.track.id, !row.track.locked)"
             >
@@ -284,6 +286,8 @@ onBeforeUnmount(() => {
               class="mini icon"
               :class="{ hide: row.track.hidden }"
               :title="t('sidebar.hideTip')"
+              :aria-label="t('a11y.hideTrack')"
+              :aria-pressed="!!row.track.hidden"
               @pointerdown.stop
               @click.stop="setTrackHidden(row.track.id, !row.track.hidden)"
             >
@@ -293,6 +297,8 @@ onBeforeUnmount(() => {
             <button
               class="mini"
               :disabled="row.i === 0"
+              :title="t('a11y.moveTrackUp')"
+              :aria-label="t('a11y.moveTrackUp')"
               @pointerdown.stop
               @click.stop="moveTrack(row.track.id, -1)"
             >
@@ -301,6 +307,8 @@ onBeforeUnmount(() => {
             <button
               class="mini"
               :disabled="row.i >= project.tracks.length - 1"
+              :title="t('a11y.moveTrackDown')"
+              :aria-label="t('a11y.moveTrackDown')"
               @pointerdown.stop
               @click.stop="moveTrack(row.track.id, 1)"
             >
@@ -309,6 +317,8 @@ onBeforeUnmount(() => {
             <button
               class="mini danger"
               :disabled="project.tracks.length <= 1"
+              :title="t('a11y.removeTrack')"
+              :aria-label="t('a11y.removeTrack')"
               @pointerdown.stop
               @click.stop="removeTrack(row.track.id)"
             >

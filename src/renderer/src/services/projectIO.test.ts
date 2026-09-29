@@ -1,7 +1,12 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useProjectStore } from "../stores/project";
-import { edlContent, exportLines, projectJson } from "./projectIO";
+import {
+  edlContent,
+  exportLines,
+  projectJson,
+  saveProjectQuick,
+} from "./projectIO";
 
 function setupProject() {
   const p = useProjectStore();
@@ -73,6 +78,52 @@ describe("edlContent", () => {
       "001  AX       V     C        00:00:00:00 00:00:00:01 00:00:00:00 00:00:00:01",
     );
     expect(text).toContain("* FROM CLIP NAME: song.mp3");
+  });
+});
+
+describe("saveProjectQuick", () => {
+  function mockWriteApi(): { resolve: (v: boolean) => void } {
+    let resolve: (v: boolean) => void = () => {};
+    window.api = {
+      writeProjectFile: () =>
+        new Promise<boolean>((r) => {
+          resolve = r;
+        }),
+      recordRecent: async () => {},
+    } as unknown as typeof window.api;
+    return { resolve: (v) => resolve(v) };
+  }
+
+  it("marks the project clean when nothing changed during the write", async () => {
+    const p = useProjectStore();
+    p.name = "Song";
+    p.projectPath = "C:/x/song.bdg";
+    p.dirty = true;
+    const api = mockWriteApi();
+
+    const saving = saveProjectQuick();
+    await Promise.resolve();
+    api.resolve(true);
+    await saving;
+
+    expect(p.dirty).toBe(false);
+  });
+
+  it("keeps the project dirty when an edit lands during the write", async () => {
+    const p = useProjectStore();
+    p.name = "Song";
+    p.projectPath = "C:/x/song.bdg";
+    p.dirty = true;
+    p.baseBpm = 120;
+    const api = mockWriteApi();
+
+    const saving = saveProjectQuick();
+    await Promise.resolve();
+    p.baseBpm = 999;
+    api.resolve(true);
+    await saving;
+
+    expect(p.dirty).toBe(true);
   });
 });
 
