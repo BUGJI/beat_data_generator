@@ -220,3 +220,39 @@ export function sanitizeSettings(raw: unknown): SettingsData {
     setFreeInput(prev);
   }
 }
+
+/**
+ * Apply version migrations to persisted data and return a fully parsed, repaired
+ * settings object. Shared by the main and renderer processes so the migration
+ * rules live in exactly one place; `changed` is true when the input was migrated
+ * or its version stamped, so callers can persist the result.
+ */
+export function migrateSettings(raw: unknown): {
+  data: SettingsData;
+  changed: boolean;
+} {
+  const input: Record<string, unknown> =
+    raw && typeof raw === "object" && !Array.isArray(raw)
+      ? { ...(raw as Record<string, unknown>) }
+      : {};
+  let changed = false;
+  const fromVersion = Number(input.settingsVersion ?? 0);
+
+  // v1 shipped with the auto audio-analysis toggles defaulting on. Reset them so
+  // residual enabled values from those early builds stop auto-running on load.
+  // Only v1 (< 2) needs this; later versions must not be reset again.
+  if (fromVersion < 2) {
+    input.audioAutoBpm = true;
+    input.audioAutoBeats = false;
+    input.audioLoopDetect = false;
+    input.audioLiveBpm = false;
+    input.audioSpectrum = false;
+    input.audioPanel = true;
+    changed = true;
+  }
+  if (fromVersion < SETTINGS_VERSION) {
+    input.settingsVersion = SETTINGS_VERSION;
+    changed = true;
+  }
+  return { data: sanitizeSettings(input), changed };
+}

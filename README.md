@@ -133,13 +133,13 @@
 
 ```
 src/
-├── main/            # Electron 主进程：窗口管理、IPC、文件对话框、设置/最近工程持久化、插件管理
+├── main/            # Electron 主进程：入口仅负责生命周期；settings / recents / lastDirs / windowState / metronome / files / windows / ipc / updater / market（registry·inventory·installer）等模块
 ├── preload/         # 预加载脚本（contextBridge 暴露安全 API）
 ├── shared/          # 主/渲染进程共享的 IPC 类型、设置 schema 与插件契约
 └── renderer/        # Vue 渲染进程
     └── src/
         ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar / AnalysisPanel 等
-        ├── stores/       # Pinia stores：project / selection / transport / view / settings / ui
+        ├── stores/       # Pinia stores：project（store / queries / tracks / markers / notes / bpm / timeAlign 子模块）/ selection / transport / view / settings / ui
         ├── services/     # 业务编排：timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
         ├── schemas/      # zod 工程文件 schema（v1 → v2 迁移与逐项容错）
         ├── plugins/      # 插件宿主：注册表 / 事件 / 桥接 API

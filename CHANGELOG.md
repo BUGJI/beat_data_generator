@@ -4,7 +4,7 @@
 
 版本号遵循语义化版本；`0.x` 阶段仍可能有破坏性改动（如工程文件 schema 升级）。
 
-## [Unreleased]
+## [0.3.3] - 2026-09-29 · 结构优化与国际化
 
 国际化
 
@@ -19,10 +19,17 @@
 - 撤销 / 重做快照改为存 JSON 文本：捕获与「无操作」检测各只序列化一次，并按总字节数限制历史体积，大工程不再固定囤 100 份完整文档
 - 时间线的 tempo map、按轨道分组的标记索引、内容长度从模块级缓存改为 Pinia store getter，缓存随 store 实例生命周期释放，测试与多实例下不再串味
 - 移除 `src/renderer/src/store` 兼容转发桶，全部改为直接引用 `stores/` 与 `services/`，消除由此放大的循环依赖
+- 拆分超大文件（均无界面行为变化）：
+  - 主进程入口 `index.ts` 1081 → 54 行，抽出 `settings` / `recents` / `lastDirs` / `windowState` / `metronome` / `files` / `windows` / `ipc` / `updater` 模块，入口只保留应用生命周期
+  - 插件市场 `market.ts` 822 行拆为 `market/registry`（索引拉取与缓存）/ `inventory`（本地安装状态与视图）/ `installer`（下载·校验·解压·安装）
+  - 工程 store `project.ts` 924 行拆为 `project/` 下的 `store` / `queries` / `tracks` / `markers` / `notes` / `bpm` / `timeAlign`（导入路径不变）
+- 设置迁移逻辑从主进程上移到 `shared/settings.ts` 的 `migrateSettings`（与 schema / `sanitizeSettings` 同处一份契约），消除主进程内联迁移与渲染侧重复；新增迁移单测
 
 修复
 
 - 主进程原生对话框统一优先绑定主窗口，窗口不存在时安全返回，不再因 `win()!` 在窗口关闭期间收到 IPC 而抛错
+
+- 安装包：`Beat-Data-Generator-0.3.3-setup.exe`
 
 ## [0.3.2] - 2026-09-29 · 稳定性与无障碍
 
@@ -214,6 +221,7 @@
 - 插件系统：可导出几乎任何格式，也可新增专用轨道承载额外内容
 - 定位说明：不是音游编辑器，也不是视频剪辑工具，目标是给其他编辑器提供一套标准的踩点基板
 
+[0.3.3]: https://github.com/BUGJI/beat_data_generator/compare/v0.3.2...v0.3.3
 [0.2.14]: https://github.com/BUGJI/beat_data_generator/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/BUGJI/beat_data_generator/compare/v0.2.12...v0.2.13
 [0.2.12]: https://github.com/BUGJI/beat_data_generator/compare/v0.2.10...v0.2.12

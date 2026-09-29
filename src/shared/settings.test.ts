@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { defaultSettings, sanitizeSettings } from "./settings";
+import {
+  defaultSettings,
+  migrateSettings,
+  sanitizeSettings,
+  SETTINGS_VERSION,
+} from "./settings";
 
 describe("defaultSettings", () => {
   it("returns the documented defaults", () => {
@@ -156,5 +161,38 @@ describe("sanitizeSettings", () => {
         .githubProxyHost,
     ).toBe("https://ghfast.top");
     expect(sanitizeSettings({ githubProxy: true }).githubProxy).toBe(true);
+  });
+});
+
+describe("migrateSettings", () => {
+  it("resets v1 analysis toggles and stamps the current version", () => {
+    const { data, changed } = migrateSettings({
+      settingsVersion: 1,
+      audioAutoBeats: true,
+      audioAutoBpm: false,
+      audioLoopDetect: true,
+    });
+    expect(changed).toBe(true);
+    expect(data.settingsVersion).toBe(SETTINGS_VERSION);
+    expect(data.audioAutoBpm).toBe(true);
+    expect(data.audioAutoBeats).toBe(false);
+    expect(data.audioLoopDetect).toBe(false);
+  });
+
+  it("reports no change when already at the current version", () => {
+    const { changed } = migrateSettings({ settingsVersion: SETTINGS_VERSION });
+    expect(changed).toBe(false);
+  });
+
+  it("treats a missing version as needing migration", () => {
+    const { data, changed } = migrateSettings({});
+    expect(changed).toBe(true);
+    expect(data.settingsVersion).toBe(SETTINGS_VERSION);
+  });
+
+  it("does not mutate the input object", () => {
+    const raw = { settingsVersion: 1, audioAutoBeats: true };
+    migrateSettings(raw);
+    expect(raw).toEqual({ settingsVersion: 1, audioAutoBeats: true });
   });
 });

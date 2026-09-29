@@ -136,13 +136,13 @@ Shortcuts are currently read-only (listed under **Settings → Shortcuts**); use
 
 ```
 src/
-├── main/            # Electron main process: windows, IPC, dialogs, settings/recents persistence, plugin manager
+├── main/            # Electron main: entry handles lifecycle only; settings / recents / lastDirs / windowState / metronome / files / windows / ipc / updater / market (registry·inventory·installer)
 ├── preload/         # Preload script (contextBridge exposes a safe API)
 ├── shared/          # IPC types, settings schema and plugin contract shared by main & renderer
 └── renderer/        # Vue renderer
     └── src/
         ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar / AnalysisPanel etc.
-        ├── stores/       # Pinia stores: project / selection / transport / view / settings / ui
+        ├── stores/       # Pinia stores: project (store / queries / tracks / markers / notes / bpm / timeAlign) / selection / transport / view / settings / ui
         ├── services/     # Orchestration: timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
         ├── schemas/      # zod project-file schema (v1 → v2 migration and per-item recovery)
         ├── plugins/      # Plugin host: registry / events / bridge API
