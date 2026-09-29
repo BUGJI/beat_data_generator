@@ -2,29 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import {
-  markersInTrack,
-  addMarker,
-  addBpmPoint,
-  updateBpmPoint,
-  moveMarker,
-  removeMarker,
-  removeBpmPoint,
-  disableFollowOnScrub,
   beatOfTime,
   timeOfBeat,
   markerTime as storeMarkerTime,
   contentEndMs,
-  seekTo,
-  select,
-  closeCard,
-  selectSingleMarker,
-  toggleMarkerSelect,
-  markerSelectionIds,
-  resolveMainMarker,
-  boxSelectMarkers,
-  historyGestureBegin,
-  historyGestureEnd,
-} from "../store";
+} from "../services/timeline";
+import { seekTo } from "../services/playback";
+import { historyGestureBegin, historyGestureEnd } from "../services/history";
 import {
   bpmOccupy,
   doSnap,
@@ -34,9 +18,27 @@ import {
 } from "./timeline/geometry";
 import { useTimelineCanvas } from "./timeline/useTimelineCanvas";
 import type { GhostState } from "./timeline/types";
-import { useProjectStore } from "../stores/project";
-import { useTransportStore } from "../stores/transport";
-import { useSelectionStore } from "../stores/selection";
+import {
+  useProjectStore,
+  markersInTrack,
+  addMarker,
+  addBpmPoint,
+  updateBpmPoint,
+  moveMarker,
+  removeMarker,
+  removeBpmPoint,
+  resolveMainMarker,
+} from "../stores/project";
+import { useTransportStore, disableFollowOnScrub } from "../stores/transport";
+import {
+  useSelectionStore,
+  select,
+  closeCard,
+  selectSingleMarker,
+  toggleMarkerSelect,
+  markerSelectionIds,
+  boxSelectMarkers,
+} from "../stores/selection";
 import { useSettingsStore } from "../stores/settings";
 import { useViewStore } from "../stores/view";
 import { useUiStore } from "../stores/ui";

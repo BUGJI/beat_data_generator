@@ -1,5 +1,4 @@
-import { computed, type ComputedRef } from "vue";
-import { buildTempoMap, type TempoMap } from "../tempo";
+import type { TempoMap } from "../tempo";
 import { engine } from "../engine";
 import { useProjectStore } from "../stores/project";
 import { useTransportStore } from "../stores/transport";
@@ -10,21 +9,12 @@ import type { BpmPoint, Marker, Segment } from "../types";
  * BPM / offset / tempo points) so they stay reactive wherever they are used.
  */
 
-// The map is rebuilt only when base BPM / offset / tempo points actually change,
-// instead of on every `timeOfBeat`/`beatOfTime` call. It is read inside the
-// canvas draw loops (once per beat / per marker), so caching it removes the
-// repeated sort-and-rebuild that dominated large-project rendering.
-let tempoMapComputed: ComputedRef<TempoMap> | null = null;
-
-export const tempoMap = (): TempoMap => {
-  if (!tempoMapComputed) {
-    tempoMapComputed = computed(() => {
-      const p = useProjectStore();
-      return buildTempoMap(p.baseBpm, p.offsetMs, p.bpmPoints);
-    });
-  }
-  return tempoMapComputed.value;
-};
+// The map is cached as a project-store getter: it is rebuilt only when base BPM
+// / offset / tempo points actually change, instead of on every `timeOfBeat` /
+// `beatOfTime` call. It is read inside the canvas draw loops (once per beat /
+// per marker), so caching it removes the repeated sort-and-rebuild that
+// dominated large-project rendering.
+export const tempoMap = (): TempoMap => useProjectStore().tempoMap;
 
 export const bpmAtBeat = (beat: number): number => tempoMap().bpmAtBeat(beat);
 export const bpmAtTime = (ms: number): number => tempoMap().bpmAtTime(ms);
@@ -38,34 +28,11 @@ export function effectiveBpmFor(point: BpmPoint): number {
   return tempoMap().bpmAtBeat(point.beat);
 }
 
-// Cached like the tempo map: the draw path asks for ContentEnd several times
-// per frame, and recomputing it meant walking every marker each time.
-let contentEndComputed: ComputedRef<number> | null = null;
-
+// Cached like the tempo map (see the transport store): the draw path asks for
+// ContentEnd several times per frame, and recomputing it meant walking every
+// marker each time.
 export function contentEndMs(): number {
-  if (!contentEndComputed) {
-    contentEndComputed = computed(() => {
-      const p = useProjectStore();
-      const t = useTransportStore();
-      // track the waveform object too, so reloading audio re-evaluates the cache
-      void t.wave;
-      const map = tempoMap();
-      const audioLen = t.hasAudio ? engine.durationMs() : 0;
-      let maxMarker = 0;
-      for (const m of p.markers) {
-        const tm = map.timeOfBeat(m.beat);
-        if (tm > maxMarker) maxMarker = tm;
-      }
-      for (const pt of p.bpmPoints) {
-        const tm = map.timeOfBeat(pt.beat);
-        if (tm > maxMarker) maxMarker = tm;
-      }
-      const minLen = Math.max(audioLen, maxMarker);
-      if (minLen <= 0) return map.timeOfBeat(16);
-      return Math.max(minLen + 2000, map.timeOfBeat(16));
-    });
-  }
-  return contentEndComputed.value;
+  return useTransportStore().contentEndMs;
 }
 
 export function formatTime(ms: number): string {

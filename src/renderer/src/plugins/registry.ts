@@ -1,5 +1,6 @@
 import { reactive } from "vue";
 import type { LocaText } from "../../../shared/plugin";
+import { currentLocale, pickLocale } from "../i18n";
 
 /**
  * UI contribution registry. Plugins push contributions here while enabled;
@@ -67,10 +68,8 @@ export const exporters = reactive<RegisteredExporter[]>([]);
 export const openPanels = reactive<OpenPanelRef[]>([]);
 
 export function localeText(v: LocaText | undefined): string {
-  if (!v) return "";
-  if (typeof v === "string") return v;
-  const loc = document.documentElement.lang || "en";
-  return v[loc] || v.en || Object.values(v)[0] || "";
+  // reads the reactive locale so callers re-render on a language switch
+  return pickLocale(v, currentLocale());
 }
 
 export function panelKey(pluginId: string, uid: number): string {

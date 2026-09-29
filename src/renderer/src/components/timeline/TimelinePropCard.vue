@@ -8,21 +8,23 @@ import {
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
-import { useProjectStore } from "../../stores/project";
+import {
+  useProjectStore,
+  MAX_LOOP_CHILDREN,
+  changeMarkerTrack,
+  moveMarker,
+  updateBpmPoint,
+  updateMarkerLoop,
+} from "../../stores/project";
 import { useSelectionStore } from "../../stores/selection";
 import { useSettingsStore } from "../../stores/settings";
 import { useViewStore } from "../../stores/view";
 import {
-  MAX_LOOP_CHILDREN,
-  changeMarkerTrack,
   effectiveBpmFor,
   formatTime,
   markerTime as storeMarkerTime,
-  moveMarker,
   timeOfBeat,
-  updateBpmPoint,
-  updateMarkerLoop,
-} from "../../store";
+} from "../../services/timeline";
 import { BPM_MIN } from "../../tempo";
 import { fmtBar } from "./geometry";
 import TimelineMarkerAttrs from "./TimelineMarkerAttrs.vue";

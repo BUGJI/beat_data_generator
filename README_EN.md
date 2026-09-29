@@ -146,7 +146,7 @@ src/
         ├── services/     # Orchestration: timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
         ├── schemas/      # zod project-file schema (v1 → v2 migration and per-item recovery)
         ├── plugins/      # Plugin host: registry / events / bridge API
-        ├── i18n/         # Chinese & English strings (zh / en)
+        ├── i18n/         # Chinese & English strings (zh / en) + locale detect/storage helpers
         ├── engine.ts     # Web Audio playback engine
         ├── tempo.ts      # beat↔time mapping and tempo map builder
         ├── stretch/      # Time-stretch engines: signalsmith (default) / soundtouch (fallback) + worker
@@ -159,7 +159,13 @@ src/
         └── metrics.ts    # drawing metrics & palette
 ```
 
-> Note: `src/renderer/src/store/index.ts` is only a re-export barrel kept for older imports; state lives in `stores/` and orchestration in `services/`.
+> Note: state is imported directly from `stores/` (Pinia) and orchestration from `services/`; there is no longer a central `store` barrel.
+
+### Internationalization
+
+- The single source of truth is the reactive `locale` exported by `i18n/index.ts` (read it via `currentLocale()`); a watcher keeps `<html lang>` in sync. Don't read `document.documentElement.lang` from feature code.
+- The language preference is persisted as the `locale` setting (`auto` follows the OS / `zh` / `en`). Native main-process dialogs and the welcome window follow it too; the welcome window uses the lightweight `i18n/locale.ts` + `welcomeMessages.ts` and never bundles vue-i18n.
+- When adding strings, update both `i18n/zh.ts` and `i18n/en.ts`. `i18n.test.ts` asserts en/zh key parity and `keys.test.ts` asserts every hard-coded `t("...")` key exists.
 
 ## Development
 

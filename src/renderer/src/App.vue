@@ -10,26 +10,20 @@ import PluginPanels from "./components/PluginPanels.vue";
 import AnalysisPanel from "./components/AnalysisPanel.vue";
 import UiToaster from "./components/ui/UiToaster.vue";
 import { setScroll, useViewStore } from "./stores/view";
-import { useSettingsStore } from "./stores/settings";
-import { useSelectionStore } from "./stores/selection";
+import { loadSettings, useSettingsStore } from "./stores/settings";
+import { closeCard, useSelectionStore } from "./stores/selection";
 import {
-  loadSettings,
-  togglePlay,
   removeBpmPoint,
   removeSelectedMarkers,
   moveMarker,
   updateBpmPoint,
   findMarker,
   findBpmPoint,
-  closeCard,
-  saveProjectQuick,
-  seekTo,
-  undo,
-  redo,
-  copyMarkerGroup,
-  pasteMarkerGroup,
-  bindWelcomeActions,
-} from "./store";
+} from "./stores/project";
+import { seekTo, togglePlay } from "./services/playback";
+import { bindWelcomeActions, saveProjectQuick } from "./services/projectIO";
+import { redo, undo } from "./services/history";
+import { copyMarkerGroup, pasteMarkerGroup } from "./services/clipboard";
 import { initPlugins } from "./plugins/host";
 
 const settings = useSettingsStore();

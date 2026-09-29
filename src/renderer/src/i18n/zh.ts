@@ -314,6 +314,7 @@ export default {
       autoBeats: "节拍打点",
       autoBeatsDesc:
         "载入音频时在每条检测到的拍位放一个标记，写入独立的“自动节拍”轨道（不动其它轨道）。",
+      autoBeatTrackName: "自动节拍",
       loopDetect: "智能循环检测",
       loopDetectDesc:
         "载入音频时找出最佳循环段落，在分析面板里显示其起止时间作为提示。",
@@ -504,6 +505,7 @@ export default {
     editHint: "双击编辑（Markdown）",
     lock: "锁定 / 解锁",
     delete: "删除便签",
+    defaultText: "**注意** 双击编辑，拖动定位",
   },
   prop: {
     beatPos: "拍位置（十进制拍）",

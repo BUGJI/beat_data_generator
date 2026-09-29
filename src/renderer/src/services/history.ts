@@ -9,14 +9,27 @@ import type { BpmPoint, Marker, MarkerTrack, ProjectNote } from "../types";
  */
 
 interface Snap {
+  /**
+   * The document serialized at snapshot time. Kept as text so capturing and
+   * no-op detection each cost a single stringify (no parse until the snapshot
+   * is actually applied) and so history memory can be bounded by size.
+   */
+  text: string;
+}
+
+interface SnapState {
   baseBpm: number;
   offsetMs: number;
   bpmLocked: boolean;
-  tracks: unknown;
-  markers: unknown;
-  bpmPoints: unknown;
-  notes: unknown;
+  tracks: MarkerTrack[];
+  markers: Marker[];
+  bpmPoints: BpmPoint[];
+  notes: ProjectNote[];
 }
+
+/** Cap history by step count and, for large projects, by total serialized size. */
+const MAX_HISTORY_STEPS = 100;
+const MAX_HISTORY_CHARS = 8_000_000;
 
 const undoStack: Snap[] = [];
 const redoStack: Snap[] = [];
@@ -24,36 +37,53 @@ let editingGesture = false;
 let gestureSnapshot: Snap | null = null;
 let transactionSnapshot: Snap | null = null;
 
-function snapshotNow(): Snap {
+function captureState(): string {
   const p = useProjectStore();
-  return JSON.parse(
-    JSON.stringify({
-      baseBpm: p.baseBpm,
-      offsetMs: p.offsetMs,
-      bpmLocked: p.bpmLocked,
-      tracks: p.tracks,
-      markers: p.markers,
-      bpmPoints: p.bpmPoints,
-      notes: p.notes,
-    }),
-  ) as Snap;
+  return JSON.stringify({
+    baseBpm: p.baseBpm,
+    offsetMs: p.offsetMs,
+    bpmLocked: p.bpmLocked,
+    tracks: p.tracks,
+    markers: p.markers,
+    bpmPoints: p.bpmPoints,
+    notes: p.notes,
+  });
+}
+
+function snapshotNow(): Snap {
+  return { text: captureState() };
+}
+
+/** Drop the oldest entries once either the step or the size budget is exceeded. */
+function pruneHistory(): void {
+  while (undoStack.length > MAX_HISTORY_STEPS) undoStack.shift();
+  let total = 0;
+  for (const s of undoStack) total += s.text.length;
+  for (const s of redoStack) total += s.text.length;
+  while (total > MAX_HISTORY_CHARS && undoStack.length > 1) {
+    total -= undoStack.shift()!.text.length;
+  }
+  while (total > MAX_HISTORY_CHARS && redoStack.length) {
+    total -= redoStack.shift()!.text.length;
+  }
 }
 
 function commitSnapshot(snap: Snap): void {
   undoStack.push(snap);
-  if (undoStack.length > 100) undoStack.shift();
   redoStack.length = 0;
+  pruneHistory();
 }
 
 function applySnap(snap: Snap): void {
   const p = useProjectStore();
-  p.baseBpm = snap.baseBpm;
-  p.offsetMs = snap.offsetMs;
-  p.bpmLocked = snap.bpmLocked;
-  p.tracks = snap.tracks as MarkerTrack[];
-  p.markers = snap.markers as Marker[];
-  p.bpmPoints = snap.bpmPoints as BpmPoint[];
-  p.notes = snap.notes as ProjectNote[];
+  const data = JSON.parse(snap.text) as SnapState;
+  p.baseBpm = data.baseBpm;
+  p.offsetMs = data.offsetMs;
+  p.bpmLocked = data.bpmLocked;
+  p.tracks = data.tracks;
+  p.markers = data.markers;
+  p.bpmPoints = data.bpmPoints;
+  p.notes = data.notes;
   const sel = useSelectionStore();
   sel.selected = { kind: null, id: null };
   sel.multi = [];
@@ -81,7 +111,7 @@ export function endEditTransaction(): void {
   const snap = transactionSnapshot;
   transactionSnapshot = null;
   if (!snap) return;
-  if (JSON.stringify(snapshotNow()) === JSON.stringify(snap)) return;
+  if (captureState() === snap.text) return;
   commitSnapshot(snap);
 }
 
@@ -96,10 +126,7 @@ export function historyGestureEnd(): void {
   editingGesture = false;
   // a gesture that ended without an actual edit must not leave a no-op undo entry.
   if (gestureSnapshot) {
-    const cur = snapshotNow();
-    if (JSON.stringify(cur) === JSON.stringify(gestureSnapshot)) {
-      undoStack.pop();
-    }
+    if (captureState() === gestureSnapshot.text) undoStack.pop();
     gestureSnapshot = null;
   }
 }
@@ -124,6 +151,7 @@ export function undo(): void {
   if (!prev) return;
   redoStack.push(snapshotNow());
   applySnap(prev);
+  pruneHistory();
 }
 
 export function redo(): void {
@@ -131,4 +159,5 @@ export function redo(): void {
   if (!next) return;
   undoStack.push(snapshotNow());
   applySnap(next);
+  pruneHistory();
 }

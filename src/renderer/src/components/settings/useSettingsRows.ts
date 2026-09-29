@@ -233,7 +233,10 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const language = computed<string>({
     get: () => i18n.global.locale.value,
     set: (v: string) => {
-      setLocale(v === "en" ? "en" : "zh");
+      const loc = v === "en" ? "en" : "zh";
+      setLocale(loc);
+      // persist so the main process dialogs and the welcome window follow too
+      void patchSettings({ locale: loc });
       applyAppName();
     },
   });

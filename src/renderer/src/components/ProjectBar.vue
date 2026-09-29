@@ -1,30 +1,29 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { openAudioDialog, relinkAudio } from "../services/audioIO";
 import {
-  openAudioDialog,
-  relinkAudio,
-  setBaseBpm,
-  setOffset,
   contentEndMs,
   formatTime,
   tempoMap,
   timeOfBeat,
-  markerCount,
-  visibleMarkers,
-  clickFollow,
-  toggleTimeAlign,
-  alignMarkersToStep,
-} from "../store";
+} from "../services/timeline";
 import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
 import { BPM_MIN } from "../tempo";
 import { resolveTheme, type ThemeOverrides } from "../theme";
-import { useProjectStore } from "../stores/project";
-import { useTransportStore } from "../stores/transport";
+import {
+  useProjectStore,
+  setBaseBpm,
+  setOffset,
+  markerCount,
+  visibleMarkers,
+  alignMarkersToStep,
+} from "../stores/project";
+import { useTransportStore, clickFollow } from "../stores/transport";
 import { useSettingsStore } from "../stores/settings";
 import { useViewStore } from "../stores/view";
-import { useUiStore } from "../stores/ui";
+import { useUiStore, toggleTimeAlign } from "../stores/ui";
 import UiButton from "./ui/UiButton.vue";
 import UiCombobox from "./ui/UiCombobox.vue";
 import UiNumberInput from "./ui/UiNumberInput.vue";

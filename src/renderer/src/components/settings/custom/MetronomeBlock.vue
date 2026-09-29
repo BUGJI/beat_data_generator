@@ -1,12 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import {
-  loadMetronome,
-  patchSettings,
-  previewMetronome,
-  useSettingsStore,
-} from "../../../store";
+import { loadMetronome, previewMetronome } from "../../../services/audioIO";
+import { patchSettings, useSettingsStore } from "../../../stores/settings";
 import UiButton from "../../ui/UiButton.vue";
 import UiSlider from "../../ui/UiSlider.vue";
 import UiSwitch from "../../ui/UiSwitch.vue";

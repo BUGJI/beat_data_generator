@@ -1,5 +1,4 @@
 import {
-  tempoMap,
   addTrack,
   addTypedTrack,
   removeTrack,
@@ -15,19 +14,16 @@ import {
   removeBpmPoint,
   setBaseBpm,
   setOffset,
-  markerSelectionIds,
-  play,
-  pause,
-  togglePlay,
-  stop,
-  seekTo,
-  select,
-  closeCard,
+} from "../stores/project";
+import { markerSelectionIds, select, closeCard } from "../stores/selection";
+import { play, pause, togglePlay, stop, seekTo } from "../services/playback";
+import { tempoMap } from "../services/timeline";
+import {
   historyGestureBegin,
   historyGestureEnd,
   undo,
   redo,
-} from "../store";
+} from "../services/history";
 import { engine } from "../engine";
 import type { LoopConfig } from "../types";
 import { useProjectStore } from "../stores/project";

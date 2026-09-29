@@ -341,6 +341,7 @@ export default {
       autoBeats: "Beat marker placement",
       autoBeatsDesc:
         "On load, place a marker at every detected beat on a dedicated “Auto Beat” track (keeps other tracks unchanged).",
+      autoBeatTrackName: "Auto Beat",
       loopDetect: "Smart loop detection",
       loopDetectDesc:
         "On load, find the best looping segment and show its time range as a hint in the analysis panel.",
@@ -541,6 +542,7 @@ export default {
     editHint: "Double-click to edit (Markdown)",
     lock: "Lock / unlock",
     delete: "Delete note",
+    defaultText: "**Note** double-click to edit, drag to move",
   },
   prop: {
     beatPos: "Beat position (decimal)",

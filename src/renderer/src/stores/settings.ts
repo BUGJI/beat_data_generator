@@ -8,7 +8,7 @@ import {
   type ThemeOverrides,
 } from "../theme";
 import { engine } from "../engine";
-import { i18n } from "../i18n";
+import { applyLocalePreference, i18n } from "../i18n";
 import { loadMetronome } from "../services/audioIO";
 import { useTransportStore } from "./transport";
 import {
@@ -151,6 +151,9 @@ export async function loadSettings(): Promise<void> {
     const got = await window.api.getSettings();
     store.settings = sanitizeSettings({ ...store.settings, ...got });
     setFreeInput(store.settings.devFreeInput);
+    // Settings own the language preference; apply it before any themed UI text
+    // or the app name is resolved.
+    applyLocalePreference(store.settings.locale);
     useTransportStore().followManual = got.followPreset;
     if (got.metronomePath) void loadMetronome(got.metronomePath);
   } catch {
@@ -175,6 +178,7 @@ export function patchSettings(patch: Partial<SettingsData>): void {
   const store = useSettingsStore();
   store.settings = { ...store.settings, ...patch };
   setFreeInput(store.settings.devFreeInput);
+  if ("locale" in patch) applyLocalePreference(store.settings.locale);
   if ("themePreset" in patch || "themeOverrides" in patch)
     applyThemeFromSettings(true);
   if (

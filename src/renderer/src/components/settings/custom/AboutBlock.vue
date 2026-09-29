@@ -6,7 +6,7 @@ import {
   appDisplayName,
   patchSettings,
   useSettingsStore,
-} from "../../../store";
+} from "../../../stores/settings";
 import { toast } from "../../../ui/toast";
 import UiButton from "../../ui/UiButton.vue";
 import UiInput from "../../ui/UiInput.vue";

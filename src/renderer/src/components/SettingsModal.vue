@@ -26,8 +26,11 @@ import {
   Wrench,
   X,
 } from "@lucide/vue";
-import { setSettingsOpen, patchSettings } from "../store";
-import { useSettingsStore } from "../stores/settings";
+import {
+  setSettingsOpen,
+  patchSettings,
+  useSettingsStore,
+} from "../stores/settings";
 import SettingsCategorySection from "./settings/SettingsCategorySection.vue";
 import ShortcutsPanel from "./settings/ShortcutsPanel.vue";
 import NetworkPanel from "./settings/NetworkPanel.vue";

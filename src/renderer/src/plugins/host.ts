@@ -1,5 +1,6 @@
 import { reactive } from "vue";
 import type { PluginEntry } from "../../../shared/plugin";
+import { currentLocale } from "../i18n";
 import { createPluginApi, type PluginApi } from "./api";
 import { dispatchShortcut } from "./registry";
 
@@ -37,7 +38,7 @@ declare global {
 }
 
 function locale(): string {
-  return document.documentElement.lang || "en";
+  return currentLocale();
 }
 
 export function pluginName(entry: PluginEntry): string {

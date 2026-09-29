@@ -40,18 +40,13 @@ import {
   saveProjectQuick,
   exportTimestamps,
   exportEDL,
-  zoomBy,
-  fitZoom,
-  setSettingsOpen,
-  copyMarkerGroup,
-  pasteMarkerGroup,
-  removeSelectedMarkers,
-  selectAllMarkers,
-  undo,
-  redo,
-} from "../store";
-import { useProjectStore } from "../stores/project";
-import { useViewStore } from "../stores/view";
+} from "../services/projectIO";
+import { copyMarkerGroup, pasteMarkerGroup } from "../services/clipboard";
+import { redo, undo } from "../services/history";
+import { useProjectStore, removeSelectedMarkers } from "../stores/project";
+import { selectAllMarkers } from "../stores/selection";
+import { setSettingsOpen } from "../stores/settings";
+import { useViewStore, zoomBy, fitZoom } from "../stores/view";
 import { useSettingsStore } from "../stores/settings";
 import { useUiStore } from "../stores/ui";
 import UiButton from "./ui/UiButton.vue";

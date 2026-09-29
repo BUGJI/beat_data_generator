@@ -1,5 +1,5 @@
-import { useProjectStore } from "../../stores/project";
-import { useSelectionStore } from "../../stores/selection";
+import { useProjectStore, markersInTrack } from "../../stores/project";
+import { useSelectionStore, markerSelectionIds } from "../../stores/selection";
 import { useSettingsStore } from "../../stores/settings";
 import { useTransportStore } from "../../stores/transport";
 import { useUiStore } from "../../stores/ui";
@@ -8,11 +8,9 @@ import {
   beatOfTime,
   contentEndMs,
   formatTime,
-  markerSelectionIds,
   markerTime as storeMarkerTime,
-  markersInTrack,
   timeOfBeat,
-} from "../../store";
+} from "../../services/timeline";
 import {
   BEATS_PER_BAR,
   BEAT_RULER_H,

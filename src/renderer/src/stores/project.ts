@@ -1,6 +1,13 @@
 import { defineStore } from "pinia";
-import { computed, ref, type ComputedRef } from "vue";
-import { snapBeat, makeId, clampBpm, BPM_MIN } from "../tempo";
+import { computed, ref } from "vue";
+import {
+  snapBeat,
+  makeId,
+  clampBpm,
+  buildTempoMap,
+  BPM_MIN,
+  type TempoMap,
+} from "../tempo";
 import { isFreeInput } from "../../../shared/limits";
 import { nextColor } from "../metrics";
 import {
@@ -23,7 +30,8 @@ import {
   endEditTransaction,
   pushHistory,
 } from "../services/history";
-import { bpmAtBeat, effectiveBpmFor, tempoMap } from "../services/timeline";
+import { bpmAtBeat, effectiveBpmFor } from "../services/timeline";
+import { t } from "../utils/text";
 import type {
   BpmMode,
   BpmPoint,
@@ -76,6 +84,28 @@ export const useProjectStore = defineStore("project", () => {
   const projectPath = ref<string | null>(null);
   const dirty = ref(false);
 
+  // Derived document state kept as store getters so each cache is tied to the
+  // store instance lifecycle (previously module-level computeds that outlived a
+  // disposed Pinia instance and captured the first one forever).
+
+  /** Tempo map derived from base BPM / offset / tempo points. */
+  const tempoMap = computed<TempoMap>(() =>
+    buildTempoMap(baseBpm.value, offsetMs.value, bpmPoints.value),
+  );
+
+  /** Markers grouped and sorted per track. Rebuilt only when a marker's track
+   *  or beat changes; the canvas reads it once per visible lane per frame. */
+  const markersByTrack = computed<Map<string, Marker[]>>(() => {
+    const map = new Map<string, Marker[]>();
+    for (const m of markers.value) {
+      const arr = map.get(m.trackId);
+      if (arr) arr.push(m);
+      else map.set(m.trackId, [m]);
+    }
+    for (const arr of map.values()) arr.sort((a, b) => a.beat - b.beat);
+    return map;
+  });
+
   return {
     app,
     version,
@@ -92,6 +122,8 @@ export const useProjectStore = defineStore("project", () => {
     notes,
     projectPath,
     dirty,
+    tempoMap,
+    markersByTrack,
     // ---- high-frequency mutations exposed as Pinia actions ----
     moveMarker: moveMarkerImpl,
     addMarker: addMarkerImpl,
@@ -117,29 +149,8 @@ export const sortedTracks = (): MarkerTrack[] => useProjectStore().tracks;
 
 const EMPTY_MARKERS: Marker[] = [];
 
-// Markers grouped and sorted per track. Rebuilt only when a marker's track or
-// beat changes, instead of filtering + sorting the whole array on every call —
-// the canvas draw path calls this once per visible lane per frame.
-let markersByTrackComputed: ComputedRef<Map<string, Marker[]>> | null = null;
-
-function markersByTrack(): Map<string, Marker[]> {
-  if (!markersByTrackComputed) {
-    markersByTrackComputed = computed(() => {
-      const map = new Map<string, Marker[]>();
-      for (const m of useProjectStore().markers) {
-        const arr = map.get(m.trackId);
-        if (arr) arr.push(m);
-        else map.set(m.trackId, [m]);
-      }
-      for (const arr of map.values()) arr.sort((a, b) => a.beat - b.beat);
-      return map;
-    });
-  }
-  return markersByTrackComputed.value;
-}
-
 export const markersInTrack = (trackId: string): Marker[] =>
-  markersByTrack().get(trackId) ?? EMPTY_MARKERS;
+  useProjectStore().markersByTrack.get(trackId) ?? EMPTY_MARKERS;
 
 export const findMarker = (id: string): Marker | undefined =>
   useProjectStore().markers.find((m) => m.id === id);
@@ -167,8 +178,8 @@ function snapped(b: number): number {
  *  interval; the returned function rewrites beats/intervals against the
  *  (possibly changed) tempo map so those absolute times are preserved. */
 function captureTimePositions(): () => void {
-  const before = tempoMap();
   const p = useProjectStore();
+  const before = p.tempoMap;
   const markerTimes = p.markers
     .filter((m) => !m.parentId)
     .map((m) => ({ id: m.id, timeMs: before.timeOfBeat(m.beat) }));
@@ -182,7 +193,7 @@ function captureTimePositions(): () => void {
       };
     });
   return () => {
-    const after = tempoMap();
+    const after = p.tempoMap;
     for (const it of markerTimes) {
       const m = findMarker(it.id);
       if (m) m.beat = Math.max(0, after.beatOfTime(it.timeMs));
@@ -652,11 +663,7 @@ export function addNote(opts: {
     id: makeId(),
     timeMs: Math.max(0, opts.timeMs),
     y: Math.max(0, opts.y),
-    text:
-      opts.text ??
-      (document.documentElement.lang !== "en"
-        ? "**注意** 双击编辑，拖动定位"
-        : "**Note** double-click to edit, drag to move"),
+    text: opts.text ?? t("note.defaultText"),
     locked: false,
   };
   pushHistory();

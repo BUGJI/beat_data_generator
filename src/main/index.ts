@@ -23,6 +23,7 @@ import { basename, extname, isAbsolute, join } from "node:path";
 import { installPluginManager } from "./plugins";
 import { installMarketManager } from "./market";
 import { applyProxyMode } from "./network";
+import { mt, setMainLocale } from "./i18n";
 import log, { setFileLogging } from "./logger";
 import {
   defaultSettings,
@@ -313,6 +314,7 @@ function loadSettings(): void {
     // no readable settings file yet: seed one with the defaults
     persistSettings();
   }
+  setMainLocale(settings.locale);
 }
 
 function persistSettings(): void {
@@ -323,8 +325,17 @@ function persistSettings(): void {
   }
 }
 
+/**
+ * The window dialogs should attach to: the main window when it is alive, else
+ * the focused window, else any window. Preferring `mainWindow` avoids attaching
+ * a dialog to the welcome / a plugin window when those happen to be enumerated
+ * first.
+ */
 function win(): BrowserWindow | null {
-  return BrowserWindow.getAllWindows()[0] ?? null;
+  if (mainWindow && !mainWindow.isDestroyed()) return mainWindow;
+  return (
+    BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0] ?? null
+  );
 }
 
 async function bytesToAudioResult(
@@ -362,7 +373,7 @@ async function showNewProjectDialog(): Promise<string | null> {
   const base = "untitled.bdg";
   const dir = lastDirs.project;
   const r = await dialog.showSaveDialog(w, {
-    title: "Save new project",
+    title: mt("saveNewProject"),
     defaultPath: dir ? join(dir, base) : base,
     filters: PROJECT_FILTERS,
   });
@@ -376,7 +387,7 @@ async function showOpenProjectDialog(): Promise<string | null> {
   const w = mainWindow && !mainWindow.isDestroyed() ? mainWindow : win();
   if (!w || w.isDestroyed()) return null;
   const r = await dialog.showOpenDialog(w, {
-    title: "Open project",
+    title: mt("openProject"),
     defaultPath: lastDirs.project,
     filters: PROJECT_FILTERS,
     properties: ["openFile"],
@@ -402,9 +413,9 @@ function requestQuit(w: BrowserWindow): void {
     .showMessageBox(w, {
       type: "question",
       title: appTitle(),
-      message: `Exit ${appTitle()}?`,
+      message: mt("quitMessage", { name: appTitle() }),
       detail: "",
-      buttons: ["Quit", "Cancel"],
+      buttons: [mt("quitButton"), mt("cancelButton")],
       defaultId: 1,
       cancelId: 1,
       noLink: true,
@@ -419,8 +430,10 @@ function requestQuit(w: BrowserWindow): void {
 
 function registerIpc(): void {
   ipcMain.handle("audio:open", async (): Promise<AudioFileResult | null> => {
-    const r = await dialog.showOpenDialog(win()!, {
-      title: "Open audio file",
+    const w = win();
+    if (!w) return null;
+    const r = await dialog.showOpenDialog(w, {
+      title: mt("openAudio"),
       defaultPath: lastDirDefault("audio"),
       filters: AUDIO_FILTERS,
       properties: ["openFile"],
@@ -467,8 +480,10 @@ function registerIpc(): void {
   );
 
   ipcMain.handle("text:open", async (): Promise<TextFileResult> => {
-    const r = await dialog.showOpenDialog(win()!, {
-      title: "Open project",
+    const w = win();
+    if (!w) return { canceled: true };
+    const r = await dialog.showOpenDialog(w, {
+      title: mt("openProject"),
       defaultPath: lastDirDefault("project"),
       filters: PROJECT_FILTERS,
       properties: ["openFile"],
@@ -491,6 +506,8 @@ function registerIpc(): void {
     filters: Electron.FileFilter[],
     content: string,
   ): Promise<SaveResult> {
+    const w = win();
+    if (!w) return { canceled: true };
     const memKind = kind === "export" ? "project" : kind;
     const slash = Math.max(
       defaultPath.lastIndexOf("/"),
@@ -501,7 +518,7 @@ function registerIpc(): void {
       memKind === "project"
         ? joinDefaultDir(memKind as "project", defaultPath, dirFromPath)
         : defaultPath;
-    const r = await dialog.showSaveDialog(win()!, {
+    const r = await dialog.showSaveDialog(w, {
       title,
       defaultPath: proposed,
       filters,
@@ -526,7 +543,7 @@ function registerIpc(): void {
       const w = win();
       if (!w) return { canceled: true };
       const r = await dialog.showSaveDialog(w, {
-        title: "Save project",
+        title: mt("saveProject"),
         defaultPath: proposed,
         filters: PROJECT_FILTERS,
       });
@@ -541,7 +558,7 @@ function registerIpc(): void {
     (_e, defaultPath: string, content: string): Promise<SaveResult> =>
       saveViaDialog(
         "export",
-        "Export timestamps",
+        mt("exportTimestamps"),
         defaultPath,
         TEXT_FILTERS,
         content,
@@ -551,7 +568,13 @@ function registerIpc(): void {
   ipcMain.handle(
     "text:saveEdl",
     (_e, defaultPath: string, content: string): Promise<SaveResult> =>
-      saveViaDialog("export", "Export EDL", defaultPath, EDL_FILTERS, content),
+      saveViaDialog(
+        "export",
+        mt("exportEdl"),
+        defaultPath,
+        EDL_FILTERS,
+        content,
+      ),
   );
 
   ipcMain.handle(
@@ -665,7 +688,9 @@ function registerIpc(): void {
   ipcMain.handle(
     "file:path",
     async (_e, title: string): Promise<string | null> => {
-      const r = await dialog.showOpenDialog(win()!, {
+      const w = win();
+      if (!w) return null;
+      const r = await dialog.showOpenDialog(w, {
         title,
         defaultPath: lastDirDefault("audio"),
         filters: AUDIO_FILTERS,
@@ -688,6 +713,7 @@ function registerIpc(): void {
       const wasCheckUpdates = settings.checkUpdates;
       settings = sanitizeSettings({ ...settings, ...patch });
       persistSettings();
+      setMainLocale(settings.locale);
       if (settings.proxyMode !== wasProxy)
         void applyProxyMode(settings.proxyMode);
       if (settings.appName !== wasName) {
@@ -982,8 +1008,8 @@ function setupUpdater(): void {
     if (notified || !Notification.isSupported()) return;
     notified = true;
     const n = new Notification({
-      title: `${appTitle()} 更新可用`,
-      body: `发现新版本 v${info.version}，点击打开下载页面。`,
+      title: mt("updateTitle", { name: appTitle() }),
+      body: mt("updateBody", { version: info.version ?? "" }),
       silent: false,
     });
     n.on("click", () => {

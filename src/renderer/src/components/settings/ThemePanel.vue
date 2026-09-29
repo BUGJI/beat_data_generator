@@ -12,7 +12,7 @@ import {
   setThemePreset,
   setThemeToken,
   useSettingsStore,
-} from "../../store";
+} from "../../stores/settings";
 import { toast } from "../../ui/toast";
 import {
   THEME_PRESETS,

@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
+  useProjectStore,
   markersInTrack,
   addTrack,
   addTypedTrack,
@@ -13,12 +14,10 @@ import {
   setTrackHidden,
   setBpmLocked,
   addNote,
-  closeCard,
-  timeOfBeat,
-  formatTime,
-} from "../store";
+} from "../stores/project";
+import { closeCard } from "../stores/selection";
+import { timeOfBeat, formatTime } from "../services/timeline";
 import { lanesTotalH, useViewStore } from "../stores/view";
-import { useProjectStore } from "../stores/project";
 import { useTransportStore } from "../stores/transport";
 import { useUiStore } from "../stores/ui";
 import { RULER_H, BPM_LANE_H, MARKER_LANE_H } from "../metrics";

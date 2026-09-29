@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useProjectStore } from "../../stores/project";
+import { useProjectStore, updateMarkerAttrs } from "../../stores/project";
 import { useSettingsStore } from "../../stores/settings";
-import { updateMarkerAttrs } from "../../store";
 import {
   defaultForField,
   getTypedef,

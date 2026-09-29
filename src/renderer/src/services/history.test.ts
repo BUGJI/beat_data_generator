@@ -3,8 +3,10 @@ import { createPinia, setActivePinia } from "pinia";
 import { useProjectStore } from "../stores/project";
 import { useSelectionStore } from "../stores/selection";
 import {
+  beginEditTransaction,
   canRedo,
   canUndo,
+  endEditTransaction,
   historyGestureBegin,
   historyGestureEnd,
   pushHistory,
@@ -93,6 +95,25 @@ describe("history", () => {
     expect(p.bpmLocked).toBe(false);
     redo();
     expect(p.bpmLocked).toBe(true);
+  });
+
+  it("commits a transaction that changed the document", () => {
+    const p = useProjectStore();
+    p.baseBpm = 120;
+    beginEditTransaction();
+    p.baseBpm = 135;
+    endEditTransaction();
+
+    expect(canUndo()).toBe(true);
+    undo();
+    expect(p.baseBpm).toBe(120);
+  });
+
+  it("does not record a transaction that changed nothing", () => {
+    useProjectStore().baseBpm = 120;
+    beginEditTransaction();
+    endEditTransaction();
+    expect(canUndo()).toBe(false);
   });
 
   it("caps the undo stack at 100 steps", () => {

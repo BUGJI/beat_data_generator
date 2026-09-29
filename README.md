@@ -143,7 +143,7 @@ src/
         ├── services/     # 业务编排：timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
         ├── schemas/      # zod 工程文件 schema（v1 → v2 迁移与逐项容错）
         ├── plugins/      # 插件宿主：注册表 / 事件 / 桥接 API
-        ├── i18n/         # 中英文案（zh / en）
+        ├── i18n/         # 中英文案（zh / en）+ locale 检测/存储助手
         ├── engine.ts     # Web Audio 播放引擎
         ├── tempo.ts      # 节拍 ↔ 时间换算与 tempo map
         ├── stretch/      # 变速引擎：signalsmith（默认）/ soundtouch（回退）+ Worker
@@ -156,7 +156,13 @@ src/
         └── metrics.ts    # 绘制度量与配色
 ```
 
-> 注：`src/renderer/src/store/index.ts` 只是兼容旧引用的 re-export 桶文件，实际状态在 `stores/`、编排在 `services/`。
+> 注：状态直接来自 `stores/`（Pinia），业务编排直接来自 `services/`；不再有集中转发的 `store` 桶文件。
+
+### 国际化
+
+- 语言的唯一数据源是 `i18n/index.ts` 导出的响应式 `locale`（`currentLocale()` 读取它），`<html lang>` 由 watcher 自动同步；业务代码不要再读 `document.documentElement.lang`。
+- 语言偏好持久化在设置项 `locale`（`auto` 跟随系统 / `zh` / `en`），主进程原生对话框与欢迎窗都据此切换；欢迎窗走轻量的 `i18n/locale.ts` + `welcomeMessages.ts`，不打包 vue-i18n。
+- 新增文案时同时补 `i18n/zh.ts` 与 `i18n/en.ts`。`i18n.test.ts` 做中英 key 对齐校验，`keys.test.ts` 校验代码里写死的 `t("...")` key 都存在——两边一致才通过测试。
 
 ## 开发
 

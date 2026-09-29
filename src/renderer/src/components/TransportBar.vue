@@ -5,14 +5,11 @@ import {
   stop,
   togglePlay,
   seekTo,
-  formatTime,
-  contentEndMs,
-  setVolume,
   applySpeed,
   SPEED_MIN,
-  bpmAtTime,
-} from "../store";
-import { useTransportStore } from "../stores/transport";
+} from "../services/playback";
+import { formatTime, contentEndMs, bpmAtTime } from "../services/timeline";
+import { useTransportStore, setVolume } from "../stores/transport";
 import { useSettingsStore } from "../stores/settings";
 import { analysis } from "../analysis";
 import UiNumberInput from "./ui/UiNumberInput.vue";

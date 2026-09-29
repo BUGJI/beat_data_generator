@@ -31,6 +31,13 @@ const intInRange = (def: number, min: number, max: number) =>
 
 export const CloseModeSchema = z.enum(["ask", "minimize", "close"]);
 
+/** UI language preference; "auto" follows the OS/browser language. */
+export const LocalePrefSchema = z
+  .enum(["auto", "zh", "en"])
+  .catch("auto")
+  .default("auto");
+export type LocalePref = z.infer<typeof LocalePrefSchema>;
+
 /** How long the cached plugin-market index stays fresh. */
 export const MarketCacheTtlSchema = z
   .enum(["1d", "3d", "7d", "30d"])
@@ -72,6 +79,8 @@ export type StretchEngine = z.infer<typeof StretchEngineSchema>;
 
 export const SettingsSchema = z.object({
   closeMode: CloseModeSchema.catch("ask").default("ask"),
+  /** UI language: a concrete locale, or "auto" to follow the OS/browser. */
+  locale: LocalePrefSchema,
   /** Hide advanced categories/rows for a simpler first-run experience. */
   simpleMode: bool(true),
   /** custom application name; empty string uses the built-in default. */

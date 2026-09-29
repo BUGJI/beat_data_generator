@@ -2,17 +2,16 @@
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { render as mdRender, escapeHtml } from "slimdown-js";
-import { useProjectStore } from "../../stores/project";
-import { timeToScreenX, useViewStore } from "../../stores/view";
-import { RULER_H } from "../../metrics";
 import {
-  historyGestureBegin,
-  historyGestureEnd,
+  useProjectStore,
   removeNote,
   setNoteLocked,
   setNoteText,
   updateNote,
-} from "../../store";
+} from "../../stores/project";
+import { timeToScreenX, useViewStore } from "../../stores/view";
+import { RULER_H } from "../../metrics";
+import { historyGestureBegin, historyGestureEnd } from "../../services/history";
 import type { ProjectNote } from "../../types";
 
 const { t } = useI18n();

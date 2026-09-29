@@ -1,17 +1,17 @@
 import { reactive } from "vue";
 import { engine } from "./engine";
 import {
+  useProjectStore,
   setBaseBpm,
   addTrack,
   addMarker,
-  tempoMap,
   isBpmLocked,
-  historyGestureBegin,
-  historyGestureEnd,
-} from "./store";
-import { useProjectStore } from "./stores/project";
+} from "./stores/project";
 import { useTransportStore } from "./stores/transport";
+import { tempoMap } from "./services/timeline";
+import { historyGestureBegin, historyGestureEnd } from "./services/history";
 import { useSettingsStore } from "./stores/settings";
+import { t } from "./utils/text";
 import type { AnalyseResponse, LiveResponse } from "./analysis.worker";
 
 /**
@@ -236,8 +236,7 @@ export function applyDetectedBpm(): void {
 export function generateBeatMarkers(): void {
   const beats = analysis.beats;
   if (beats.length === 0) return;
-  const zh = document.documentElement.lang !== "en";
-  const trackName = zh ? "自动节拍" : "Auto Beat";
+  const trackName = t("settings.audio.autoBeatTrackName");
   let track = useProjectStore().tracks.find(
     (t) => t.name === trackName && (!t.type || t.type === "beat"),
   );
