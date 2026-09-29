@@ -164,7 +164,8 @@ export async function openProject(explicitPath?: string): Promise<void> {
     }
     markSaved();
     recordRecentNow();
-    toast.success(`✔ ${p.name}`);
+    // Opening stays silent: a matching audio MD5 shows no toast, and a real
+    // mismatch is surfaced by the ProjectBar warning banner instead.
   } catch {
     toast.error(t("dialogs.openFail"));
   }

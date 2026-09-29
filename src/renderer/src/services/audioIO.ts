@@ -115,12 +115,18 @@ export async function loadAudioResult(
     return;
   }
   tr.audioMissing = false;
-  const md5 = await window.api.computeMd5(res.filePath);
+  // Prefer the MD5 main computed alongside the read; only fall back to a
+  // separate hash call when a caller passed bytes without one.
+  const md5 = res.md5 ?? (await window.api.computeMd5(res.filePath));
   const stored = p.audioMd5;
   if (!stored || adopt) {
     p.audioMd5 = md5 ?? stored;
+    // Silent when the user deliberately adopts/relinks audio (or there is no
+    // recorded hash yet): no conflict banner or prompt is shown.
     tr.audioConflict = false;
   } else {
+    // Only surface a mismatch when we actually have a hash to compare. A
+    // matching MD5 leaves the editor completely quiet.
     tr.audioConflict = !!md5 && md5 !== stored;
   }
 }

@@ -74,6 +74,8 @@ export interface AudioFileResultLike {
   filePath: string;
   name: string;
   data: Uint8Array;
+  /** MD5 computed by main during the read; falls back to a separate call when absent. */
+  md5?: string | null;
 }
 
 export interface Segment {

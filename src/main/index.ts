@@ -327,13 +327,19 @@ function win(): BrowserWindow | null {
   return BrowserWindow.getAllWindows()[0] ?? null;
 }
 
-async function bytesToAudioResult(filePath: string): Promise<AudioFileResult> {
+async function bytesToAudioResult(
+  filePath: string,
+  withMd5 = false,
+): Promise<AudioFileResult> {
   const buf = await readFile(filePath);
   return {
     filePath,
     name: basename(filePath),
     size: buf.byteLength,
     data: new Uint8Array(buf),
+    // Hash the bytes we already read so callers needing the MD5 (project audio
+    // matching) never trigger a second full read of the file.
+    md5: withMd5 ? createHash("md5").update(buf).digest("hex") : null,
   };
 }
 
@@ -421,14 +427,14 @@ function registerIpc(): void {
     });
     if (r.canceled || r.filePaths.length === 0) return null;
     rememberDir("audio", r.filePaths[0]);
-    return bytesToAudioResult(r.filePaths[0]);
+    return bytesToAudioResult(r.filePaths[0], true);
   });
 
   ipcMain.handle(
     "audio:read",
     async (_e, filePath: string): Promise<AudioFileResult | null> => {
       try {
-        return await bytesToAudioResult(filePath);
+        return await bytesToAudioResult(filePath, true);
       } catch {
         return null;
       }

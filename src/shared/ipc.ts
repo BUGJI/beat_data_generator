@@ -14,6 +14,8 @@ export interface AudioFileResult {
   name: string;
   size: number;
   data: Uint8Array;
+  /** MD5 of the file bytes, computed during the same read (null when skipped). */
+  md5?: string | null;
 }
 
 export interface TextFileResult {
