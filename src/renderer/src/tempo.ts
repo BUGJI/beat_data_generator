@@ -1,5 +1,5 @@
 import type { BpmPoint, Segment } from "./types";
-import { isFreeInput } from "../../shared/limits";
+import { isFreeInput } from "@shared/limits";
 
 /** Smallest positive BPM representable at the UI's 1-decimal precision. */
 export const BPM_MIN = 0.1;

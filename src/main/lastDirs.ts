@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
+import { baseName, dirName } from "../shared/path";
 
 /** Remembers the last directory used per dialog kind so pickers reopen there. */
 
@@ -25,9 +26,9 @@ export function loadLastDirs(): void {
 }
 
 export function rememberDir(kind: DirKind, filePath: string): void {
-  const slash = Math.max(filePath.lastIndexOf("/"), filePath.lastIndexOf("\\"));
-  if (slash <= 0) return;
-  lastDirs[kind] = filePath.slice(0, slash);
+  const dir = dirName(filePath);
+  if (!dir) return;
+  lastDirs[kind] = dir;
   try {
     writeFileSync(lastDirsPath(), JSON.stringify(lastDirs, null, 2), "utf-8");
   } catch {
@@ -44,7 +45,7 @@ export function joinDefaultDir(
   defaultPath: string,
   dirFromPath: string,
 ): string | undefined {
-  const base = defaultPath.split(/[/]/).pop() || defaultPath;
+  const base = baseName(defaultPath) || defaultPath;
   if (dirFromPath?.length) return join(dirFromPath, base);
   const dir = lastDirs[kind];
   return dir ? join(dir, base) : defaultPath;

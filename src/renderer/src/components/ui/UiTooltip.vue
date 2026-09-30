@@ -2,7 +2,6 @@
 import {
   TooltipContent,
   TooltipPortal,
-  TooltipProvider,
   TooltipRoot,
   TooltipTrigger,
 } from "reka-ui";
@@ -18,18 +17,16 @@ withDefaults(
 </script>
 
 <template>
-  <TooltipProvider :delay-duration="delay">
-    <TooltipRoot>
-      <TooltipTrigger as-child><slot /></TooltipTrigger>
-      <TooltipPortal>
-        <TooltipContent
-          :side="side"
-          :side-offset="6"
-          class="z-[200] rounded-ui border border-line-strong bg-menu px-2 py-1 text-[length:calc(11px*var(--bdg-font-scale,1))] whitespace-nowrap text-fg shadow-xl"
-        >
-          {{ content }}
-        </TooltipContent>
-      </TooltipPortal>
-    </TooltipRoot>
-  </TooltipProvider>
+  <TooltipRoot :delay-duration="delay">
+    <TooltipTrigger as-child><slot /></TooltipTrigger>
+    <TooltipPortal>
+      <TooltipContent
+        :side="side"
+        :side-offset="6"
+        class="z-[200] rounded-ui border border-line-strong bg-menu px-2 py-1 text-[length:calc(11px*var(--bdg-font-scale,1))] whitespace-nowrap text-fg shadow-xl"
+      >
+        {{ content }}
+      </TooltipContent>
+    </TooltipPortal>
+  </TooltipRoot>
 </template>

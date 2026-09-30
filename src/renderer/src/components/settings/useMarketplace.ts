@@ -7,8 +7,8 @@ import {
   MARKET_CATEGORIES,
   type MarketPluginView,
   type MarketProgress,
-} from "../../../../shared/market";
-import type { MarketCacheTtl } from "../../../../shared/settings";
+} from "@shared/market";
+import type { MarketCacheTtl } from "@shared/settings";
 
 /**
  * Plugin-marketplace state, kept in a store rather than in the panel so an

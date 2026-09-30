@@ -4,11 +4,29 @@ import {
   contrastRatio,
   decodeTheme,
   encodeTheme,
+  hexToRgb,
   resolveTheme,
+  rgbTriple,
   themeContrastIssues,
   type ThemeOverrides,
   type ThemeSpec,
 } from "./theme";
+
+describe("hexToRgb / rgbTriple", () => {
+  it("parses 6-digit and shorthand hex", () => {
+    expect(hexToRgb("#ffffff")).toEqual({ r: 255, g: 255, b: 255 });
+    expect(hexToRgb("#000")).toEqual({ r: 0, g: 0, b: 0 });
+    expect(hexToRgb("abc")).toEqual({ r: 170, g: 187, b: 204 });
+  });
+
+  it("falls back to the neutral slate for invalid input", () => {
+    expect(hexToRgb("not-a-color")).toEqual({ r: 148, g: 163, b: 184 });
+  });
+
+  it("formats as space-separated components", () => {
+    expect(rgbTriple("#94a3b8")).toBe("148 163 184");
+  });
+});
 
 describe("contrastRatio", () => {
   it("is 21 for black on white and 1 for identical colors", () => {

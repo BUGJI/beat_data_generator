@@ -36,6 +36,21 @@
      inline on <html>; the values here are the first-paint defaults. */
   --bdg-radius: 6px;
   --bdg-font-scale: 1;
+  --bdg-font-mono: "Cascadia Mono", "Consolas", monospace;
+  /* Control sizing scale shared by icon buttons / swatches / transport. */
+  --bdg-ctl-2xs: 18px;
+  --bdg-ctl-xs: 20px;
+  --bdg-ctl-sm: 26px;
+  --bdg-ctl-md: 28px;
+  --bdg-ctl-lg: 32px;
+  --bdg-ctl-xl: 40px;
+  /* Compact corners derived from --bdg-radius so they follow the Appearance
+     corner-radius preference (the browser clamps any negative result to 0). */
+  --bdg-radius-2xs: calc(var(--bdg-radius, 6px) - 4px);
+  --bdg-radius-xs: calc(var(--bdg-radius, 6px) - 3px);
+  --bdg-radius-sm: calc(var(--bdg-radius, 6px) - 2px);
+  --bdg-radius-md: calc(var(--bdg-radius, 6px) - 1px);
+  --bdg-disabled-opacity: 0.45;
   /* Layout */
   --bdg-toolbar-h: 46px;
   --bdg-transport-h: 52px;
@@ -60,6 +75,14 @@ body {
   font-size: calc(13px * var(--bdg-font-scale, 1));
   -webkit-user-select: none;
   user-select: none;
+}
+
+/* The app disables selection globally; text fields must opt back in so their
+   contents stay selectable / copyable. */
+input,
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* Chromium/Electron: a non-`auto` scrollbar-color/scrollbar-width would take
@@ -131,7 +154,7 @@ select:focus-visible,
 
 .num {
   font-variant-numeric: tabular-nums;
-  font-family: "Cascadia Mono", "Consolas", monospace;
+  font-family: var(--bdg-font-mono);
 }
 
 /* Theme switch crossfade: `applyThemeFromSettings` adds this class for ~320ms

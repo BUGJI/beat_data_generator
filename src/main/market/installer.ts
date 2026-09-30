@@ -8,8 +8,9 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { unzipSync } from "fflate";
+import { IPC } from "../../shared/ipc";
 import {
   MARKET_RECEIPT,
   type MarketInstallPhase,
@@ -71,7 +72,7 @@ function emitProgress(
 ): void {
   const payload: MarketProgress = { id, version, phase, ...extra };
   for (const w of BrowserWindow.getAllWindows()) {
-    if (!w.isDestroyed()) w.webContents.send("plugin:market:progress", payload);
+    if (!w.isDestroyed()) w.webContents.send(IPC.marketProgress, payload);
   }
 }
 
@@ -182,10 +183,7 @@ function extractTo(data: Uint8Array, destDir: string): void {
     const target = join(destDir, rel);
     if (!isInside(destDir, target))
       throw new Error(`unsafe path in archive: ${rawName}`);
-    const dir = target.slice(
-      0,
-      Math.max(target.lastIndexOf("/"), target.lastIndexOf("\\")),
-    );
+    const dir = dirname(target);
     if (dir) mkdirSync(dir, { recursive: true });
     writeFileSync(target, bytes);
   }

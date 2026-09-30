@@ -1,9 +1,10 @@
+import { watch } from "vue";
 import { engine } from "../engine";
 import { useTransportStore } from "../stores/transport";
-import { ensureDefaultTrack } from "../stores/project";
+import { ensureDefaultTrack, useProjectStore } from "../stores/project";
 import { initPluginEvents } from "../plugins/events";
 import { tickBeatFlash } from "./flash";
-import { autoSaveTick } from "./projectIO";
+import { autoSaveTick, saveProjectQuick } from "./projectIO";
 
 /**
  * One-time runtime wiring that used to run as a module-level side effect of the
@@ -26,4 +27,19 @@ export function initEditorRuntime(): void {
   window.setInterval(() => {
     void autoSaveTick();
   }, 1000);
+
+  // Keep the main process informed about unsaved edits so it can guard quit,
+  // and fulfill a save-before-quit request through the normal save path.
+  const project = useProjectStore();
+  window.api.setDirty(project.dirty);
+  watch(
+    () => project.dirty,
+    (dirty) => window.api.setDirty(dirty),
+  );
+  window.api.onQuitRequest(() => {
+    void (async () => {
+      await saveProjectQuick();
+      if (!useProjectStore().dirty) await window.api.confirmQuit();
+    })();
+  });
 }

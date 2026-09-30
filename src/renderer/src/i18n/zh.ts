@@ -110,6 +110,7 @@ export default {
     hintNew: "点击 BPM 轨/踩点轨以放置点（默认吸附节拍轴）",
     hintBeatAxis: "拖动调整位置 · 点选后在浮动卡编辑拍位/速度",
     tempoHint: "BPM 轨：放置 BPM 点改变其后所有拍轴疏密（更快→更密）",
+    snap: "吸附 1/{div}",
   },
   transport: {
     play: "播放",

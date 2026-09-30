@@ -15,8 +15,8 @@ import {
   defaultSettings,
   sanitizeSettings,
   type SettingsData,
-} from "../../../shared/settings";
-import { setFreeInput } from "../../../shared/limits";
+} from "@shared/settings";
+import { setFreeInput } from "@shared/limits";
 
 /**
  * Persisted user settings plus the settings-dialog open flag.

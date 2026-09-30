@@ -11,7 +11,15 @@ import {
 import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
 import { BPM_MIN } from "../tempo";
-import { resolveTheme, type ThemeOverrides } from "../theme";
+import { hexToRgb, resolveTheme, type ThemeOverrides } from "../theme";
+import {
+  AlignJustify,
+  ArrowRight,
+  Clock,
+  Grid2x2,
+  ListChecks,
+  Sparkles,
+} from "@lucide/vue";
 import {
   useProjectStore,
   setBaseBpm,
@@ -26,6 +34,7 @@ import { useViewStore } from "../stores/view";
 import { useUiStore, toggleTimeAlign } from "../stores/ui";
 import UiButton from "./ui/UiButton.vue";
 import UiCombobox from "./ui/UiCombobox.vue";
+import UiIconButton from "./ui/UiIconButton.vue";
 import UiNumberInput from "./ui/UiNumberInput.vue";
 
 const project = useProjectStore();
@@ -50,17 +59,11 @@ const { t } = useI18n();
 
 const FLASH_MS = 100;
 
-function hexRgb(hex: string): { r: number; g: number; b: number } {
-  const h = hex.replace("#", "");
-  const v = parseInt(h.length === 3 ? h.replace(/./g, "$&$&") : h, 16);
-  return { r: (v >> 16) & 255, g: (v >> 8) & 255, b: v & 255 };
-}
-
 function flashStyle(
   k: number,
   color: string,
 ): { background: string; borderColor: string; boxShadow: string } {
-  const c = hexRgb(color);
+  const c = hexToRgb(color);
   const rgb = `${c.r},${c.g},${c.b}`;
   return {
     background: `rgba(${rgb},${(0.08 + 0.92 * k).toFixed(3)})`,
@@ -323,7 +326,7 @@ async function onDetectBpm(): Promise<void> {
 
     <div class="pb-right">
       <div class="pb-chips">
-        <div class="chip">
+        <div class="chip chip-opt">
           <span class="chip-k">{{ t("sidebar.zoom") }}</span>
           <span class="chip-v num">{{ zoomLabel }}</span>
         </div>
@@ -331,7 +334,7 @@ async function onDetectBpm(): Promise<void> {
           <span class="chip-k">{{ t("sidebar.duration") }}</span>
           <span class="chip-v num">{{ durationLabel }}</span>
         </div>
-        <div class="chip">
+        <div class="chip chip-opt">
           <span class="chip-k">{{ t("sidebar.sampleRate") }}</span>
           <span class="chip-v num">{{ sampleRateLabel }}</span>
         </div>
@@ -343,7 +346,7 @@ async function onDetectBpm(): Promise<void> {
           <span class="chip-k">{{ t("sidebar.lastMark") }}</span>
           <span class="chip-v num">{{ lastBeatLabel }}</span>
         </div>
-        <div class="chip">
+        <div class="chip chip-opt">
           <span class="chip-k">{{ t("sidebar.gridShows") }}</span>
           <span class="chip-v num">{{ barMsLabel }}</span>
         </div>
@@ -368,137 +371,51 @@ async function onDetectBpm(): Promise<void> {
           :style="overlapStyle"
           :title="t('follow.overlapTip')"
         />
-        <button
-          class="quick-icon"
-          :class="{ on: ui.glowEnabled }"
+        <UiIconButton
           :title="t('follow.glowTip')"
-          :aria-pressed="ui.glowEnabled"
+          :active="ui.glowEnabled"
+          :pressed="ui.glowEnabled"
           @click="ui.glowEnabled = !ui.glowEnabled"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path
-              d="M12 2.5l1.9 5.1 5.1 1.9-5.1 1.9-1.9 5.1-1.9-5.1L5 9.5l5.1-1.9z"
-              fill="currentColor"
-              stroke="none"
-            />
-            <circle cx="18.6" cy="5.4" r="1.4" fill="currentColor" />
-            <circle cx="5.4" cy="18.6" r="1.4" fill="currentColor" />
-          </svg>
-        </button>
-        <button
-          class="follow-btn"
-          :class="{ on: followOn }"
+          <Sparkles :size="15" />
+        </UiIconButton>
+        <UiIconButton
           :title="followTip"
-          :aria-pressed="followOn"
+          :active="followOn"
+          :pressed="followOn"
           @click="clickFollow()"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M4 12h14M12 5l7 7-7 7" />
-          </svg>
-        </button>
+          <ArrowRight :size="15" />
+        </UiIconButton>
         <span class="quick-divider" />
-        <button
-          class="quick-icon"
-          :class="{ on: view.snapEnabled }"
+        <UiIconButton
           :title="t('sidebar.snapToGrid')"
-          :aria-pressed="view.snapEnabled"
+          :active="view.snapEnabled"
+          :pressed="view.snapEnabled"
           @click="toggleSnap()"
         >
-          <svg viewBox="0 0 24 24" width="15" height="15" fill="currentColor">
-            <rect x="3" y="3" width="7.2" height="7.2" rx="1.2" />
-            <rect x="13.8" y="3" width="7.2" height="7.2" rx="1.2" />
-            <rect x="3" y="13.8" width="7.2" height="7.2" rx="1.2" />
-            <rect x="13.8" y="13.8" width="7.2" height="7.2" rx="1.2" />
-          </svg>
-        </button>
+          <Grid2x2 :size="15" />
+        </UiIconButton>
         <span class="quick-divider" />
-        <button
-          class="quick-icon"
-          :class="{ on: ui.quickPlace }"
+        <UiIconButton
           :title="t('follow.quickTip')"
-          :aria-pressed="ui.quickPlace"
+          :active="ui.quickPlace"
+          :pressed="ui.quickPlace"
           @click="ui.quickPlace = !ui.quickPlace"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          >
-            <path d="M4 7h11" />
-            <path d="M4 12h14" />
-            <path d="M4 17h8" />
-            <circle cx="19" cy="6" r="1.7" fill="currentColor" stroke="none" />
-            <circle
-              cx="19.5"
-              cy="12"
-              r="1.7"
-              fill="currentColor"
-              stroke="none"
-            />
-          </svg>
-        </button>
-        <button
-          class="quick-icon"
-          :class="{ on: ui.timeAlign }"
+          <ListChecks :size="15" />
+        </UiIconButton>
+        <UiIconButton
           :title="t('follow.timeAlignTip')"
-          :aria-pressed="ui.timeAlign"
+          :active="ui.timeAlign"
+          :pressed="ui.timeAlign"
           @click="toggleTimeAlign()"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="12" cy="12" r="8.5" />
-            <path d="M12 8v4l3 2" />
-          </svg>
-        </button>
-        <button
-          class="quick-icon"
-          :title="t('follow.alignTip')"
-          @click="onAlignMarkers"
-        >
-          <svg
-            viewBox="0 0 24 24"
-            width="15"
-            height="15"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          >
-            <path d="M4 6h16" />
-            <path d="M7 12h10" />
-            <path d="M4 18h16" />
-          </svg>
-        </button>
+          <Clock :size="15" />
+        </UiIconButton>
+        <UiIconButton :title="t('follow.alignTip')" @click="onAlignMarkers">
+          <AlignJustify :size="15" />
+        </UiIconButton>
       </div>
     </div>
   </section>
@@ -639,7 +556,7 @@ async function onDetectBpm(): Promise<void> {
   flex: none;
   width: 14px;
   height: 14px;
-  border-radius: 3px;
+  border-radius: var(--bdg-radius-xs);
   border: 1.5px solid var(--bdg-border-strong);
   background: rgb(var(--bdg-neutral) / 0.08);
 }
@@ -653,29 +570,6 @@ async function onDetectBpm(): Promise<void> {
   margin: 0 2px;
   flex: none;
 }
-.quick-icon {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--bdg-radius, 6px);
-  border: 1px solid var(--bdg-border-strong);
-  background: rgb(var(--bdg-neutral) / 0.08);
-  color: var(--bdg-text-dim);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-.quick-icon:hover {
-  background: rgb(var(--bdg-neutral) / 0.18);
-  color: var(--bdg-text);
-}
-.quick-icon.on {
-  color: var(--bdg-accent);
-  background: rgb(var(--bdg-accent-rgb) / 0.16);
-  border-color: rgb(var(--bdg-accent-rgb) / 0.45);
-  box-shadow: 0 0 8px rgb(var(--bdg-accent-rgb) / 0.25);
-}
 .chip-dot {
   width: 7px;
   height: 7px;
@@ -683,29 +577,6 @@ async function onDetectBpm(): Promise<void> {
   background: linear-gradient(135deg, var(--bdg-accent), var(--bdg-accent-2));
   box-shadow: 0 0 6px rgb(var(--bdg-accent-rgb) / 0.55);
   flex: none;
-}
-.follow-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--bdg-radius, 6px);
-  border: 1px solid var(--bdg-border-strong);
-  background: rgb(var(--bdg-neutral) / 0.08);
-  color: var(--bdg-text-dim);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-family: inherit;
-}
-.follow-btn:hover {
-  background: rgb(var(--bdg-neutral) / 0.18);
-  color: var(--bdg-text);
-}
-.follow-btn.on {
-  color: var(--bdg-accent);
-  border-color: rgb(var(--bdg-accent-rgb) / 0.45);
-  background: rgb(var(--bdg-accent-rgb) / 0.16);
-  box-shadow: 0 0 8px rgb(var(--bdg-accent-rgb) / 0.25);
 }
 .quick-sub {
   font-size: calc(11px * var(--bdg-font-scale, 1));
@@ -725,5 +596,25 @@ async function onDetectBpm(): Promise<void> {
   font-size: calc(13px * var(--bdg-font-scale, 1));
   color: var(--bdg-text);
   font-weight: 600;
+}
+/* Narrow windows: drop the least-critical readouts before the layout squeezes. */
+@media (max-width: 1280px) {
+  .pb-chips {
+    gap: 12px;
+  }
+}
+@media (max-width: 1120px) {
+  .chip-opt {
+    display: none;
+  }
+  .pb-right {
+    padding: 6px 10px;
+  }
+}
+@media (max-width: 1024px) {
+  .pb-quick {
+    flex-wrap: wrap;
+    row-gap: 4px;
+  }
 }
 </style>

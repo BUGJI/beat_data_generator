@@ -1,4 +1,4 @@
-import { isFreeInput } from "../../../../shared/limits";
+import { isFreeInput } from "@shared/limits";
 import { snapBeat } from "../../tempo";
 import { useViewStore } from "../view";
 

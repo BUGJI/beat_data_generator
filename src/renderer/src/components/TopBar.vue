@@ -42,7 +42,7 @@ import {
   exportEDL,
 } from "../services/projectIO";
 import { copyMarkerGroup, pasteMarkerGroup } from "../services/clipboard";
-import { redo, undo } from "../services/history";
+import { canRedo, canUndo, redo, undo } from "../services/history";
 import { useProjectStore, removeSelectedMarkers } from "../stores/project";
 import { selectAllMarkers } from "../stores/selection";
 import { setSettingsOpen } from "../stores/settings";
@@ -233,6 +233,17 @@ function onFit(): void {
 
 const zoomInDisabled = computed(() => view.pxPerSec >= 4000);
 const zoomOutDisabled = computed(() => view.pxPerSec <= 6);
+
+// History has no reactive store, so re-check it whenever the Edit menu opens.
+const historyNonce = ref(0);
+const undoDisabled = computed(() => {
+  void historyNonce.value;
+  return !canUndo();
+});
+const redoDisabled = computed(() => {
+  void historyNonce.value;
+  return !canRedo();
+});
 onMounted(() => {
   void loadRecents();
 });
@@ -267,6 +278,7 @@ onMounted(() => {
       <UiDropdownSeparator />
       <UiDropdownItem value="save">
         <FileText class="size-3.5" />{{ t("menu.saveProject") }}
+        <span class="kbd">Ctrl+S</span>
       </UiDropdownItem>
       <UiDropdownItem value="save-as">
         <Copy class="size-3.5" />{{ t("menu.saveProjectAs") }}
@@ -285,28 +297,36 @@ onMounted(() => {
       </template>
     </UiDropdownMenu>
 
-    <UiDropdownMenu @select="onCmd">
+    <UiDropdownMenu
+      @select="onCmd"
+      @update:open="(v: boolean) => v && historyNonce++"
+    >
       <template #trigger>
         <button class="menu-btn">
           <Copy class="size-3.5" />{{ t("menu.edit") }}
           <ChevronDown class="caret" />
         </button>
       </template>
-      <UiDropdownItem value="undo">
+      <UiDropdownItem value="undo" :disabled="undoDisabled">
         <Undo2 class="size-3.5" />{{ t("menu.undo") }}
+        <span class="kbd">Ctrl+Z</span>
       </UiDropdownItem>
-      <UiDropdownItem value="redo">
+      <UiDropdownItem value="redo" :disabled="redoDisabled">
         <Redo2 class="size-3.5" />{{ t("menu.redo") }}
+        <span class="kbd">Ctrl+Y</span>
       </UiDropdownItem>
       <UiDropdownSeparator />
       <UiDropdownItem value="cut">
         <Scissors class="size-3.5" />{{ t("menu.cut") }}
+        <span class="kbd">Ctrl+X</span>
       </UiDropdownItem>
       <UiDropdownItem value="copy">
         <Copy class="size-3.5" />{{ t("menu.copy") }}
+        <span class="kbd">Ctrl+C</span>
       </UiDropdownItem>
       <UiDropdownItem value="paste">
         <Files class="size-3.5" />{{ t("menu.paste") }}
+        <span class="kbd">Ctrl+V</span>
       </UiDropdownItem>
     </UiDropdownMenu>
 
@@ -511,5 +531,12 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.kbd {
+  margin-left: auto;
+  padding-left: 16px;
+  font-size: calc(10.5px * var(--bdg-font-scale, 1));
+  color: var(--bdg-text-dim);
+  font-family: var(--bdg-font-mono);
 }
 </style>

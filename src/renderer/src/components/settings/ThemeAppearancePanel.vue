@@ -7,7 +7,7 @@ import {
   patchSettings,
   useSettingsStore,
 } from "../../stores/settings";
-import type { BackgroundFit } from "../../../../shared/settings";
+import type { BackgroundFit } from "@shared/settings";
 import { useSettingsRowsStore } from "./useSettingsRows";
 import UiButton from "../ui/UiButton.vue";
 import UiRadioGroup from "../ui/UiRadioGroup.vue";

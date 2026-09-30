@@ -1,6 +1,6 @@
 import { app, BrowserWindow, dialog } from "electron";
 import { join } from "node:path";
-import type { WelcomeAction } from "../shared/ipc";
+import { IPC, type WelcomeAction } from "../shared/ipc";
 import { PROJECT_FILTERS } from "./files";
 import { mt } from "./i18n";
 import { lastDirDefault, rememberDir } from "./lastDirs";
@@ -18,6 +18,8 @@ let mainWindow: BrowserWindow | null = null;
 let welcomeWindow: BrowserWindow | null = null;
 let mainReady = false;
 let allowQuit = false;
+/** Last dirty flag reported by the renderer, used by the quit guard. */
+let rendererDirty = false;
 let welcomeCreated = false;
 let welcomeDialogOpen = false;
 let welcomeFallbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -56,7 +58,7 @@ export function refreshWindowTitles(): void {
 
 function deliverWelcomeAction(action: WelcomeAction): void {
   if (mainReady && mainWindow && !mainWindow.isDestroyed()) {
-    mainWindow.webContents.send("welcome:action", action);
+    mainWindow.webContents.send(IPC.welcomeAction, action);
   } else {
     pendingWelcome.push(action);
   }
@@ -144,6 +146,17 @@ export async function showOpenProjectDialog(): Promise<string | null> {
   return r.filePaths[0];
 }
 
+/** Update the quit-guard dirty flag from the renderer. */
+export function setRendererDirty(dirty: boolean): void {
+  rendererDirty = dirty === true;
+}
+
+/** Called by the renderer once a save-before-quit has completed. */
+export function confirmQuitNow(): void {
+  allowQuit = true;
+  app.quit();
+}
+
 export function requestQuit(w: BrowserWindow): void {
   const mode = getSettings().closeMode;
   if (mode === "close") {
@@ -153,6 +166,31 @@ export function requestQuit(w: BrowserWindow): void {
   }
   if (mode === "minimize") {
     if (!w.isMinimized()) w.minimize();
+    return;
+  }
+  if (rendererDirty) {
+    // ask about unsaved work first; "save" hands off to the renderer so the
+    // project is written through the normal save path (dialog for new files).
+    void dialog
+      .showMessageBox(w, {
+        type: "warning",
+        title: appTitle(),
+        message: mt("unsavedMessage"),
+        detail: mt("unsavedDetail"),
+        buttons: [mt("saveAndQuit"), mt("discardAndQuit"), mt("cancelButton")],
+        defaultId: 0,
+        cancelId: 2,
+        noLink: true,
+      })
+      .then(({ response }) => {
+        if (response === 0) {
+          if (mainWindow && !mainWindow.isDestroyed())
+            mainWindow.webContents.send(IPC.quitRequest);
+        } else if (response === 1) {
+          allowQuit = true;
+          app.quit();
+        }
+      });
     return;
   }
   // ask

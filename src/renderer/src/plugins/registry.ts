@@ -1,5 +1,5 @@
 import { reactive } from "vue";
-import type { LocaText } from "../../../shared/plugin";
+import type { LocaText } from "@shared/plugin";
 import { currentLocale, pickLocale } from "../i18n";
 
 /**

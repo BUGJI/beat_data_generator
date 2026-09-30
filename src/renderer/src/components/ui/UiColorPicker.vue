@@ -16,7 +16,7 @@ function onInput(e: Event): void {
     :value="model"
     :disabled="disabled"
     :title="title"
-    class="size-5 shrink-0 cursor-pointer appearance-none rounded-full border-none bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none disabled:cursor-default disabled:opacity-40"
+    class="size-5 shrink-0 cursor-pointer appearance-none rounded-full border-none bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-full [&::-webkit-color-swatch]:border-none disabled:cursor-default disabled:opacity-[var(--bdg-disabled-opacity)]"
     @input="onInput"
   />
 </template>

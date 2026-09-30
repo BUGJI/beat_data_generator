@@ -26,6 +26,7 @@ import {
   fmtTick,
   visibleRows,
 } from "./geometry";
+import type { Marker } from "../../types";
 import type { BoxRect, GhostState } from "./types";
 
 /**
@@ -344,7 +345,7 @@ function drawBpmLaneContent(
       // subtle tempo shading density strip
       const density = (s.bpm - 60) / 240;
       ctx.globalAlpha = 0.12 + density * 0.2;
-      ctx.fillStyle = "var(--bdg-bpm)";
+      ctx.fillStyle = COLORS.bpmPoint;
       ctx.fillRect(mid, y1 - 6, Math.max(0, x1 - mid), 3);
       ctx.globalAlpha = 1;
     }
@@ -389,10 +390,17 @@ function drawMarkerLanesContent(
       if (c.parentId && wanted.has(c.parentId)) selGroup.add(c.id);
     }
   }
+  // Only walk markers whose beat falls inside the viewport. Per-track arrays
+  // are sorted by beat, so a binary search skips everything off-screen.
+  const bLo = beatOfTime(t0);
+  const bHi = beatOfTime(t1);
   for (const r of rows) {
     const track = project.tracks[r.i];
     if (!track) continue;
-    for (const m of markersInTrack(track.id)) {
+    const list = markersInTrack(track.id);
+    for (let i = lowerBoundByBeat(list, bLo); i < list.length; i++) {
+      const m = list[i]!;
+      if (m.beat > bHi) break;
       const x = X(storeMarkerTime(m));
       if (x < -16 || x > W + 16) continue;
       const sel =
@@ -432,8 +440,18 @@ function drawMarkerLanesContent(
       }
     }
   }
-  void t0;
-  void t1;
+}
+
+/** First index whose marker beat is >= `beat` (list is sorted by beat). */
+function lowerBoundByBeat(list: Marker[], beat: number): number {
+  let lo = 0;
+  let hi = list.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (list[mid]!.beat < beat) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
 }
 
 function drawDiamond(

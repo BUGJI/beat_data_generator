@@ -1,5 +1,5 @@
-import { isFreeInput } from "../../../../shared/limits";
-import type { AlignRounding } from "../../../../shared/settings";
+import { isFreeInput } from "@shared/limits";
+import type { AlignRounding } from "@shared/settings";
 import { defaultAttrsFor } from "../../plugins/registry";
 import {
   beginEditTransaction,

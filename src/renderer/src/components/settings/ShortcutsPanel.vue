@@ -67,10 +67,10 @@ const shortcutRows = computed(() => [
   background: rgb(var(--bdg-neutral) / 0.12);
   border: 1px solid var(--bdg-border-strong);
   border-bottom-width: 2px;
-  border-radius: 5px;
+  border-radius: var(--bdg-radius-md);
   padding: 1px 8px;
   margin-left: 6px;
-  font-family: "Consolas", monospace;
+  font-family: var(--bdg-font-mono);
   font-size: calc(11px * var(--bdg-font-scale, 1));
 }
 </style>

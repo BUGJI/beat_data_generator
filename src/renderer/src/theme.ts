@@ -227,12 +227,23 @@ function normalizeHex(hex: string): string | null {
   return `#${h.toLowerCase()}`;
 }
 
+export interface Rgb {
+  r: number;
+  g: number;
+  b: number;
+}
+
+/** Hex color → 0-255 components; falls back to the neutral slate when invalid. */
+export function hexToRgb(hex: string): Rgb {
+  const h = normalizeHex(hex);
+  const n = h ? parseInt(h.slice(1), 16) : 0x94a3b8;
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+
 /** "148 163 184" — space separated RGB, for `rgb(var(--x) / a)`. */
 export function rgbTriple(hex: string): string {
-  const h = normalizeHex(hex);
-  if (!h) return "148 163 184";
-  const n = parseInt(h.slice(1), 16);
-  return `${(n >> 16) & 255} ${(n >> 8) & 255} ${n & 255}`;
+  const { r, g, b } = hexToRgb(hex);
+  return `${r} ${g} ${b}`;
 }
 
 function rgba(hex: string, alpha: number): string {

@@ -123,7 +123,7 @@ function applyPreset(hex: string): void {
       :value="model"
       :disabled="disabled"
       :title="title"
-      class="size-7 shrink-0 cursor-pointer appearance-none rounded-ui border border-line-strong bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-[5px] [&::-webkit-color-swatch]:border-none disabled:cursor-default disabled:opacity-40"
+      class="size-7 shrink-0 cursor-pointer appearance-none rounded-ui border border-line-strong bg-transparent p-0 [&::-webkit-color-swatch-wrapper]:p-0 [&::-webkit-color-swatch]:rounded-[var(--bdg-radius-md)] [&::-webkit-color-swatch]:border-none disabled:cursor-default disabled:opacity-[var(--bdg-disabled-opacity)]"
       @input="onSwatchInput"
       @change="onSwatchChange"
     />
@@ -132,7 +132,7 @@ function applyPreset(hex: string): void {
       :disabled="disabled"
       maxlength="7"
       spellcheck="false"
-      class="num h-7 w-[88px] rounded-ui border border-line bg-sunken px-2 text-xs text-fg outline-none placeholder:text-fg-faint focus:border-line-strong disabled:opacity-40"
+      class="num h-[var(--bdg-ctl-md)] w-[88px] rounded-ui border border-line bg-sunken px-2 text-xs text-fg outline-none placeholder:text-fg-faint focus:border-line-strong disabled:opacity-[var(--bdg-disabled-opacity)]"
       @focus="focused = true"
       @blur="
         focused = false;

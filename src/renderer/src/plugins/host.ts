@@ -1,5 +1,5 @@
 import { reactive } from "vue";
-import type { PluginEntry } from "../../../shared/plugin";
+import type { PluginEntry } from "@shared/plugin";
 import { currentLocale } from "../i18n";
 import { createPluginApi, type PluginApi } from "./api";
 import { dispatchShortcut } from "./registry";

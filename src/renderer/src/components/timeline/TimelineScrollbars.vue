@@ -105,7 +105,7 @@ function startHBarDrag(e: PointerEvent): void {
   width: 8px;
   margin: 1px auto;
   background: rgb(var(--bdg-neutral) / 0.3);
-  border-radius: 4px;
+  border-radius: var(--bdg-radius-sm);
   cursor: pointer;
 }
 .hbar {
@@ -121,7 +121,7 @@ function startHBarDrag(e: PointerEvent): void {
   height: 8px;
   margin: 1px 0;
   background: rgb(var(--bdg-neutral) / 0.3);
-  border-radius: 4px;
+  border-radius: var(--bdg-radius-sm);
   cursor: pointer;
 }
 </style>

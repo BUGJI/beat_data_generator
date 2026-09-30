@@ -6,8 +6,8 @@ import {
   appDisplayName,
   patchSettings,
   useSettingsStore,
-} from "../../../stores/settings";
-import { toast } from "../../../ui/toast";
+} from "@renderer/stores/settings";
+import { toast } from "@renderer/ui/toast";
 import UiButton from "../../ui/UiButton.vue";
 import UiInput from "../../ui/UiInput.vue";
 
@@ -128,7 +128,7 @@ async function onCheckUpdates(): Promise<void> {
   padding-right: 2px;
   border-color: transparent;
   background: transparent;
-  border-radius: 4px;
+  border-radius: var(--bdg-radius-sm);
   cursor: text;
 }
 .about-name-input:focus {
@@ -146,7 +146,7 @@ async function onCheckUpdates(): Promise<void> {
 }
 .about-meta dd {
   margin: 0;
-  font-family: "Consolas", monospace;
+  font-family: var(--bdg-font-mono);
   font-size: calc(12px * var(--bdg-font-scale, 1));
 }
 </style>

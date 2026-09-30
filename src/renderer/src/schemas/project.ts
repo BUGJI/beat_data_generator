@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { buildTempoMap, clampBpm, makeId } from "../tempo";
-import { isFreeInput } from "../../../shared/limits";
+import { isFreeInput } from "@shared/limits";
+import { baseName } from "@shared/path";
 import type {
   BeatProject,
   BpmPoint,
@@ -22,15 +23,6 @@ import type {
 
 export const APP_ID = "beat-data-generator";
 export const PROJECT_VERSION = 2;
-
-function normSlashes(p: string): string {
-  return p.replace(/\\/g, "/");
-}
-function baseName(p: string): string {
-  const n = normSlashes(p);
-  const i = n.lastIndexOf("/");
-  return i >= 0 ? n.slice(i + 1) : n;
-}
 
 /** Non-negative beat guard (dropped when free input is on). */
 function clampBeat(b: number): number {

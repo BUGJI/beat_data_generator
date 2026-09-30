@@ -5,6 +5,7 @@ import { readFile, writeFile } from "node:fs/promises";
 import { basename, extname, isAbsolute, join } from "node:path";
 import type {
   AudioFileResult,
+  IpcFileFilter,
   IpcOpenWindowOptions,
   MetronomeFile,
   RecentProject,
@@ -14,6 +15,8 @@ import type {
   UpdateCheckResult,
   WelcomeAction,
 } from "../shared/ipc";
+import { IPC } from "../shared/ipc";
+import { dirName } from "../shared/path";
 import { sanitizeSettings } from "../shared/settings";
 import {
   AUDIO_FILTERS,
@@ -25,6 +28,7 @@ import {
   sanitizeFilters,
   TEXT_FILTERS,
 } from "./files";
+import { handle } from "./ipcHandle";
 import { mt, setMainLocale } from "./i18n";
 import { joinDefaultDir, lastDirDefault, rememberDir } from "./lastDirs";
 import log, { setFileLogging } from "./logger";
@@ -35,15 +39,17 @@ import { getSettings, persistSettings, setSettings } from "./settings";
 import { checkUpdatesNow, checkUpdatesSilent } from "./updater";
 import {
   closeDevToolsAll,
+  confirmQuitNow,
   handleWelcomeAction,
   markMainReady,
   refreshWindowTitles,
+  setRendererDirty,
   win,
 } from "./windows";
 
 /** Registers every ipcMain handler. Call once, after `app.whenReady`. */
 export function installIpc(): void {
-  ipcMain.handle("audio:open", async (): Promise<AudioFileResult | null> => {
+  handle("openAudio", async (): Promise<AudioFileResult | null> => {
     const w = win();
     if (!w) return null;
     const r = await dialog.showOpenDialog(w, {
@@ -57,8 +63,8 @@ export function installIpc(): void {
     return bytesToAudioResult(r.filePaths[0], true);
   });
 
-  ipcMain.handle(
-    "audio:read",
+  handle(
+    "readAudioFile",
     async (_e, filePath: string): Promise<AudioFileResult | null> => {
       try {
         return await bytesToAudioResult(filePath, true);
@@ -68,16 +74,16 @@ export function installIpc(): void {
     },
   );
 
-  ipcMain.handle("metronome:list", (): MetronomeFile[] => listMetronomeFiles());
+  handle("listMetronomes", (): MetronomeFile[] => listMetronomeFiles());
 
-  ipcMain.handle("metronome:open-folder", async (): Promise<void> => {
+  handle("openMetronomeFolder", async (): Promise<void> => {
     const dir = metronomeDir();
     mkdirSync(dir, { recursive: true });
     await shell.openPath(dir);
   });
 
-  ipcMain.handle(
-    "metronome:read",
+  handle(
+    "readMetronome",
     async (_e, file: string): Promise<AudioFileResult | null> => {
       if (typeof file !== "string" || !file) return null;
       // New selections are file names inside the metronome folder; absolute
@@ -93,7 +99,7 @@ export function installIpc(): void {
     },
   );
 
-  ipcMain.handle("text:open", async (): Promise<TextFileResult> => {
+  handle("openTextFile", async (): Promise<TextFileResult> => {
     const w = win();
     if (!w) return { canceled: true };
     const r = await dialog.showOpenDialog(w, {
@@ -123,11 +129,7 @@ export function installIpc(): void {
     const w = win();
     if (!w) return { canceled: true };
     const memKind = kind === "export" ? "project" : kind;
-    const slash = Math.max(
-      defaultPath.lastIndexOf("/"),
-      defaultPath.lastIndexOf("\\"),
-    );
-    const dirFromPath = slash > 0 ? defaultPath.slice(0, slash) : "";
+    const dirFromPath = dirName(defaultPath);
     const proposed =
       memKind === "project"
         ? joinDefaultDir(memKind as "project", defaultPath, dirFromPath)
@@ -143,16 +145,12 @@ export function installIpc(): void {
     return { canceled: false, filePath: r.filePath };
   }
 
-  ipcMain.handle(
-    "text:save",
+  handle(
+    "saveTextFile",
     async (_e, defaultPath: string): Promise<SaveResult> => {
       // show the save dialog only; the caller writes afterwards so it can store
       // an audio name that is relative to the finally chosen folder.
-      const slash = Math.max(
-        defaultPath.lastIndexOf("/"),
-        defaultPath.lastIndexOf("\\"),
-      );
-      const dirFromPath = slash > 0 ? defaultPath.slice(0, slash) : "";
+      const dirFromPath = dirName(defaultPath);
       const proposed = joinDefaultDir("project", defaultPath, dirFromPath);
       const w = win();
       if (!w) return { canceled: true };
@@ -167,8 +165,8 @@ export function installIpc(): void {
     },
   );
 
-  ipcMain.handle(
-    "text:saveAsTxt",
+  handle(
+    "saveProjectFile",
     (_e, defaultPath: string, content: string): Promise<SaveResult> =>
       saveViaDialog(
         "export",
@@ -179,8 +177,8 @@ export function installIpc(): void {
       ),
   );
 
-  ipcMain.handle(
-    "text:saveEdl",
+  handle(
+    "saveEDLFile",
     (_e, defaultPath: string, content: string): Promise<SaveResult> =>
       saveViaDialog(
         "export",
@@ -191,8 +189,8 @@ export function installIpc(): void {
       ),
   );
 
-  ipcMain.handle(
-    "text:read",
+  handle(
+    "readTextFile",
     async (_e, filePath: string): Promise<TextFileResult> => {
       try {
         const content = await readFile(filePath, "utf-8");
@@ -203,8 +201,8 @@ export function installIpc(): void {
     },
   );
 
-  ipcMain.handle(
-    "text:write",
+  handle(
+    "writeProjectFile",
     async (_e, filePath: string, content: string): Promise<boolean> => {
       try {
         await writeFile(filePath, content, "utf-8");
@@ -215,82 +213,78 @@ export function installIpc(): void {
     },
   );
 
-  ipcMain.handle(
-    "recents:add",
-    (_e, filePath: string, title?: string): void => {
-      addRecent(filePath, title);
-    },
-  );
+  handle("recordRecent", (_e, filePath: string, title?: string): void => {
+    addRecent(filePath, title);
+  });
 
-  ipcMain.handle("recents:get", (): RecentProject[] => getRecents());
+  handle("getRecents", (): RecentProject[] => getRecents());
 
-  ipcMain.on("welcome:action", (_e, payload: WelcomeAction) => {
+  ipcMain.on(IPC.welcomeAction, (_e, payload: WelcomeAction) => {
     handleWelcomeAction(payload);
   });
 
-  ipcMain.handle("app:ready", (): void => {
+  ipcMain.on(IPC.setDirty, (_e, dirty: boolean) => {
+    setRendererDirty(dirty === true);
+  });
+
+  handle("confirmQuit", (): void => {
+    confirmQuitNow();
+  });
+
+  handle("notifyAppReady", (): void => {
     markMainReady();
   });
 
-  ipcMain.handle(
-    "audio:md5",
-    async (_e, filePath: string): Promise<string | null> => {
-      try {
-        const buf = await readFile(filePath);
-        return createHash("md5").update(buf).digest("hex");
-      } catch {
-        return null;
-      }
-    },
-  );
+  handle("computeMd5", async (_e, filePath: string): Promise<string | null> => {
+    try {
+      const buf = await readFile(filePath);
+      return createHash("md5").update(buf).digest("hex");
+    } catch {
+      return null;
+    }
+  });
 
-  ipcMain.handle(
-    "file:path",
-    async (_e, title: string): Promise<string | null> => {
-      const w = win();
-      if (!w) return null;
-      const r = await dialog.showOpenDialog(w, {
-        title,
-        defaultPath: lastDirDefault("audio"),
-        filters: AUDIO_FILTERS,
-        properties: ["openFile"],
-      });
-      if (r.canceled || r.filePaths.length === 0) return null;
-      rememberDir("audio", r.filePaths[0]);
-      return r.filePaths[0];
-    },
-  );
+  handle("getFilePath", async (_e, title: string): Promise<string | null> => {
+    const w = win();
+    if (!w) return null;
+    const r = await dialog.showOpenDialog(w, {
+      title,
+      defaultPath: lastDirDefault("audio"),
+      filters: AUDIO_FILTERS,
+      properties: ["openFile"],
+    });
+    if (r.canceled || r.filePaths.length === 0) return null;
+    rememberDir("audio", r.filePaths[0]);
+    return r.filePaths[0];
+  });
 
-  ipcMain.handle("settings:get", (): SettingsData => getSettings());
+  handle("getSettings", (): SettingsData => getSettings());
 
-  ipcMain.handle(
-    "settings:update",
-    (_e, patch: Partial<SettingsData>): SettingsData => {
-      const before = getSettings();
-      const wasLogging = before.logToFile === true;
-      const wasName = before.appName;
-      const wasProxy = before.proxyMode;
-      const wasCheckUpdates = before.checkUpdates;
-      setSettings(sanitizeSettings({ ...before, ...patch }));
-      persistSettings();
-      const next = getSettings();
-      setMainLocale(next.locale);
-      if (next.proxyMode !== wasProxy) void applyProxyMode(next.proxyMode);
-      if (next.appName !== wasName) refreshWindowTitles();
-      const isLogging = next.logToFile === true;
-      if (isLogging !== wasLogging) {
-        setFileLogging(isLogging);
-        if (isLogging) log.info("file logging enabled");
-      }
-      if (!next.devEnabled) closeDevToolsAll();
-      // Only kick a network check when the toggle is switched on, not on every
-      // unrelated settings write (startup already checks once).
-      if (next.checkUpdates && !wasCheckUpdates) checkUpdatesSilent();
-      return next;
-    },
-  );
+  handle("updateSettings", (_e, patch: Partial<SettingsData>): SettingsData => {
+    const before = getSettings();
+    const wasLogging = before.logToFile === true;
+    const wasName = before.appName;
+    const wasProxy = before.proxyMode;
+    const wasCheckUpdates = before.checkUpdates;
+    setSettings(sanitizeSettings({ ...before, ...patch }));
+    persistSettings();
+    const next = getSettings();
+    setMainLocale(next.locale);
+    if (next.proxyMode !== wasProxy) void applyProxyMode(next.proxyMode);
+    if (next.appName !== wasName) refreshWindowTitles();
+    const isLogging = next.logToFile === true;
+    if (isLogging !== wasLogging) {
+      setFileLogging(isLogging);
+      if (isLogging) log.info("file logging enabled");
+    }
+    if (!next.devEnabled) closeDevToolsAll();
+    // Only kick a network check when the toggle is switched on, not on every
+    // unrelated settings write (startup already checks once).
+    if (next.checkUpdates && !wasCheckUpdates) checkUpdatesSilent();
+    return next;
+  });
 
-  ipcMain.handle("dev:tools", (): void => {
+  handle("toggleDevTools", (): void => {
     if (!getSettings().devEnabled) return;
     const w = win();
     if (!w) return;
@@ -299,16 +293,16 @@ export function installIpc(): void {
     wc.openDevTools({ mode: "detach" });
   });
 
-  ipcMain.handle("ui:zoom", (_e, factor: number): void => {
+  handle("setZoom", (_e, factor: number): void => {
     const w = win();
     if (!w) return;
     const f = Math.min(1.5, Math.max(0.75, Number(factor) || 1));
     w.webContents.setZoomFactor(f);
   });
 
-  ipcMain.handle(
-    "image:read-data-url",
-    async (_e, filePath: unknown): Promise<string | null> => {
+  handle(
+    "readImageAsDataUrl",
+    async (_e, filePath: string): Promise<string | null> => {
       if (typeof filePath !== "string" || !filePath) return null;
       const mime = IMAGE_MIME[extname(filePath).toLowerCase()];
       if (!mime) return null;
@@ -323,18 +317,22 @@ export function installIpc(): void {
     },
   );
 
-  ipcMain.handle(
-    "updates:check",
+  handle(
+    "checkForUpdates",
     (): Promise<UpdateCheckResult> => checkUpdatesNow(),
   );
 
-  ipcMain.handle("clipboard:write", (_e, text: string): void => {
+  handle("writeClipboard", (_e, text: string): void => {
     clipboard.writeText(typeof text === "string" ? text : "");
   });
 
-  ipcMain.handle(
-    "io:pick",
-    async (_e, title: unknown, filters: unknown): Promise<string | null> => {
+  handle(
+    "pickFile",
+    async (
+      _e,
+      title: string,
+      filters: IpcFileFilter[],
+    ): Promise<string | null> => {
       const w = win();
       if (!w) return null;
       const r = await dialog.showOpenDialog(w, {
@@ -348,13 +346,13 @@ export function installIpc(): void {
     },
   );
 
-  ipcMain.handle(
-    "io:save",
+  handle(
+    "saveFileDialog",
     async (
       _e,
-      title: unknown,
-      defaultPath: unknown,
-      filters: unknown,
+      title: string,
+      defaultPath: string,
+      filters: IpcFileFilter[],
     ): Promise<SaveResult> => {
       const w = win();
       if (!w) return { canceled: true };
@@ -371,28 +369,25 @@ export function installIpc(): void {
     },
   );
 
-  ipcMain.handle(
-    "win:open",
-    (_e, opts: IpcOpenWindowOptions | undefined): void => {
-      const width = Number(opts?.width);
-      const height = Number(opts?.height);
-      const w = new BrowserWindow({
-        width: Number.isFinite(width) && width > 0 ? width : 900,
-        height: Number.isFinite(height) && height > 0 ? height : 640,
-        title: typeof opts?.title === "string" ? opts.title : "Plugin window",
-        autoHideMenuBar: true,
-        backgroundColor: "#101318",
-        webPreferences: {
-          sandbox: true,
-          contextIsolation: true,
-        },
+  handle("openWindow", (_e, opts: IpcOpenWindowOptions | undefined): void => {
+    const width = Number(opts?.width);
+    const height = Number(opts?.height);
+    const w = new BrowserWindow({
+      width: Number.isFinite(width) && width > 0 ? width : 900,
+      height: Number.isFinite(height) && height > 0 ? height : 640,
+      title: typeof opts?.title === "string" ? opts.title : "Plugin window",
+      autoHideMenuBar: true,
+      backgroundColor: "#101318",
+      webPreferences: {
+        sandbox: true,
+        contextIsolation: true,
+      },
+    });
+    const url = typeof opts?.url === "string" ? opts.url : "";
+    if (url) {
+      void w.loadURL(url).catch(() => {
+        w.close();
       });
-      const url = typeof opts?.url === "string" ? opts.url : "";
-      if (url) {
-        void w.loadURL(url).catch(() => {
-          w.close();
-        });
-      }
-    },
-  );
+    }
+  });
 }

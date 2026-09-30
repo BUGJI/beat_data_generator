@@ -632,12 +632,12 @@ function onSearchEnter(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: var(--bdg-ctl-xs);
+  height: var(--bdg-ctl-xs);
   border: none;
   background: none;
   color: var(--bdg-text-dim);
-  border-radius: 5px;
+  border-radius: var(--bdg-radius-md);
   cursor: pointer;
 }
 .search-clear:hover {
@@ -678,7 +678,7 @@ function onSearchEnter(): void {
 .search-result mark {
   background: rgb(var(--bdg-accent-rgb) / 0.3);
   color: inherit;
-  border-radius: 2px;
+  border-radius: var(--bdg-radius-2xs);
 }
 .sr-head {
   display: flex;
@@ -730,8 +730,8 @@ function onSearchEnter(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--bdg-ctl-sm);
+  height: var(--bdg-ctl-sm);
   border: none;
   background: none;
   color: var(--bdg-text-dim);
@@ -746,8 +746,8 @@ function onSearchEnter(): void {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: var(--bdg-ctl-sm);
+  height: var(--bdg-ctl-sm);
   background: none;
   border: none;
   color: var(--bdg-text-dim);
@@ -848,5 +848,26 @@ function onSearchEnter(): void {
 /* Keep settings button labels from breaking mid-word (notably CJK). */
 .panel button {
   word-break: keep-all;
+}
+/* Honour the OS "reduce motion" preference for the panel animations and the
+   search-hit flash, independently of the in-app Interface motion setting. */
+@media (prefers-reduced-motion: reduce) {
+  .settings-drawer-enter-active,
+  .settings-drawer-leave-active,
+  .settings-full-enter-active,
+  .settings-full-leave-active,
+  .settings-drawer-enter-active .panel,
+  .settings-drawer-leave-active .panel,
+  .settings-full-enter-active .panel,
+  .settings-full-leave-active .panel,
+  .settings-drawer-enter-active::before,
+  .settings-drawer-leave-active::before,
+  .settings-full-enter-active::before,
+  .settings-full-leave-active::before {
+    transition: none;
+  }
+  .search-hit {
+    animation: none;
+  }
 }
 </style>

@@ -45,7 +45,9 @@ const transport = useTransportStore();
 const ui = useUiStore();
 const view = useViewStore();
 
-const markerRows = computed<Array<{ i: number; track: MarkerTrack }>>(() => {
+const markerRows = computed<
+  Array<{ i: number; track: MarkerTrack; last: string }>
+>(() => {
   const y = view.y;
   const vh = view.vh;
   const top = y - BPM_LANE_H;
@@ -55,10 +57,10 @@ const markerRows = computed<Array<{ i: number; track: MarkerTrack }>>(() => {
     project.tracks.length - 1,
     Math.ceil(bottom / MARKER_LANE_H),
   );
-  const out: Array<{ i: number; track: MarkerTrack }> = [];
+  const out: Array<{ i: number; track: MarkerTrack; last: string }> = [];
   for (let i = first; i <= last; i++) {
     const track = project.tracks[i];
-    if (track) out.push({ i, track });
+    if (track) out.push({ i, track, last: lastFor(track.id) });
   }
   return out;
 });
@@ -106,6 +108,21 @@ function clickTrack(_id: string): void {
 
 const addBtnText = computed(() => t("sidebar.addTrack"));
 const renameBusy = ref<string | null>(null);
+/** Tracks whose rename input was cancelled with Escape (skip the blur commit). */
+const renameCancelled = new Set<string>();
+
+function onRenameBlur(e: FocusEvent, id: string): void {
+  const input = e.target as HTMLInputElement;
+  if (renameCancelled.delete(id)) return;
+  renameTrack(id, input.value);
+}
+
+function onRenameEsc(e: KeyboardEvent, id: string, name: string): void {
+  const input = e.target as HTMLInputElement;
+  renameCancelled.add(id);
+  input.value = name;
+  input.blur();
+}
 
 const glowSeqSeen: Record<string, number> = {};
 const glowOn = reactive<Record<string, boolean>>({});
@@ -249,24 +266,20 @@ onBeforeUnmount(() => {
               :value="row.track.name"
               :placeholder="t('sidebar.trackName')"
               @pointerdown.stop
-              @blur="
-                (e: FocusEvent) =>
-                  renameTrack(
-                    row.track.id,
-                    (e.target as HTMLInputElement).value,
-                  )
-              "
+              @blur="(e: FocusEvent) => onRenameBlur(e, row.track.id)"
               @keyup.enter="
                 (e: KeyboardEvent) => (e.target as HTMLInputElement).blur()
+              "
+              @keyup.esc="
+                (e: KeyboardEvent) =>
+                  onRenameEsc(e, row.track.id, row.track.name)
               "
               @focus="renameBusy = row.track.id"
             />
             <span class="t-sub num">
               <span :style="{ color: row.track.color }">{{ row.i + 1 }}</span>
-              <span v-if="lastFor(row.track.id)" class="dot">·</span>
-              <span v-if="lastFor(row.track.id)">{{
-                lastFor(row.track.id)
-              }}</span>
+              <span v-if="row.last" class="dot">·</span>
+              <span v-if="row.last">{{ row.last }}</span>
             </span>
           </span>
           <span class="h-actions">
@@ -375,8 +388,8 @@ onBeforeUnmount(() => {
   border: none;
   background: rgb(var(--bdg-accent-rgb) / 0.16);
   color: var(--bdg-accent);
-  width: 20px;
-  height: 20px;
+  width: var(--bdg-ctl-xs);
+  height: var(--bdg-ctl-xs);
   border-radius: var(--bdg-radius, 6px);
   font-size: calc(14px * var(--bdg-font-scale, 1));
   cursor: pointer;
@@ -435,8 +448,8 @@ onBeforeUnmount(() => {
   background: var(--bdg-border);
 }
 .color-pick {
-  width: 20px;
-  height: 20px;
+  width: var(--bdg-ctl-xs);
+  height: var(--bdg-ctl-xs);
   flex: none;
 }
 .rows {
@@ -504,7 +517,7 @@ onBeforeUnmount(() => {
   width: 13px;
   height: 13px;
   flex: none;
-  border-radius: 4px;
+  border-radius: var(--bdg-radius-sm);
   border: none;
   cursor: pointer;
   transform: rotate(45deg);
@@ -525,7 +538,7 @@ onBeforeUnmount(() => {
 .t-name-input {
   background: transparent;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: var(--bdg-radius-sm);
   color: var(--bdg-text);
   font-family: inherit;
   padding: 0 2px;
@@ -543,7 +556,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-family: "Consolas", monospace;
+  font-family: var(--bdg-font-mono);
 }
 .dot {
   opacity: 0.5;
@@ -560,12 +573,12 @@ onBeforeUnmount(() => {
   gap: 1px;
 }
 .mini {
-  width: 18px;
-  height: 18px;
+  width: var(--bdg-ctl-2xs);
+  height: var(--bdg-ctl-2xs);
   border: none;
   background: transparent;
   color: var(--bdg-text-dim);
-  border-radius: 4px;
+  border-radius: var(--bdg-radius-sm);
   font-size: calc(9px * var(--bdg-font-scale, 1));
   cursor: pointer;
   padding: 0;
@@ -593,7 +606,7 @@ onBeforeUnmount(() => {
   background: rgb(var(--bdg-danger-rgb) / 0.14);
 }
 .mini:disabled {
-  opacity: 0.25;
+  opacity: var(--bdg-disabled-opacity);
   cursor: default;
 }
 .row-glow {
@@ -620,5 +633,11 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: var(--bdg-text-dim);
   font-size: calc(12px * var(--bdg-font-scale, 1));
+}
+/* The per-row glow is purely decorative; skip it when motion is reduced. */
+@media (prefers-reduced-motion: reduce) {
+  .row-glow {
+    animation: none;
+  }
 }
 </style>

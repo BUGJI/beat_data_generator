@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted } from "vue";
+import { TooltipProvider } from "reka-ui";
 import TopBar from "./components/TopBar.vue";
 import ProjectBar from "./components/ProjectBar.vue";
 import SideBar from "./components/SideBar.vue";
@@ -12,6 +13,7 @@ import UiToaster from "./components/ui/UiToaster.vue";
 import { setScroll, useViewStore } from "./stores/view";
 import { loadSettings, useSettingsStore } from "./stores/settings";
 import { closeCard, useSelectionStore } from "./stores/selection";
+import { useUiStore } from "./stores/ui";
 import {
   removeBpmPoint,
   removeSelectedMarkers,
@@ -29,6 +31,7 @@ import { initPlugins } from "./plugins/host";
 const settings = useSettingsStore();
 const selection = useSelectionStore();
 const view = useViewStore();
+const ui = useUiStore();
 
 function isTyping(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -104,6 +107,11 @@ function onKeydown(e: KeyboardEvent): void {
     return;
   }
   if (code === "Escape") {
+    // Close the top-most layer first, then fall back to the property card.
+    if (ui.analysisOpen) {
+      ui.analysisOpen = false;
+      return;
+    }
     closeCard();
     return;
   }
@@ -154,17 +162,21 @@ onBeforeUnmount(() => {
 
 <template>
   <div class="app-root">
-    <div class="app-bg" aria-hidden="true" />
-    <TopBar />
-    <ProjectBar />
-    <div class="workspace">
-      <SideBar />
-      <Timeline />
-    </div>
-    <TransportBar />
-    <SettingsModal />
-    <PluginPanels />
-    <AnalysisPanel />
-    <UiToaster />
+    <!-- Single tooltip provider for the whole app; UiTooltip overrides the
+         delay per instance via TooltipRoot. -->
+    <TooltipProvider :delay-duration="250">
+      <div class="app-bg" aria-hidden="true" />
+      <TopBar />
+      <ProjectBar />
+      <div class="workspace">
+        <SideBar />
+        <Timeline />
+      </div>
+      <TransportBar />
+      <SettingsModal />
+      <PluginPanels />
+      <AnalysisPanel />
+      <UiToaster />
+    </TooltipProvider>
   </div>
 </template>

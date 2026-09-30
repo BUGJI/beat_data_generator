@@ -3,62 +3,24 @@ import { engine, computePeaks } from "../engine";
 import { t } from "../utils/text";
 import { useProjectStore } from "../stores/project";
 import { useTransportStore } from "../stores/transport";
+import {
+  baseName,
+  dirName,
+  isAbsolutePath,
+  joinPath,
+  relativeToDir,
+} from "@shared/path";
 import type { AudioFileResultLike } from "../types";
 
-/**
- * Audio loading / relinking and the renderer-side path helpers. The renderer
- * has no node `path` module, so the small helper set below mirrors the parts we
- * need (normalize, dirname, basename, join, relative).
- */
-
-function normSlashes(p: string): string {
-  return p.replace(/\\/g, "/");
-}
-function dirOf(p: string): string {
-  const n = normSlashes(p);
-  const i = n.lastIndexOf("/");
-  return i >= 0 ? n.slice(0, i) : "";
-}
-export function baseName(p: string): string {
-  const n = normSlashes(p);
-  const i = n.lastIndexOf("/");
-  return i >= 0 ? n.slice(i + 1) : n;
-}
-function isAbsolutePath(p: string): boolean {
-  const n = normSlashes(p);
-  return /^[A-Za-z]:\//.test(n) || n.startsWith("/");
-}
-function joinDir(dir: string, name: string): string {
-  if (!dir) return normSlashes(name);
-  const d = normSlashes(dir).replace(/\/+$/, "");
-  return `${d}/${normSlashes(name).replace(/^\/+/, "")}`;
-}
-/** relative path from `dir` to `fp`, or null when not computable (different drive) */
-function relativeToDir(dir: string, fp: string): string | null {
-  const d = normSlashes(dir).replace(/\/+$/, "");
-  const f = normSlashes(fp);
-  if (!d || !f) return null;
-  const dm = /^([A-Za-z]):/.exec(d);
-  const fm = /^([A-Za-z]):/.exec(f);
-  if (dm && fm && dm[1] !== fm[1]) return null;
-  const da = d.split("/");
-  const fa = f.split("/");
-  let i = 0;
-  while (i < da.length && i < fa.length && da[i] === fa[i]) i++;
-  const ups = da.length - i;
-  const tail = fa.slice(i).join("/");
-  if (!tail) return null;
-  return ups > 0 ? `${new Array(ups).fill("..").join("/")}/${tail}` : tail;
-}
+/** Audio loading / relinking and the renderer-side path helpers. */
 
 /** The actual audio location for a persisted audioName (same folder as the project by default). */
 export function resolveAudioFullPath(name: string | null): string | null {
   if (!name) return null;
   const p = useProjectStore();
-  const n = normSlashes(name);
-  if (isAbsolutePath(n)) return n;
-  const dir = dirOf(p.projectPath ?? "");
-  return joinDir(dir, n);
+  if (isAbsolutePath(name)) return name;
+  const dir = dirName(p.projectPath ?? "");
+  return joinPath(dir, name);
 }
 
 /** Recompute persisted audioName relative to the current project folder. */
@@ -66,7 +28,7 @@ export function setAudioNameRelative(): void {
   const p = useProjectStore();
   const ap = p.audioPath;
   if (!ap) return;
-  const rel = relativeToDir(dirOf(p.projectPath ?? ""), ap);
+  const rel = relativeToDir(dirName(p.projectPath ?? ""), ap);
   p.audioName = rel ?? baseName(ap);
 }
 

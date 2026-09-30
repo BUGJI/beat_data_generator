@@ -111,7 +111,7 @@ export interface IpcApi {
   invokePlugin: (
     id: string,
     method: string,
-    ...args: unknown[]
+    args: unknown[],
   ) => Promise<unknown>;
   /** Fired by the main process whenever the plugin set or its state changes. */
   onPluginsChanged: (cb: () => void) => () => void;
@@ -143,9 +143,90 @@ export interface IpcApi {
   openWindow: (opts: IpcOpenWindowOptions) => Promise<void>;
   /** Copy plain text to the system clipboard. */
   writeClipboard: (text: string) => Promise<void>;
+  /** Report whether the project has unsaved edits (drives the quit guard). */
+  setDirty: (dirty: boolean) => void;
+  /** Allow the pending quit to proceed (after the renderer saved). */
+  confirmQuit: () => Promise<void>;
+  /** Main asks the renderer to save before quitting; save then confirmQuit(). */
+  onQuitRequest: (cb: () => void) => () => void;
 }
 
 export type WelcomeAction =
   | { type: "new"; path?: string | null }
   | { type: "open"; path?: string | null }
   | { type: "recent"; path: string };
+
+/**
+ * Single source of truth for IPC channel names, shared by the preload bridge and
+ * the main-process handlers so the two sides cannot drift. Keys mirror the
+ * `IpcApi` method they implement; the trailing keys are push/subscribe channels
+ * rather than request/response.
+ */
+export const IPC = {
+  openAudio: "audio:open",
+  readAudioFile: "audio:read",
+  openTextFile: "text:open",
+  saveTextFile: "text:save",
+  saveProjectFile: "text:saveAsTxt",
+  saveEDLFile: "text:saveEdl",
+  readTextFile: "text:read",
+  writeProjectFile: "text:write",
+  writeTextFile: "text:write",
+  getFilePath: "file:path",
+  getSettings: "settings:get",
+  updateSettings: "settings:update",
+  checkForUpdates: "updates:check",
+  toggleDevTools: "dev:tools",
+  setZoom: "ui:zoom",
+  computeMd5: "audio:md5",
+  listMetronomes: "metronome:list",
+  openMetronomeFolder: "metronome:open-folder",
+  readMetronome: "metronome:read",
+  notifyAppReady: "app:ready",
+  readImageAsDataUrl: "image:read-data-url",
+  recordRecent: "recents:add",
+  getRecents: "recents:get",
+  listPlugins: "plugins:list",
+  setPluginEnabled: "plugins:set-enabled",
+  reloadPlugins: "plugins:reload",
+  readPluginRenderer: "plugins:renderer-source",
+  openPluginsFolder: "plugins:open-folder",
+  invokePlugin: "plugins:invoke",
+  marketList: "plugins:market:list",
+  marketRefresh: "plugins:market:refresh",
+  marketInstall: "plugins:market:install",
+  marketUninstall: "plugins:market:uninstall",
+  installPluginZip: "plugins:market:install-zip",
+  pingHost: "network:ping",
+  pickFile: "io:pick",
+  saveFileDialog: "io:save",
+  openWindow: "win:open",
+  writeClipboard: "clipboard:write",
+  setDirty: "app:set-dirty",
+  confirmQuit: "app:confirm-quit",
+  // push / subscription channels
+  welcomeAction: "welcome:action",
+  pluginChanged: "plugin:changed",
+  marketProgress: "plugin:market:progress",
+  quitRequest: "app:quit-request",
+} as const;
+
+export type IpcChannel = (typeof IPC)[keyof typeof IPC];
+
+/** Keys of {@link IPC} that are push/subscription channels, not request/response. */
+export type IpcEventKey =
+  | "welcomeAction"
+  | "pluginChanged"
+  | "marketProgress"
+  | "quitRequest";
+
+/**
+ * Keys of {@link IPC} that implement an `IpcApi` request/response method. The
+ * `keyof IpcApi` intersection keeps the table honest: adding an entry whose key
+ * is not an `IpcApi` method is a compile error where the typed handler is used.
+ */
+export type IpcMethodKey = Exclude<
+  keyof typeof IPC,
+  IpcEventKey | "writeTextFile" | "setDirty"
+> &
+  keyof IpcApi;

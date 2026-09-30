@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, shell } from "electron";
 import {
   existsSync,
   mkdirSync,
@@ -9,7 +9,9 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import log from "./logger";
+import { IPC } from "../shared/ipc";
 import type { PluginEntry, PluginManifest } from "../shared/plugin";
+import { handle } from "./ipcHandle";
 
 /**
  * Main-process plugin manager.
@@ -324,7 +326,7 @@ export function setEnabled(id: string, enabled: boolean): PluginEntry[] {
 
 function broadcastChanged(): void {
   for (const w of BrowserWindow.getAllWindows()) {
-    if (!w.isDestroyed()) w.webContents.send("plugin:changed");
+    if (!w.isDestroyed()) w.webContents.send(IPC.pluginChanged);
   }
 }
 
@@ -338,12 +340,10 @@ export function rescanPlugins(): PluginEntry[] {
 export function installPluginManager(): void {
   mkdirSync(userPluginsDir(), { recursive: true });
 
-  ipcMain.handle("plugins:list", (): PluginEntry[] =>
-    scanAll().map((e) => ({ ...e })),
-  );
+  handle("listPlugins", (): PluginEntry[] => scanAll().map((e) => ({ ...e })));
 
-  ipcMain.handle(
-    "plugins:set-enabled",
+  handle(
+    "setPluginEnabled",
     (_e, id: string, enabled: boolean): PluginEntry[] => {
       if (typeof id !== "string" || typeof enabled !== "boolean")
         return scanAll().map((e) => ({ ...e }));
@@ -351,14 +351,14 @@ export function installPluginManager(): void {
     },
   );
 
-  ipcMain.handle("plugins:reload", (): PluginEntry[] => {
+  handle("reloadPlugins", (): PluginEntry[] => {
     for (const id of [...loaded.keys()]) unloadMain(id);
     const list = refreshEnabled();
     broadcastChanged();
     return list.map((e) => ({ ...e }));
   });
 
-  ipcMain.handle("plugins:renderer-source", (_e, id: string): string | null => {
+  handle("readPluginRenderer", (_e, id: string): string | null => {
     if (typeof id !== "string") return null;
     const entry = scanAll().find((e) => e.id === id);
     if (!entry?.renderer || !entry.enabled) return null;
@@ -370,12 +370,12 @@ export function installPluginManager(): void {
     }
   });
 
-  ipcMain.handle("plugins:open-folder", (): void => {
+  handle("openPluginsFolder", (): void => {
     void shell.openPath(userPluginsDir());
   });
 
-  ipcMain.handle(
-    "plugins:invoke",
+  handle(
+    "invokePlugin",
     async (
       _e,
       id: string,

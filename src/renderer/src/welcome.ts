@@ -1,4 +1,4 @@
-import type { RecentProject } from "../../shared/ipc";
+import type { RecentProject } from "@shared/ipc";
 import { detectLocale, resolveLocale, type Locale } from "./i18n/locale";
 import { welcomeText } from "./i18n/welcomeMessages";
 

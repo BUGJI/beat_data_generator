@@ -1,4 +1,4 @@
-import { isFreeInput } from "../../../../shared/limits";
+import { isFreeInput } from "@shared/limits";
 import { pushHistory } from "../../services/history";
 import { bpmAtBeat, effectiveBpmFor } from "../../services/timeline";
 import { clampBpm, makeId } from "../../tempo";

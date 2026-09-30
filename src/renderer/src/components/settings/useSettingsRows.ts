@@ -7,8 +7,8 @@ import {
 } from "../../stores/settings";
 import { i18n, LOCALES, setLocale } from "../../i18n";
 import { THEME_TOKEN_ORDER } from "../../theme";
-import type { CloseMode } from "../../../../shared/ipc";
-import type { AlignRounding, StretchEngine } from "../../../../shared/settings";
+import type { CloseMode } from "@shared/ipc";
+import type { AlignRounding, StretchEngine } from "@shared/settings";
 import {
   num,
   radio,

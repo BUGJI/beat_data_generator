@@ -48,14 +48,15 @@ function commit(raw: string): void {
 
 function stepBy(dir: 1 | -1): void {
   if (props.disabled) return;
+  commit(text.value); // fold any half-typed value in before stepping
   model.value = clamp(model.value + dir * (props.step ?? 1));
 }
 </script>
 
 <template>
   <div
-    class="inline-flex h-7 items-center overflow-hidden rounded-ui border border-line bg-sunken text-xs"
-    :class="disabled && 'opacity-40'"
+    class="inline-flex h-[var(--bdg-ctl-md)] items-center overflow-hidden rounded-ui border border-line bg-sunken text-xs"
+    :class="disabled && 'opacity-[var(--bdg-disabled-opacity)]'"
   >
     <input
       v-model="text"
@@ -64,11 +65,16 @@ function stepBy(dir: 1 | -1): void {
       class="num h-full w-full min-w-0 bg-transparent px-2 text-fg outline-none"
       @blur="commit(text)"
       @keydown.enter="($event.target as HTMLInputElement).blur()"
+      @keydown.up.prevent="stepBy(1)"
+      @keydown.down.prevent="stepBy(-1)"
     />
     <div class="flex h-full flex-col border-l border-line">
+      <!-- Decorative helpers: the input itself is the keyboard/AT control. -->
       <button
         type="button"
         :disabled="disabled"
+        tabindex="-1"
+        aria-hidden="true"
         class="flex h-1/2 w-5 items-center justify-center text-fg-dim hover:bg-fg/10 hover:text-fg"
         @click="stepBy(1)"
       >
@@ -77,6 +83,8 @@ function stepBy(dir: 1 | -1): void {
       <button
         type="button"
         :disabled="disabled"
+        tabindex="-1"
+        aria-hidden="true"
         class="flex h-1/2 w-5 items-center justify-center border-t border-line text-fg-dim hover:bg-fg/10 hover:text-fg"
         @click="stepBy(-1)"
       >

@@ -94,6 +94,39 @@ let panStartViewX = 0;
 let panStartViewY = 0;
 
 const hover = { x: -1, y: -1 };
+const cursor = ref("default");
+
+/** Reflect what the pointer is over / doing in the cursor shape. */
+function updateCursor(x: number, y: number): void {
+  if (mode === "pan") {
+    cursor.value = "grabbing";
+    return;
+  }
+  if (
+    mode === "dragMarker" ||
+    mode === "dragBpm" ||
+    mode === "scrub" ||
+    mode === "boxSelect"
+  ) {
+    cursor.value = "ew-resize";
+    return;
+  }
+  if (mode === "brushAdd" || mode === "brushErase") {
+    cursor.value = "crosshair";
+    return;
+  }
+  const lane = laneKindAt(y, view.y);
+  if (lane.kind === "bpm") {
+    cursor.value = hitBpmAt(x, y) ? "ew-resize" : "copy";
+    return;
+  }
+  if (lane.kind === "marker") {
+    if (hitMarkerAt(x, y)) cursor.value = "ew-resize";
+    else cursor.value = ui.quickPlace ? "crosshair" : "copy";
+    return;
+  }
+  cursor.value = "default";
+}
 
 const trackAt = (i: number): MarkerTrack | undefined => project.tracks[i];
 
@@ -359,12 +392,16 @@ function onPointerDown(e: PointerEvent): void {
 }
 
 function onPointerMove(e: PointerEvent): void {
-  if (isOverNote(e)) return; // note drag is handled by the note overlay, not the canvas
+  if (isOverNote(e)) {
+    cursor.value = "default"; // note drag is handled by the note overlay, not the canvas
+    return;
+  }
   const rect = rootEl.value!.getBoundingClientRect();
   const x = e.clientX - rect.left;
   const y = e.clientY - rect.top;
   hover.x = x;
   hover.y = y;
+  updateCursor(x, y);
   if (Math.abs(x - downX) > 3 || Math.abs(y - downY) > 3) moved = true;
 
   if (mode === "pan") {
@@ -630,6 +667,7 @@ const selectionMs = computed<string | null>(() => {
   <div
     ref="rootEl"
     class="editor"
+    :style="{ cursor }"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
     @pointerup="onPointerUp"
@@ -659,7 +697,9 @@ const selectionMs = computed<string | null>(() => {
       <span class="sep">·</span>
       <span>{{ t("timeline.tempoHint") }}</span>
       <span v-if="view.snapEnabled" class="sep">·</span>
-      <span v-if="view.snapEnabled" class="num">snap 1/{{ view.snapDiv }}</span>
+      <span v-if="view.snapEnabled" class="num">{{
+        t("timeline.snap", { div: view.snapDiv })
+      }}</span>
       <span v-if="selectionMs" class="sep">·</span>
       <span v-if="selectionMs" class="num">{{ selectionMs }}</span>
     </div>

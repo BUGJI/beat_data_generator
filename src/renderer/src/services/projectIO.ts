@@ -14,14 +14,14 @@ import { useSettingsStore } from "../stores/settings";
 import { stop } from "./playback";
 import { markerTime } from "./timeline";
 import {
-  baseName,
   loadAudioResult,
   resolveAudioFullPath,
   setAudioNameRelative,
 } from "./audioIO";
 import { resetHistory } from "./history";
+import { baseName } from "@shared/path";
 import type { BeatProject } from "../types";
-import type { TextFileResult, WelcomeAction } from "../../../shared/ipc";
+import type { TextFileResult, WelcomeAction } from "@shared/ipc";
 
 /**
  * Project persistence: new / open / save, autosave and the timestamp + EDL

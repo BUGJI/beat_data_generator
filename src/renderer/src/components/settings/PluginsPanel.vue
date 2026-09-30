@@ -10,7 +10,7 @@ import {
   setPluginEnabled,
 } from "../../plugins/host";
 import { useMarketplaceStore } from "./useMarketplace";
-import type { PluginEntry } from "../../../../shared/plugin";
+import type { PluginEntry } from "@shared/plugin";
 import UiButton from "../ui/UiButton.vue";
 import UiInput from "../ui/UiInput.vue";
 import UiSwitch from "../ui/UiSwitch.vue";
@@ -357,7 +357,7 @@ watch(
   background: rgb(var(--bdg-accent-rgb) / 0.12);
   border: 1px solid rgb(var(--bdg-accent-rgb) / 0.22);
   padding: 1px 6px;
-  border-radius: 5px;
+  border-radius: var(--bdg-radius-md);
 }
 .plugin-dir {
   font-size: calc(10px * var(--bdg-font-scale, 1));

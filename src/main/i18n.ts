@@ -21,6 +21,16 @@ const MESSAGES = {
   quitMessage: { en: "Exit {name}?", zh: "退出 {name}？" },
   quitButton: { en: "Quit", zh: "退出" },
   cancelButton: { en: "Cancel", zh: "取消" },
+  unsavedMessage: {
+    en: "Save changes before exiting?",
+    zh: "退出前保存更改？",
+  },
+  unsavedDetail: {
+    en: "Your project has unsaved changes. Exiting without saving will lose them.",
+    zh: "当前工程有未保存的更改，直接退出将丢失这些修改。",
+  },
+  saveAndQuit: { en: "Save and quit", zh: "保存并退出" },
+  discardAndQuit: { en: "Discard and quit", zh: "放弃并退出" },
   updateTitle: { en: "{name} — update available", zh: "{name} — 更新可用" },
   updateBody: {
     en: "Version {version} is available. Click to open the download page.",

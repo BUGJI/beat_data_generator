@@ -8,7 +8,7 @@ import {
   fmtBarBeat,
 } from "./tempo";
 import type { BpmPoint } from "./types";
-import { setFreeInput } from "../../shared/limits";
+import { setFreeInput } from "@shared/limits";
 
 const point = (
   beat: number,

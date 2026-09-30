@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { loadMetronome, previewMetronome } from "../../../services/audioIO";
-import { patchSettings, useSettingsStore } from "../../../stores/settings";
+import { loadMetronome, previewMetronome } from "@renderer/services/audioIO";
+import { patchSettings, useSettingsStore } from "@renderer/stores/settings";
 import UiButton from "../../ui/UiButton.vue";
 import UiSlider from "../../ui/UiSlider.vue";
 import UiSwitch from "../../ui/UiSwitch.vue";
-import type { MetronomeFile } from "../../../../../shared/ipc";
+import type { MetronomeFile } from "@shared/ipc";
 
 const { t } = useI18n();
 const settings = useSettingsStore();

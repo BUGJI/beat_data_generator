@@ -509,7 +509,7 @@ function onImportTheme(): void {
 }
 .theme-card-swatches {
   display: inline-flex;
-  border-radius: 4px;
+  border-radius: var(--bdg-radius-sm);
   overflow: hidden;
   border: 1px solid var(--bdg-border-strong);
   margin-left: auto;
@@ -526,7 +526,7 @@ function onImportTheme(): void {
   width: 22px;
   height: 22px;
   border: 1px solid var(--bdg-border);
-  border-radius: 5px;
+  border-radius: var(--bdg-radius-md);
   background: none;
   color: var(--bdg-text-dim);
   cursor: pointer;

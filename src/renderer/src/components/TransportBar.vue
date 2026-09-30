@@ -107,11 +107,12 @@ onBeforeUnmount(() => {
           :min="freeInput ? undefined : SPEED_MIN"
           :step="0.05"
           :precision="freeInput ? undefined : 2"
+          :label="t('transport.speedRate')"
           class="rate-input"
         />
       </div>
       <div class="rate-ctl" :title="t('transport.pitchTooltip')">
-        <UiSwitch v-model="pitchFollow" />
+        <UiSwitch v-model="pitchFollow" :label="t('transport.pitchFollow')" />
         <span class="rate-label">{{ t("transport.pitchFollow") }}</span>
       </div>
     </div>
@@ -120,6 +121,7 @@ onBeforeUnmount(() => {
       <button
         class="btn-icon"
         :title="t('transport.backStart')"
+        :aria-label="t('transport.backStart')"
         @click="seekTo(0)"
       >
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
@@ -130,6 +132,7 @@ onBeforeUnmount(() => {
         class="btn-big"
         :class="{ playing }"
         :title="playing ? t('transport.pause') : t('transport.play')"
+        :aria-label="playing ? t('transport.pause') : t('transport.play')"
         @click="togglePlay()"
       >
         <svg
@@ -151,7 +154,12 @@ onBeforeUnmount(() => {
           <path d="M4 2h3v12H4zM9 2h3v12H9z" />
         </svg>
       </button>
-      <button class="btn-icon" :title="t('transport.stop')" @click="stop()">
+      <button
+        class="btn-icon"
+        :title="t('transport.stop')"
+        :aria-label="t('transport.stop')"
+        @click="stop()"
+      >
         <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
           <rect x="3" y="3" width="10" height="10" rx="1" />
         </svg>
@@ -176,6 +184,7 @@ onBeforeUnmount(() => {
         :min="0"
         :max="1"
         :step="0.01"
+        :label="t('transport.volume')"
         class="vol-slider"
       />
     </div>
@@ -275,15 +284,15 @@ onBeforeUnmount(() => {
   font-family: inherit;
 }
 .btn-icon {
-  width: 30px;
-  height: 30px;
+  width: var(--bdg-ctl-md);
+  height: var(--bdg-ctl-md);
 }
 .btn-icon:hover:not(:disabled) {
   background: rgb(var(--bdg-neutral) / 0.14);
 }
 .btn-big {
-  width: 40px;
-  height: 40px;
+  width: var(--bdg-ctl-xl);
+  height: var(--bdg-ctl-xl);
   border-radius: 50%;
   background: linear-gradient(135deg, var(--bdg-accent), var(--bdg-accent-2));
   color: rgb(var(--bdg-bg-rgb));
@@ -297,7 +306,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 2px 10px rgb(var(--bdg-amber-rgb) / 0.35);
 }
 button:disabled {
-  opacity: 0.35;
+  opacity: var(--bdg-disabled-opacity);
   cursor: default;
 }
 .tr-divider {
@@ -322,7 +331,7 @@ button:disabled {
   color: var(--bdg-text-dim);
 }
 .tr-right {
-  width: 260px;
+  width: min(260px, 26vw);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -334,5 +343,17 @@ button:disabled {
 }
 .vol-slider {
   flex: 1;
+}
+@media (max-width: 1180px) {
+  .vol-label {
+    display: none;
+  }
+  .rate-zone {
+    gap: 8px;
+    padding-right: 10px;
+  }
+  .rate-input {
+    width: 76px;
+  }
 }
 </style>

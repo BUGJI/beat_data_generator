@@ -235,7 +235,7 @@ function cancelNoteEdit(): void {
   background: none;
   color: var(--bdg-text-dim);
   cursor: pointer;
-  border-radius: 5px;
+  border-radius: var(--bdg-radius-md);
   font-size: calc(11px * var(--bdg-font-scale, 1));
   display: inline-flex;
   align-items: center;
@@ -285,7 +285,7 @@ function cancelNoteEdit(): void {
 .note-body.md code {
   background: rgb(var(--bdg-neutral) / 0.15);
   padding: 0 3px;
-  border-radius: 3px;
+  border-radius: var(--bdg-radius-xs);
   font-size: calc(11px * var(--bdg-font-scale, 1));
 }
 .note-body.md a {

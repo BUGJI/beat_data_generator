@@ -16,11 +16,11 @@ const model = defineModel<string>({ required: true });
     v-model="model"
     :placeholder="placeholder"
     :disabled="disabled"
-    class="w-full rounded-ui border border-line bg-sunken px-2 text-fg outline-none placeholder:text-fg-faint focus:border-line-strong disabled:opacity-40"
+    class="w-full rounded-ui border border-line bg-sunken px-2 text-fg outline-none placeholder:text-fg-faint focus:border-line-strong disabled:opacity-[var(--bdg-disabled-opacity)]"
     :class="
       size === 'sm'
-        ? 'h-7 text-xs'
-        : 'h-8 text-[length:calc(13px*var(--bdg-font-scale,1))]'
+        ? 'h-[var(--bdg-ctl-md)] text-xs'
+        : 'h-[var(--bdg-ctl-lg)] text-[length:calc(13px*var(--bdg-font-scale,1))]'
     "
   />
 </template>

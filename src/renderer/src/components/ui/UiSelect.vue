@@ -34,11 +34,11 @@ const model = defineModel<string>({ required: true });
 <template>
   <SelectRoot v-model="model" :disabled="disabled">
     <SelectTrigger
-      class="inline-flex items-center justify-between gap-2 rounded-ui border border-line bg-sunken px-2 text-fg outline-none hover:border-line-strong disabled:opacity-40"
+      class="inline-flex items-center justify-between gap-2 rounded-ui border border-line bg-sunken px-2 text-fg outline-none hover:border-line-strong disabled:opacity-[var(--bdg-disabled-opacity)]"
       :class="
         size === 'sm'
-          ? 'h-7 min-w-[96px] text-xs'
-          : 'h-8 min-w-[120px] text-[length:calc(13px*var(--bdg-font-scale,1))]'
+          ? 'h-[var(--bdg-ctl-md)] min-w-[96px] text-xs'
+          : 'h-[var(--bdg-ctl-lg)] min-w-[120px] text-[length:calc(13px*var(--bdg-font-scale,1))]'
       "
     >
       <SelectValue :placeholder="placeholder" />

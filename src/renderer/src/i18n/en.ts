@@ -117,6 +117,7 @@ export default {
       "Drag to adjust · select a point to edit its beat / BPM in the floating card",
     tempoHint:
       "BPM lane: add BPM points to change the beat-grid spacing after them (faster → denser)",
+    snap: "snap 1/{div}",
   },
   transport: {
     play: "Play",

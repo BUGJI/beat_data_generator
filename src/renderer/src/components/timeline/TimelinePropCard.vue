@@ -622,7 +622,7 @@ onBeforeUnmount(() => {
 .pc-dot {
   width: 9px;
   height: 9px;
-  border-radius: 2px;
+  border-radius: var(--bdg-radius-2xs);
   transform: rotate(45deg);
   flex: none;
 }
@@ -694,7 +694,7 @@ onBeforeUnmount(() => {
   color: var(--bdg-amber);
   background: rgb(var(--bdg-amber-rgb) / 0.14);
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: var(--bdg-radius-sm);
   text-transform: none;
   letter-spacing: 0;
   font-weight: 600;
@@ -738,7 +738,7 @@ onBeforeUnmount(() => {
   min-width: 22px;
   max-width: 22px;
   box-sizing: border-box;
-  border-radius: 5px;
+  border-radius: var(--bdg-radius-md);
   border: 1px solid var(--bdg-border-strong);
   background: rgb(var(--bdg-neutral) / 0.08);
   color: var(--bdg-text);

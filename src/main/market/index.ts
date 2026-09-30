@@ -1,8 +1,8 @@
-import { ipcMain } from "electron";
 import type {
   MarketInstallResult,
   MarketPluginView,
 } from "../../shared/market";
+import { handle } from "../ipcHandle";
 import { pingEndpoint } from "../network";
 import { installLocalZip, installPlugin, uninstallPlugin } from "./installer";
 import { listMarket } from "./inventory";
@@ -22,30 +22,22 @@ export function installMarketManager(opts?: {
 }): void {
   if (opts?.getSettings) setMarketSettings(opts.getSettings);
 
-  ipcMain.handle(
-    "plugins:market:list",
-    (): Promise<MarketPluginView[]> => listMarket(false),
-  );
+  handle("marketList", (): Promise<MarketPluginView[]> => listMarket(false));
 
-  ipcMain.handle(
-    "plugins:market:refresh",
-    (): Promise<MarketPluginView[]> => listMarket(true),
-  );
+  handle("marketRefresh", (): Promise<MarketPluginView[]> => listMarket(true));
 
-  ipcMain.handle(
-    "plugins:market:install",
+  handle(
+    "marketInstall",
     (_e, id: string, version?: string): Promise<MarketInstallResult> =>
       installPlugin(id, version),
   );
 
-  ipcMain.handle("plugins:market:uninstall", (_e, id: string): boolean =>
-    uninstallPlugin(id),
-  );
+  handle("marketUninstall", (_e, id: string): boolean => uninstallPlugin(id));
 
-  ipcMain.handle(
-    "plugins:market:install-zip",
+  handle(
+    "installPluginZip",
     (): Promise<MarketInstallResult | null> => installLocalZip(),
   );
 
-  ipcMain.handle("network:ping", (_e, url: string) => pingEndpoint(url));
+  handle("pingHost", (_e, url: string) => pingEndpoint(url));
 }

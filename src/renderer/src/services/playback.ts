@@ -3,7 +3,7 @@ import { stretchAudioBuffer } from "../stretch";
 import { useSettingsStore } from "../stores/settings";
 import { useTransportStore } from "../stores/transport";
 import { refreshBeatFlash } from "./flash";
-import { isFreeInput } from "../../../shared/limits";
+import { isFreeInput } from "@shared/limits";
 
 /**
  * Playback orchestration around the audio engine: play / pause / stop / seek,
