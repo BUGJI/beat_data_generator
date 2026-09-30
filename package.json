@@ -4,6 +4,7 @@
   "description": "Music beat-marker editor built with Electron + Vue 3 + TypeScript + Tailwind CSS",
   "main": "./out/main/index.js",
   "author": "BUGJI",
+  "desktopName": "beat-data-generator.desktop",
   "license": "GPL-3.0",
   "build": {
     "appId": "dev.bdg.beat-data-generator",
@@ -38,6 +39,8 @@
       "icon": "build/icon.png",
       "category": "AudioVideo",
       "synopsis": "Music beat-marker editor",
+      "maintainer": "BUGJI <BUGJI@users.noreply.github.com>",
+      "syncDesktopName": true,
       "target": [
         {
           "target": "AppImage",
