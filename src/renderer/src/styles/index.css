@@ -62,10 +62,9 @@ body {
   user-select: none;
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: rgb(var(--bdg-neutral) / 0.2) transparent;
-}
+/* Chromium/Electron: a non-`auto` scrollbar-color/scrollbar-width would take
+   precedence and silently disable the ::-webkit-scrollbar rules below, so the
+   custom scrollbar is styled only through the webkit pseudo-elements. */
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -117,11 +116,16 @@ body {
   position: relative;
 }
 
-.el-button {
-  font-weight: 500;
+/* Keyboard focus ring for buttons and custom widgets. Native fields already
+   signal focus via their border, so they are excluded to avoid a double cue. */
+:focus-visible {
+  outline: 2px solid var(--bdg-accent);
+  outline-offset: 1px;
 }
-
-.el-tooltip__trigger:focus-visible {
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[role="slider"]:focus-visible {
   outline: none;
 }
 

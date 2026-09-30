@@ -369,7 +369,7 @@ function onSearchEnter(): void {
                 :aria-label="t('settings.close')"
                 @click="setSettingsOpen(false)"
               >
-                ✕
+                <X class="size-3.5" />
               </button>
             </div>
           </header>
@@ -743,13 +743,19 @@ function onSearchEnter(): void {
   color: var(--bdg-text);
 }
 .close-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
   background: none;
   border: none;
   color: var(--bdg-text-dim);
+  border-radius: var(--bdg-radius, 6px);
   cursor: pointer;
-  font-size: calc(13px * var(--bdg-font-scale, 1));
 }
 .close-x:hover {
+  background: rgb(var(--bdg-neutral) / 0.12);
   color: var(--bdg-text);
 }
 .body {
