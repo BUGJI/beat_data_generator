@@ -16,6 +16,11 @@ plugins/*
 errs.txt
 *.tsbuildinfo
 
+# Windows reserved device name: a real file called "nul" gets created by
+# stray `> nul` style redirections (e.g. from agent/script runs).
+# Cannot be removed with a plain `del nul`; see README of this ignore entry.
+nul
+
 # editors
 .idea/
 .vscode/
