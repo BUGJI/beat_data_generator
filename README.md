@@ -184,6 +184,9 @@ npm run build
 # 打包 Windows 安装包（输出到 release/）
 npm run dist:win
 
+# 打包 Linux 安装包（AppImage + deb，需在 Linux 上执行；输出到 release/）
+npm run dist:linux
+
 # 类型检查（主进程 + 渲染进程）
 npm run typecheck
 
@@ -204,6 +207,10 @@ npm run format:check
 ```
 
 测试目前覆盖纯逻辑层：节拍换算（`tempo.ts`）、工程文件解析与容错（`schemas/project.ts`）、设置修复（`shared/settings.ts`）、主题编解码（`theme.ts`）、变速引擎（`stretch/`），以及撤销/重做、复制粘贴与导出格式（`services/history.ts` / `services/clipboard.ts` / `services/projectIO.ts`）。
+
+### 发布
+
+推送 `v*` tag 触发 `.github/workflows/release.yml`：先在 ubuntu 上校验（typecheck / test / lint），再在 Windows 与 Linux runner 上分别打包，并发布到 GitHub Release（electron-builder 先建草稿，打包完成后自动转正，这样自动更新所需的 `latest.yml` / `latest-linux.yml` 才对外可见）。`dev` 分支的推送只做打包演练，产物在 Actions 的 Artifacts 中，不会发布。发布前需同步更新 `package.json` 的 `version`，且 tag 与之一致（例如 `v0.3.5`）。
 
 ### 运行日志
 

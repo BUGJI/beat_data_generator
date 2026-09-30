@@ -11,6 +11,16 @@ const RELEASES_URL = "https://github.com/BUGJI/beat_data_generator/releases";
 
 let updaterReady = false;
 
+/**
+ * electron-updater only self-updates AppImage on Linux (detected via the
+ * APPIMAGE env var); deb/rpm installs must be updated by the package manager,
+ * and calling checkForUpdates() there just errors. Treat them as unsupported.
+ */
+function updatesSupported(): boolean {
+  if (process.platform === "linux") return Boolean(process.env.APPIMAGE);
+  return true;
+}
+
 function setupUpdater(): void {
   if (updaterReady) return;
   updaterReady = true;
@@ -36,7 +46,7 @@ function setupUpdater(): void {
 }
 
 export function checkUpdatesSilent(): void {
-  if (!getSettings().checkUpdates) return;
+  if (!getSettings().checkUpdates || !updatesSupported()) return;
   setupUpdater();
   void autoUpdater.checkForUpdates().catch((err) => {
     log.error("[updater] check failed", err);
@@ -46,7 +56,7 @@ export function checkUpdatesSilent(): void {
 /** User-triggered check (About page). Reports the outcome instead of notifying. */
 export async function checkUpdatesNow(): Promise<UpdateCheckResult> {
   // electron-updater needs a packaged build with app-update.yml.
-  if (!app.isPackaged) return { status: "unsupported" };
+  if (!app.isPackaged || !updatesSupported()) return { status: "unsupported" };
   setupUpdater();
   try {
     const res = await autoUpdater.checkForUpdates();

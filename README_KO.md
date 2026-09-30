@@ -184,6 +184,9 @@ npm run build
 # Windows 설치 관리자 패키징 (release/에 출력)
 npm run dist:win
 
+# Linux 설치 패키지 (AppImage + deb, Linux에서 실행해야 함; release/에 출력)
+npm run dist:linux
+
 # 타입 검사 (메인 + 렌더러)
 npm run typecheck
 
@@ -204,6 +207,10 @@ npm run format:check
 ```
 
 테스트는 현재 순수 로직 계층을 다뤄요: 템포 계산(`tempo.ts`), 프로젝트 파일 파싱과 복구(`schemas/project.ts`), 설정 복구(`shared/settings.ts`), 테마 인코드/디코드(`theme.ts`), 타임 스트레치 엔진(`stretch/`), 그리고 실행 취소/다시 실행, 클립보드, 내보내기 형식(`services/history.ts` / `services/clipboard.ts` / `services/projectIO.ts`).
+
+### 릴리스
+
+`v*` 태그를 푸시하면 `.github/workflows/release.yml`이 실행돼요: 먼저 ubuntu에서 검증(typecheck / test / lint)한 뒤 Windows와 Linux 러너에서 패키징하고 GitHub Release에 게시해요(electron-builder가 먼저 초안을 만들고, 패키징이 끝나면 자동으로 정식 공개되므로 자동 업데이트에 필요한 `latest.yml` / `latest-linux.yml`이 외부에 노출돼요). `dev` 브랜치 푸시는 패키징 연습만 하고 Actions Artifacts에만 올라가며 게시하지 않아요. 릴리스 전에는 `package.json`의 `version`을 올리고 태그와 일치시키세요(예: `v0.3.5`).
 
 ### 실행 로그
 

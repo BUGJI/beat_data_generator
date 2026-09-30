@@ -187,6 +187,9 @@ npm run build
 # Package the Windows installer (outputs to release/)
 npm run dist:win
 
+# Package Linux installers (AppImage + deb, must run on Linux; outputs to release/)
+npm run dist:linux
+
 # Type checking (main + renderer)
 npm run typecheck
 
@@ -207,6 +210,10 @@ npm run format:check
 ```
 
 Tests currently cover the pure-logic layer: tempo math (`tempo.ts`), project-file parsing and recovery (`schemas/project.ts`), settings repair (`shared/settings.ts`), theme encode/decode (`theme.ts`), the time-stretch engines (`stretch/`), and undo/redo, clipboard plus export formats (`services/history.ts` / `services/clipboard.ts` / `services/projectIO.ts`).
+
+### Release
+
+Pushing a `v*` tag triggers `.github/workflows/release.yml`: it first verifies on ubuntu (typecheck / test / lint), then packages on Windows and Linux runners and publishes to a GitHub Release (electron-builder creates a draft first, which is auto-promoted once packaging finishes so the `latest.yml` / `latest-linux.yml` needed for auto-update become public). Pushes to the `dev` branch only do a packaging dry run — artifacts land in Actions Artifacts and nothing is published. Bump the `version` in `package.json` before releasing and keep the tag in sync (e.g. `v0.3.5`).
 
 ### Runtime logs
 
