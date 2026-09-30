@@ -4,6 +4,28 @@
 
 版本号遵循语义化版本；`0.x` 阶段仍可能有破坏性改动（如工程文件 schema 升级）。
 
+## [0.3.5] - 2026-10-01 · 韩语界面与 Linux 打包
+
+国际化
+
+- 新增韩语界面：完整的 `i18n/ko.ts` 词条表（约 570 条），欢迎窗口与主进程原生对话框同步支持韩语
+- 语言检测与设置新增 `ko`：系统语言为韩语时自动切换，设置 → 常规 → 语言下拉新增「한국어」并可持久化；修复语言 setter 将非英文值误存为中文的问题
+- 新增韩语 README（`README_KO.md`），中英文 README 的语言切换与国际化说明同步更新
+- i18n 测试扩展为 zh / en / ko 三向 key 对齐校验
+
+Linux 打包与发布
+
+- 新增 Linux 打包目标（AppImage + deb）与 `dist:linux` 脚本；deb 补全维护者信息与 `desktopName`，修正窗口与 `.desktop` 关联
+- 自动更新在 Linux 上仅 AppImage 启用自更新，deb / rpm 返回「不支持」
+- 新增 `release.yml`：打 tag 触发多平台打包发布，`dev` 分支仅做打包演练
+- 三语 README 补充 Linux 打包与发布说明
+
+内部
+
+- `.gitignore` 忽略 Windows 保留设备名 `nul`
+
+- 安装包：`Beat-Data-Generator-0.3.5-setup.exe`
+
 ## [0.3.4] - 2026-10-01 · 结构收敛、IPC 类型化与交互优化
 
 内部结构（无界面行为变化）
