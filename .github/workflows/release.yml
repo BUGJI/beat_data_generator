@@ -97,10 +97,39 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+
+      # 从 CHANGELOG.md 抽取当前 tag 对应的小节作为 Release 说明，
+      # 标题取标题行 "·" 之后的简述（缺失时退回版本号）。
+      - name: Extract release notes from CHANGELOG
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${TAG#v}"
+          awk -v v="$VERSION" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            found && index($0, "## [") == 1 { exit }
+            found { print }
+          ' CHANGELOG.md > RELEASE_NOTES.md
+          SUMMARY=$(grep -m1 "^## \[$VERSION\]" CHANGELOG.md | awk -F'·' 'NF > 1 { sub(/^[ \t]+/, "", $2); print $2 }')
+          if [ -n "$SUMMARY" ]; then
+            echo "TITLE=$VERSION — $SUMMARY" >> "$GITHUB_ENV"
+          else
+            echo "TITLE=$VERSION" >> "$GITHUB_ENV"
+          fi
+
       # electron-builder 默认把 Release 建为草稿（draft），打包全部完成后转正，
       # 这样自动更新（latest.yml / latest-linux.yml）才对外可见。
       - name: Publish draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ github.ref_name }}
-        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false
+        run: |
+          if [ -s RELEASE_NOTES.md ]; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --draft=false --title "$TITLE" --notes-file RELEASE_NOTES.md
+          else
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" \
+              --draft=false --title "$TITLE" --generate-notes
+          fi
