@@ -37,6 +37,7 @@ async function decodeAndApply(
   path: string,
   name: string,
   autoApply: boolean,
+  markDirty: boolean,
 ): Promise<boolean> {
   const p = useProjectStore();
   const tr = useTransportStore();
@@ -53,7 +54,9 @@ async function decodeAndApply(
   if (!p.name || p.name === "untitled") {
     p.name = name.replace(/\.[^.]+$/, "");
   }
-  p.dirty = true;
+  // Loading a project's own audio during open is not a user edit: marking dirty
+  // here would show the unsaved dot for the whole (silent) MD5 check + analysis.
+  if (markDirty) p.dirty = true;
   // Run pleco-xa analysis (BPM / beats / loop / spectrum) against the new
   // audio, honoring each independent audio-analysis setting toggle. Awaited so
   // callers that then mark the project clean (e.g. openProject) observe the
@@ -71,7 +74,15 @@ export async function loadAudioResult(
 ): Promise<void> {
   const p = useProjectStore();
   const tr = useTransportStore();
-  const ok = await decodeAndApply(res.data, res.filePath, res.name, autoApply);
+  // `adopt` is true for user-initiated loads (choose / relink) and false when a
+  // project opens its already-recorded audio; only the former is an edit.
+  const ok = await decodeAndApply(
+    res.data,
+    res.filePath,
+    res.name,
+    autoApply,
+    adopt,
+  );
   if (!ok) {
     toast.error(t("dialogs.audioDecodeFail"));
     return;

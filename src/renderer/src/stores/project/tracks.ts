@@ -15,6 +15,10 @@ export function addTrack(
   color?: string,
 ): MarkerTrack {
   const p = useProjectStore();
+  // `record` is false for the synthetic default track created on a blank
+  // project (startup / fresh / open): that is not a user edit, so it must not
+  // mark the document dirty (otherwise the first screen and any just-opened
+  // project look unsaved).
   if (record) pushHistory();
   const track: MarkerTrack = {
     id: makeId(),
@@ -25,7 +29,7 @@ export function addTrack(
   };
   if (type) track.type = type;
   p.tracks.push(track);
-  p.dirty = true;
+  if (record) p.dirty = true;
   return track;
 }
 
