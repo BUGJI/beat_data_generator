@@ -190,7 +190,7 @@ async function testProxies(): Promise<void> {
   background: transparent;
   color: var(--bdg-text);
   font-family: inherit;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   cursor: pointer;
   text-align: left;
 }
@@ -210,7 +210,7 @@ async function testProxies(): Promise<void> {
 }
 .ghproxy-ms {
   flex: none;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
 }
 .ghproxy-item.active .ghproxy-ms {

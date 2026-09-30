@@ -29,6 +29,7 @@ import {
   EyeOff,
   Lock,
   Plus,
+  StickyNote,
   Timer,
   X,
 } from "@lucide/vue";
@@ -173,20 +174,7 @@ onBeforeUnmount(() => {
           :title="t('sidebar.addNote')"
           @click="onAddNote"
         >
-          <svg
-            viewBox="0 0 24 24"
-            width="14"
-            height="14"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M4 2h12l4 4V22H4z" />
-            <path d="M16 2v4h4" />
-            <path d="M8 13h8M8 17h8" />
-          </svg>
+          <StickyNote class="size-3.5" />
         </button>
         <button
           class="add-btn"
@@ -379,7 +367,7 @@ onBeforeUnmount(() => {
   justify-content: space-between;
 }
 .corner-text {
-  font-size: calc(10px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-10);
   color: var(--bdg-text-dim);
   text-transform: uppercase;
   letter-spacing: 0.1em;
@@ -391,7 +379,7 @@ onBeforeUnmount(() => {
   width: var(--bdg-ctl-xs);
   height: var(--bdg-ctl-xs);
   border-radius: var(--bdg-radius, 6px);
-  font-size: calc(14px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-14);
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -410,7 +398,7 @@ onBeforeUnmount(() => {
   top: calc(100% - 6px);
   left: 8px;
   right: 8px;
-  z-index: 30;
+  z-index: var(--bdg-z-menu);
   background: var(--bdg-bg-raised);
   border: 1px solid var(--bdg-border-strong);
   border-radius: var(--bdg-radius, 6px);
@@ -428,7 +416,7 @@ onBeforeUnmount(() => {
   border: none;
   background: transparent;
   color: var(--bdg-text);
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   padding: 6px 8px;
   border-radius: var(--bdg-radius, 6px);
   cursor: pointer;
@@ -507,7 +495,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   font-weight: 700;
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
 }
 .bpm-ic {
   background: rgb(var(--bdg-bpm-rgb) / 0.16);
@@ -532,7 +520,7 @@ onBeforeUnmount(() => {
 }
 .t-name,
 .t-name-input {
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   font-weight: 700;
 }
 .t-name-input {
@@ -551,7 +539,7 @@ onBeforeUnmount(() => {
   background: rgb(var(--bdg-neutral) / 0.08);
 }
 .t-sub {
-  font-size: calc(10px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-10);
   color: var(--bdg-text-dim);
   white-space: nowrap;
   overflow: hidden;
@@ -564,7 +552,7 @@ onBeforeUnmount(() => {
 }
 .h-count {
   flex: none;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   color: var(--bdg-text-dim);
 }
 .h-actions {
@@ -579,7 +567,7 @@ onBeforeUnmount(() => {
   background: transparent;
   color: var(--bdg-text-dim);
   border-radius: var(--bdg-radius-sm);
-  font-size: calc(9px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-9);
   cursor: pointer;
   padding: 0;
   line-height: 1;
@@ -588,7 +576,7 @@ onBeforeUnmount(() => {
   justify-content: center;
 }
 .mini.icon {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
 }
 .mini:hover:not(:disabled) {
   background: rgb(var(--bdg-neutral) / 0.16);
@@ -632,7 +620,7 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: center;
   color: var(--bdg-text-dim);
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
 }
 /* The per-row glow is purely decorative; skip it when motion is reduced. */
 @media (prefers-reduced-motion: reduce) {

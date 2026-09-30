@@ -246,7 +246,7 @@ function onClose(card: Card): void {
 .plugin-layer {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--bdg-z-panel);
   pointer-events: none;
 }
 .plugin-win {
@@ -276,7 +276,7 @@ function onClose(card: Card): void {
 .pw-title {
   flex: 1;
   min-width: 0;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   font-weight: 700;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -288,7 +288,7 @@ function onClose(card: Card): void {
   border: none;
   color: var(--bdg-text-dim);
   cursor: pointer;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   padding: 2px 6px;
 }
 .pw-x:hover {
@@ -298,7 +298,7 @@ function onClose(card: Card): void {
   flex: 1;
   min-height: 0;
   overflow: auto;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   color: var(--bdg-text);
   user-select: text;
 }

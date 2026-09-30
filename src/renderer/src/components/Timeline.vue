@@ -738,10 +738,10 @@ const selectionMs = computed<string | null>(() => {
   pointer-events: none;
   color: var(--bdg-text-dim);
   text-align: center;
-  font-size: calc(14px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-14);
 }
 .editor-hint-sub {
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   opacity: 0.8;
 }
 .editor-statusbar {
@@ -754,7 +754,7 @@ const selectionMs = computed<string | null>(() => {
   align-items: center;
   gap: 8px;
   padding: 0 10px;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
   background: rgb(var(--bdg-bg-rgb) / 0.88);
   border-top: 1px solid var(--bdg-border);

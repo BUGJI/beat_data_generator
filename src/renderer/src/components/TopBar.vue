@@ -4,6 +4,9 @@ import { useI18n } from "vue-i18n";
 import {
   Activity,
   ChevronDown,
+  ChevronRight,
+  Circle,
+  CircleDot,
   Copy,
   Download,
   FilePlus,
@@ -357,10 +360,12 @@ onMounted(() => {
           :value="(ch.kind === 'action' ? 'a' : 'p') + ch.uid"
           :class="{ 'plug-open': ch.kind === 'panel' && ch.open }"
         >
-          <span v-if="ch.kind === 'panel'" class="plug-check">{{
-            ch.open ? "●" : "○"
-          }}</span>
-          <span v-else class="plug-check">▸</span>
+          <CircleDot
+            v-if="ch.kind === 'panel' && ch.open"
+            class="plug-check size-3.5"
+          />
+          <Circle v-else-if="ch.kind === 'panel'" class="plug-check size-3.5" />
+          <ChevronRight v-else class="plug-check size-3.5" />
           <span class="plug-label">{{ ch.label }}</span>
         </UiDropdownItem>
       </template>
@@ -393,9 +398,11 @@ onMounted(() => {
       </template>
     </UiDropdownMenu>
 
-    <span v-if="dirtyTitle" class="top-dirty" :title="t('toolbar.unsavedDot')"
-      >●</span
-    >
+    <span
+      v-if="dirtyTitle"
+      class="top-dirty"
+      :title="t('toolbar.unsavedDot')"
+    />
 
     <div class="grow" />
 
@@ -459,9 +466,11 @@ onMounted(() => {
   flex: none;
 }
 .top-dirty {
-  color: var(--bdg-amber);
-  font-size: calc(10px * var(--bdg-font-scale, 1));
-  line-height: 1;
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bdg-amber);
   cursor: default;
 }
 .menu-btn {
@@ -473,7 +482,7 @@ onMounted(() => {
   border: none;
   border-radius: var(--bdg-radius, 6px);
   padding: 6px 8px;
-  font-size: calc(12.5px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12-5);
   cursor: pointer;
   font-family: inherit;
   white-space: nowrap;
@@ -506,15 +515,16 @@ onMounted(() => {
 }
 .plug-head {
   opacity: 0.55;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   cursor: default;
 }
 .plug-check {
   display: inline-flex;
+  flex: none;
   width: 14px;
-  font-size: calc(9px * var(--bdg-font-scale, 1));
+  height: 14px;
   color: var(--bdg-accent);
 }
 .plug-label {
@@ -535,7 +545,7 @@ onMounted(() => {
 .kbd {
   margin-left: auto;
   padding-left: 16px;
-  font-size: calc(10.5px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-10-5);
   color: var(--bdg-text-dim);
   font-family: var(--bdg-font-mono);
 }

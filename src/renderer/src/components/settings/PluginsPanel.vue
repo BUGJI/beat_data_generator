@@ -302,7 +302,7 @@ watch(
 }
 .plugin-empty {
   color: var(--bdg-text-dim);
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
 }
 .plugin-card {
   padding: 10px 0;
@@ -322,25 +322,25 @@ watch(
 }
 .plugin-name {
   font-weight: 700;
-  font-size: calc(13.5px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13-5);
   display: flex;
   align-items: center;
   gap: 8px;
 }
 .plugin-ver {
-  font-size: calc(10px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-10);
   color: var(--bdg-text-dim);
   font-weight: 400;
 }
 .plugin-desc {
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   color: var(--bdg-text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .plugin-err {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-danger);
 }
 .plugin-meta {
@@ -350,7 +350,7 @@ watch(
   flex: none;
 }
 .plugin-meta .badge {
-  font-size: calc(9px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-9);
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--bdg-accent);
@@ -360,7 +360,7 @@ watch(
   border-radius: var(--bdg-radius-md);
 }
 .plugin-dir {
-  font-size: calc(10px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-10);
   color: var(--bdg-text-dim);
   margin-top: 4px;
   opacity: 0.8;
@@ -369,7 +369,7 @@ watch(
   white-space: nowrap;
 }
 .plugin-sub {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
 }
 .plugin-meta .badge.warn {
   color: var(--bdg-amber);
@@ -393,7 +393,7 @@ watch(
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
 }
 .ttl-chips {
   margin: 0;
@@ -402,7 +402,7 @@ watch(
   border: none;
   background: transparent;
   color: var(--bdg-danger);
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   font-family: inherit;
   cursor: pointer;
   padding: 0;
@@ -431,7 +431,7 @@ watch(
   border-radius: var(--bdg-radius, 6px);
   background: rgb(var(--bdg-amber-rgb) / 0.1);
   border: 1px solid rgb(var(--bdg-amber-rgb) / 0.25);
-  font-size: calc(11.5px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11-5);
   line-height: 1.4;
 }
 .trust-box strong {

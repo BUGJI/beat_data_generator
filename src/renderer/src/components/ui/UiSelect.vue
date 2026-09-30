@@ -38,7 +38,7 @@ const model = defineModel<string>({ required: true });
       :class="
         size === 'sm'
           ? 'h-[var(--bdg-ctl-md)] min-w-[96px] text-xs'
-          : 'h-[var(--bdg-ctl-lg)] min-w-[120px] text-[length:calc(13px*var(--bdg-font-scale,1))]'
+          : 'h-[var(--bdg-ctl-lg)] min-w-[120px] text-[length:var(--bdg-fs-13)]'
       "
     >
       <SelectValue :placeholder="placeholder" />
@@ -48,14 +48,14 @@ const model = defineModel<string>({ required: true });
       <SelectContent
         position="popper"
         :side-offset="4"
-        class="z-[150] max-h-72 overflow-hidden rounded-ui border border-line-strong bg-menu shadow-2xl"
+        class="z-[var(--bdg-z-popover)] max-h-72 overflow-hidden rounded-ui border border-line-strong bg-menu shadow-2xl"
       >
         <SelectViewport class="p-1">
           <SelectItem
             v-for="o in options"
             :key="o.value"
             :value="o.value"
-            class="relative flex cursor-pointer items-center gap-2 rounded-[4px] py-1.5 pr-2 pl-6 text-[length:calc(12.5px*var(--bdg-font-scale,1))] text-fg outline-none select-none data-[highlighted]:bg-accent/20 data-[highlighted]:text-accent"
+            class="relative flex cursor-pointer items-center gap-2 rounded-[4px] py-1.5 pr-2 pl-6 text-[length:var(--bdg-fs-12-5)] text-fg outline-none select-none data-[highlighted]:bg-accent/20 data-[highlighted]:text-accent"
           >
             <SelectItemIndicator class="absolute left-1.5">
               <Check class="size-3.5" />

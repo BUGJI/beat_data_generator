@@ -54,7 +54,7 @@ const shortcutRows = computed(() => [
 .keys-table td {
   padding: 7px 4px;
   border-bottom: 1px solid var(--bdg-border);
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
 }
 .act {
   color: var(--bdg-text-dim);
@@ -71,6 +71,6 @@ const shortcutRows = computed(() => [
   padding: 1px 8px;
   margin-left: 6px;
   font-family: var(--bdg-font-mono);
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
 }
 </style>

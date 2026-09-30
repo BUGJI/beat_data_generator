@@ -23,7 +23,7 @@ withDefaults(
       <TooltipContent
         :side="side"
         :side-offset="6"
-        class="z-[200] rounded-ui border border-line-strong bg-menu px-2 py-1 text-[length:calc(11px*var(--bdg-font-scale,1))] whitespace-nowrap text-fg shadow-xl"
+        class="z-[var(--bdg-z-tooltip)] rounded-ui border border-line-strong bg-menu px-2 py-1 text-[length:var(--bdg-fs-11)] whitespace-nowrap text-fg shadow-xl"
       >
         {{ content }}
       </TooltipContent>

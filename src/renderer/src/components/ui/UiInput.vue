@@ -20,7 +20,7 @@ const model = defineModel<string>({ required: true });
     :class="
       size === 'sm'
         ? 'h-[var(--bdg-ctl-md)] text-xs'
-        : 'h-[var(--bdg-ctl-lg)] text-[length:calc(13px*var(--bdg-font-scale,1))]'
+        : 'h-[var(--bdg-ctl-lg)] text-[length:var(--bdg-fs-13)]'
     "
   />
 </template>

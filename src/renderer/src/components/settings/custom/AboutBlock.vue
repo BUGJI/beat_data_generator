@@ -107,10 +107,10 @@ async function onCheckUpdates(): Promise<void> {
 }
 .about-update p {
   margin: 0;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
 }
 .about-logo {
-  font-size: calc(34px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-34);
   color: var(--bdg-accent);
 }
 .about-info {
@@ -121,7 +121,7 @@ async function onCheckUpdates(): Promise<void> {
   min-width: 0;
 }
 .about-name-input {
-  font-size: calc(16px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-16);
   font-weight: 800;
   height: auto;
   padding-left: 0px;
@@ -147,6 +147,6 @@ async function onCheckUpdates(): Promise<void> {
 .about-meta dd {
   margin: 0;
   font-family: var(--bdg-font-mono);
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
 }
 </style>

@@ -161,7 +161,7 @@ function applyPreset(hex: string): void {
           side="bottom"
           align="end"
           :side-offset="6"
-          class="z-[200] rounded-ui border border-line-strong bg-menu p-2 shadow-2xl"
+          class="z-[var(--bdg-z-tooltip)] rounded-ui border border-line-strong bg-menu p-2 shadow-2xl"
         >
           <div class="grid grid-cols-6 gap-1.5">
             <button

@@ -137,7 +137,7 @@ onMounted(refreshMetronomeFiles);
   color: var(--bdg-text);
   padding: 5px 12px;
   border-radius: var(--bdg-radius, 6px);
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   font-family: inherit;
   cursor: pointer;
   max-width: 100%;
@@ -156,7 +156,7 @@ onMounted(refreshMetronomeFiles);
 }
 .metronome-empty {
   margin: 4px 0 0;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
 }
 .metronome-volume {
   display: flex;
@@ -168,7 +168,7 @@ onMounted(refreshMetronomeFiles);
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   color: var(--bdg-text-dim);
   cursor: pointer;
 }

@@ -211,13 +211,13 @@ function cancelNoteEdit(): void {
 }
 .note-grip {
   color: var(--bdg-text-dim);
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   line-height: 1;
 }
 .note-title {
   flex: 1;
   min-width: 0;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   font-weight: 700;
   color: var(--bdg-text-dim);
   overflow: hidden;
@@ -236,7 +236,7 @@ function cancelNoteEdit(): void {
   color: var(--bdg-text-dim);
   cursor: pointer;
   border-radius: var(--bdg-radius-md);
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -248,7 +248,7 @@ function cancelNoteEdit(): void {
 }
 .note-body {
   padding: 6px 8px 7px;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   cursor: default;
   position: relative;
 }
@@ -257,17 +257,17 @@ function cancelNoteEdit(): void {
   position: absolute;
   right: 6px;
   bottom: -2px;
-  font-size: calc(9px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-9);
   color: rgb(var(--bdg-neutral) / 0.35);
   line-height: 1;
 }
 .note-body.md h1 {
-  font-size: calc(14px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-14);
   margin: 0 0 4px;
 }
 .note-body.md h2,
 .note-body.md h3 {
-  font-size: calc(12.5px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12-5);
   margin: 0 0 3px;
 }
 .note-body.md p {
@@ -286,7 +286,7 @@ function cancelNoteEdit(): void {
   background: rgb(var(--bdg-neutral) / 0.15);
   padding: 0 3px;
   border-radius: var(--bdg-radius-xs);
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
 }
 .note-body.md a {
   color: var(--bdg-accent);
@@ -302,7 +302,7 @@ function cancelNoteEdit(): void {
   border-radius: var(--bdg-radius, 6px);
   color: var(--bdg-text);
   font: inherit;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   line-height: 1.45;
   resize: vertical;
   padding: 4px 6px;

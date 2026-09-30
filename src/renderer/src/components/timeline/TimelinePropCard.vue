@@ -593,7 +593,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .prop-card {
   position: absolute;
-  z-index: 20;
+  z-index: var(--bdg-z-card);
   width: 236px;
   background: var(--bdg-menu);
   border: 1px solid var(--bdg-border-strong);
@@ -635,7 +635,7 @@ onBeforeUnmount(() => {
   border: none;
   color: var(--bdg-text-dim);
   cursor: pointer;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
 }
 .pc-x:hover {
   color: var(--bdg-text);
@@ -644,14 +644,14 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
 }
 .pc-mode {
   display: flex;
 }
 .pc-sub {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
 }
 .pc-actions {
@@ -680,7 +680,7 @@ onBeforeUnmount(() => {
   gap: 7px;
 }
 .pc-attrs-title {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   font-weight: 700;
   color: var(--bdg-text);
   text-transform: uppercase;
@@ -690,7 +690,7 @@ onBeforeUnmount(() => {
   gap: 6px;
 }
 .pc-missing-tag {
-  font-size: calc(9px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-9);
   color: var(--bdg-amber);
   background: rgb(var(--bdg-amber-rgb) / 0.14);
   padding: 1px 6px;
@@ -704,7 +704,7 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 6px;
   color: var(--bdg-text-dim);
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
 }
 .pc-raw {
   margin: 0;
@@ -714,7 +714,7 @@ onBeforeUnmount(() => {
   border-radius: var(--bdg-radius, 6px);
   max-height: 120px;
   overflow: auto;
-  font-size: calc(10px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-10);
   white-space: pre-wrap;
   word-break: break-word;
   color: var(--bdg-text);
@@ -742,7 +742,7 @@ onBeforeUnmount(() => {
   border: 1px solid var(--bdg-border-strong);
   background: rgb(var(--bdg-neutral) / 0.08);
   color: var(--bdg-text);
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
   line-height: 1;
   cursor: pointer;
   padding: 0;

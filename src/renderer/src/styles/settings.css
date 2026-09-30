@@ -8,7 +8,7 @@
 
 .settings-panel .content h3 {
   margin: 0 0 14px;
-  font-size: calc(15px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-15);
 }
 
 .settings-panel .content section {
@@ -21,7 +21,7 @@
   margin: 18px 0 2px;
   padding-top: 14px;
   border-top: 1px solid var(--bdg-border);
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   font-weight: 700;
   color: var(--bdg-text-dim);
   letter-spacing: 0.04em;
@@ -43,7 +43,7 @@
   color: var(--bdg-text-dim);
   padding: 4px 12px;
   border-radius: 999px;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   font-family: inherit;
   cursor: pointer;
   white-space: nowrap;
@@ -81,7 +81,7 @@
 }
 .settings-panel .field-desc,
 .settings-panel .muted {
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   color: var(--bdg-text-dim);
   margin: 0;
 }
@@ -96,7 +96,7 @@
   min-width: 0;
 }
 .settings-panel .pct-value {
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   min-width: 34px;
   text-align: right;
   color: var(--bdg-accent);

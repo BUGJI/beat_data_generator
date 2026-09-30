@@ -22,7 +22,7 @@ provide(DROPDOWN_SELECT, (v: string) => emit("select", v));
       <DropdownMenuContent
         align="start"
         :side-offset="6"
-        class="z-[150] min-w-[190px] rounded-ui border border-line-strong bg-menu p-1 shadow-2xl"
+        class="z-[var(--bdg-z-popover)] min-w-[190px] rounded-ui border border-line-strong bg-menu p-1 shadow-2xl"
       >
         <slot />
       </DropdownMenuContent>

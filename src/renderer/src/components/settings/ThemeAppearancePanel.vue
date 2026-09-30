@@ -364,7 +364,7 @@ const uiShadow = computed({
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
 }
 /* Mirrors the real `.app-bg` layer so the thumbnail follows the fill mode
    (and any future background treatment) without duplicating logic. */

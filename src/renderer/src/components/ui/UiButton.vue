@@ -20,7 +20,7 @@ withDefaults(
     :class="[
       size === 'sm'
         ? 'h-[var(--bdg-ctl-md)] px-2 text-xs'
-        : 'h-[var(--bdg-ctl-lg)] px-2.5 text-[length:calc(13px*var(--bdg-font-scale,1))]',
+        : 'h-[var(--bdg-ctl-lg)] px-2.5 text-[length:var(--bdg-fs-13)]',
       variant === 'solid' && 'bg-accent text-surface hover:brightness-110',
       variant === 'soft' && 'bg-accent/15 text-accent hover:bg-accent/25',
       variant === 'danger' && 'bg-danger/15 text-danger hover:bg-danger/25',

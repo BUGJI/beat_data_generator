@@ -144,7 +144,7 @@ function onEscape(): void {
           :class="
             size === 'sm'
               ? 'h-[var(--bdg-ctl-md)] text-xs'
-              : 'h-[var(--bdg-ctl-lg)] text-[length:calc(13px*var(--bdg-font-scale,1))]'
+              : 'h-[var(--bdg-ctl-lg)] text-[length:var(--bdg-fs-13)]'
           "
           @input="nav = false"
           @focus="open = true"
@@ -165,7 +165,7 @@ function onEscape(): void {
         role="listbox"
         align="start"
         :side-offset="4"
-        class="z-[150] max-h-64 min-w-[120px] overflow-y-auto rounded-ui border border-line-strong bg-menu p-1 shadow-2xl"
+        class="z-[var(--bdg-z-popover)] max-h-64 min-w-[120px] overflow-y-auto rounded-ui border border-line-strong bg-menu p-1 shadow-2xl"
         @open-auto-focus.prevent
       >
         <button
@@ -175,7 +175,7 @@ function onEscape(): void {
           type="button"
           role="option"
           :aria-selected="o.value === model"
-          class="flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-left text-[length:calc(12.5px*var(--bdg-font-scale,1))] text-fg hover:bg-accent/20 hover:text-accent"
+          class="flex w-full items-center gap-2 rounded-[4px] px-2 py-1.5 text-left text-[length:var(--bdg-fs-12-5)] text-fg hover:bg-accent/20 hover:text-accent"
           :class="nav && i === active ? 'bg-accent/20 text-accent' : ''"
           @mousedown.prevent="choose(o)"
         >
@@ -189,7 +189,7 @@ function onEscape(): void {
         </button>
         <div
           v-if="!filtered.length"
-          class="px-2 py-1.5 text-[length:calc(12px*var(--bdg-font-scale,1))] text-fg-faint"
+          class="px-2 py-1.5 text-[length:var(--bdg-fs-12)] text-fg-faint"
         >
           {{ placeholder }}
         </div>

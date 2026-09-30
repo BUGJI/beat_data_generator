@@ -213,7 +213,7 @@ onBeforeUnmount(() => {
   height: 100%;
 }
 .tr-left {
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
   color: var(--bdg-text);
   display: flex;
   align-items: center;
@@ -221,7 +221,7 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .buffering {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-amber);
   letter-spacing: 0.05em;
 }
@@ -239,7 +239,7 @@ onBeforeUnmount(() => {
   color: var(--bdg-text);
 }
 .rate-label {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
   white-space: nowrap;
 }
@@ -256,7 +256,7 @@ onBeforeUnmount(() => {
   font-weight: 700;
 }
 .live-bpm {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-accent);
   background: rgb(var(--bdg-accent-rgb) / 0.12);
   border: 1px solid rgb(var(--bdg-accent-rgb) / 0.22);
@@ -316,7 +316,7 @@ button:disabled {
   margin: 0 4px;
 }
 .tr-time {
-  font-size: calc(17px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-17);
   letter-spacing: 0.5px;
 }
 .tr-time .cur {
@@ -337,7 +337,7 @@ button:disabled {
   gap: 10px;
 }
 .vol-label {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
   white-space: nowrap;
 }

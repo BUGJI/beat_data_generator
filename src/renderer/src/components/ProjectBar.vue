@@ -440,7 +440,7 @@ async function onDetectBpm(): Promise<void> {
   gap: 7px;
 }
 .pb-title {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   font-weight: 600;
   color: var(--bdg-text-dim);
   text-transform: uppercase;
@@ -456,7 +456,7 @@ async function onDetectBpm(): Promise<void> {
   min-width: 0;
 }
 .song-name {
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -467,7 +467,7 @@ async function onDetectBpm(): Promise<void> {
   font-weight: 400;
 }
 .song-sub {
-  font-size: calc(10px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-10);
   color: var(--bdg-text-dim);
 }
 .param-grid {
@@ -481,7 +481,7 @@ async function onDetectBpm(): Promise<void> {
   gap: 3px;
 }
 .field-label {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
 }
 .bpm-row {
@@ -502,7 +502,7 @@ async function onDetectBpm(): Promise<void> {
   gap: 7px;
 }
 .snap-label {
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   color: var(--bdg-text);
   flex: 1;
   min-width: 0;
@@ -516,11 +516,11 @@ async function onDetectBpm(): Promise<void> {
 }
 .snap-unit {
   flex: none;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
 }
 .warn {
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   color: var(--bdg-amber);
   display: flex;
   align-items: center;
@@ -549,7 +549,7 @@ async function onDetectBpm(): Promise<void> {
   border-top: 1px solid var(--bdg-border);
 }
 .quick-label {
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   color: var(--bdg-text);
 }
 .beat-ind {
@@ -579,7 +579,7 @@ async function onDetectBpm(): Promise<void> {
   flex: none;
 }
 .quick-sub {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
   margin-left: auto;
 }
@@ -589,11 +589,11 @@ async function onDetectBpm(): Promise<void> {
   gap: 1px;
 }
 .chip-k {
-  font-size: calc(10px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-10);
   color: var(--bdg-text-dim);
 }
 .chip-v {
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
   color: var(--bdg-text);
   font-weight: 600;
 }

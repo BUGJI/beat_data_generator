@@ -37,6 +37,22 @@
   --bdg-radius: 6px;
   --bdg-font-scale: 1;
   --bdg-font-mono: "Cascadia Mono", "Consolas", monospace;
+  /* Named font sizes: every component reads these so the Appearance text-scale
+     preference is applied from a single scale. */
+  --bdg-fs-9: calc(9px * var(--bdg-font-scale, 1));
+  --bdg-fs-10: calc(10px * var(--bdg-font-scale, 1));
+  --bdg-fs-10-5: calc(10.5px * var(--bdg-font-scale, 1));
+  --bdg-fs-11: calc(11px * var(--bdg-font-scale, 1));
+  --bdg-fs-11-5: calc(11.5px * var(--bdg-font-scale, 1));
+  --bdg-fs-12: calc(12px * var(--bdg-font-scale, 1));
+  --bdg-fs-12-5: calc(12.5px * var(--bdg-font-scale, 1));
+  --bdg-fs-13: calc(13px * var(--bdg-font-scale, 1));
+  --bdg-fs-13-5: calc(13.5px * var(--bdg-font-scale, 1));
+  --bdg-fs-14: calc(14px * var(--bdg-font-scale, 1));
+  --bdg-fs-15: calc(15px * var(--bdg-font-scale, 1));
+  --bdg-fs-16: calc(16px * var(--bdg-font-scale, 1));
+  --bdg-fs-17: calc(17px * var(--bdg-font-scale, 1));
+  --bdg-fs-34: calc(34px * var(--bdg-font-scale, 1));
   /* Control sizing scale shared by icon buttons / swatches / transport. */
   --bdg-ctl-2xs: 18px;
   --bdg-ctl-xs: 20px;
@@ -51,6 +67,16 @@
   --bdg-radius-sm: calc(var(--bdg-radius, 6px) - 2px);
   --bdg-radius-md: calc(var(--bdg-radius, 6px) - 1px);
   --bdg-disabled-opacity: 0.45;
+  /* Central stacking order, lowest → highest, so layers never fight. */
+  --bdg-z-bg: -1;
+  --bdg-z-card: 20;
+  --bdg-z-menu: 30;
+  --bdg-z-panel: 40;
+  --bdg-z-panel-raised: 45;
+  --bdg-z-modal: 60;
+  --bdg-z-popover: 150;
+  --bdg-z-tooltip: 200;
+  --bdg-z-toast: 300;
   /* Layout */
   --bdg-toolbar-h: 46px;
   --bdg-transport-h: 52px;
@@ -72,7 +98,7 @@ body {
   background: var(--bdg-bg);
   color: var(--bdg-text);
   overflow: hidden;
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
   -webkit-user-select: none;
   user-select: none;
 }
@@ -114,7 +140,7 @@ textarea {
 .app-bg {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: var(--bdg-z-bg);
   pointer-events: none;
   background-color: var(--bdg-bg);
   background-image: var(--bdg-bg-image, none);

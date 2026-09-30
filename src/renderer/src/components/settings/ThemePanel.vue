@@ -368,7 +368,7 @@ function onImportTheme(): void {
   padding: 8px;
   cursor: pointer;
   font-family: inherit;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   transition:
     transform 0.16s ease,
     border-color 0.16s ease,
@@ -398,7 +398,7 @@ function onImportTheme(): void {
 }
 .theme-preset-badge {
   flex: none;
-  font-size: calc(10px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-10);
   padding: 1px 6px;
   border-radius: 999px;
   border: 1px solid var(--bdg-border);
@@ -472,7 +472,7 @@ function onImportTheme(): void {
   border-radius: var(--bdg-radius, 6px);
   padding: 8px 10px;
   margin: 0 0 10px;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
 }
 .contrast-warn-title {
   font-weight: 700;
@@ -502,7 +502,7 @@ function onImportTheme(): void {
   border-bottom: 1px solid var(--bdg-border);
 }
 .theme-card-title {
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   font-weight: 700;
   color: var(--bdg-text);
   letter-spacing: 0.03em;
@@ -553,7 +553,7 @@ function onImportTheme(): void {
   border: none;
   color: var(--bdg-text-dim);
   cursor: pointer;
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
   opacity: 0.25;
   padding: 0 2px;
 }

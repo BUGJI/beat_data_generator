@@ -474,7 +474,7 @@ function onSearchEnter(): void {
 .mask {
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--bdg-z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -616,7 +616,7 @@ function onSearchEnter(): void {
   border: 1px solid var(--bdg-border);
   background: var(--bdg-bg-sunken);
   color: var(--bdg-text);
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
   font-family: inherit;
   outline: none;
 }
@@ -670,7 +670,7 @@ function onSearchEnter(): void {
   cursor: pointer;
   text-align: left;
   font-family: inherit;
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
 }
 .search-result:hover {
   background: rgb(var(--bdg-accent-rgb) / 0.12);
@@ -694,11 +694,11 @@ function onSearchEnter(): void {
 }
 .sr-cat {
   flex: none;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
 }
 .sr-desc {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -706,7 +706,7 @@ function onSearchEnter(): void {
 }
 .search-empty {
   padding: 16px 18px;
-  font-size: calc(12px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-12);
   color: var(--bdg-text-dim);
 }
 .search-hit {
@@ -789,7 +789,7 @@ function onSearchEnter(): void {
   padding: 9px 12px;
   border-radius: var(--bdg-radius, 6px);
   cursor: pointer;
-  font-size: calc(13px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-13);
   text-align: left;
   font-family: inherit;
 }
@@ -817,7 +817,7 @@ function onSearchEnter(): void {
   color: var(--bdg-text-dim);
   cursor: pointer;
   font-family: inherit;
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   line-height: 1.4;
   text-align: left;
 }
@@ -842,7 +842,7 @@ function onSearchEnter(): void {
   border-top: 1px solid var(--bdg-border);
 }
 .autosave {
-  font-size: calc(11px * var(--bdg-font-scale, 1));
+  font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
 }
 /* Keep settings button labels from breaking mid-word (notably CJK). */
