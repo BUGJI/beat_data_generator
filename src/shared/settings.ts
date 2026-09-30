@@ -33,7 +33,7 @@ export const CloseModeSchema = z.enum(["ask", "minimize", "close"]);
 
 /** UI language preference; "auto" follows the OS/browser language. */
 export const LocalePrefSchema = z
-  .enum(["auto", "zh", "en"])
+  .enum(["auto", "zh", "en", "ko"])
   .catch("auto")
   .default("auto");
 export type LocalePref = z.infer<typeof LocalePrefSchema>;

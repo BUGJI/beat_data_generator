@@ -2,6 +2,7 @@ import { watch } from "vue";
 import { createI18n } from "vue-i18n";
 import zh from "./zh";
 import en from "./en";
+import ko from "./ko";
 import {
   detectLocale,
   isLocale,
@@ -23,13 +24,14 @@ export {
 export const LOCALES: Array<{ value: Locale; label: string }> = [
   { value: "zh", label: "中文" },
   { value: "en", label: "English" },
+  { value: "ko", label: "한국어" },
 ];
 
 export const i18n = createI18n({
   legacy: false,
   locale: detectLocale(),
   fallbackLocale: "en",
-  messages: { zh, en },
+  messages: { zh, en, ko },
 });
 
 /**
@@ -59,7 +61,7 @@ export function setLocale(loc: Locale): void {
   rememberLocale(loc);
 }
 
-/** Apply a settings preference ("auto" | "zh" | "en") and remember the result. */
+/** Apply a settings preference ("auto" | "zh" | "en" | "ko") and remember the result. */
 export function applyLocalePreference(pref: string | undefined): void {
   setLocale(resolveLocale(pref));
 }

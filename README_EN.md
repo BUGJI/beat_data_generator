@@ -1,6 +1,6 @@
 # <img width="24" alt="logo" src="./build/icon.png"> Beat Data Generator
 
-**English** | [中文](README.md)
+**English** | [中文](README.md) | [한국어](README_KO.md)
 
 A music beat-marker editor: align a beat grid over the audio waveform, place beat markers and BPM change points, and generate beat data for rhythm-based applications. **Mark once, export to multiple targets** (see [Export & Integration Targets](#export--integration-targets)).
 
@@ -61,7 +61,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
 - **Appearance**: use a local image as the app background (cover / contain / tile, with blur and dimming), and tune UI zoom, font scale, corner radius, shadow and panel opacity.
 - **Simple mode**: on by default, hiding advanced options and the "Advanced" category; turn it off under **Settings → General**.
 - **Network**: pick a proxy source (system / environment / off) and enable a GitHub mirror to reach the marketplace and updates.
-- **Extras**: bilingual UI (中文 / English), welcome screen with recent projects, window-state memory, close-mode settings.
+- **Extras**: multilingual UI (中文 / English / 한국어), welcome screen with recent projects, window-state memory, close-mode settings.
 
 ## Export & Integration Targets
 
@@ -146,7 +146,7 @@ src/
         ├── services/     # Orchestration: timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
         ├── schemas/      # zod project-file schema (v1 → v2 migration and per-item recovery)
         ├── plugins/      # Plugin host: registry / events / bridge API
-        ├── i18n/         # Chinese & English strings (zh / en) + locale detect/storage helpers
+        ├── i18n/         # Chinese, English & Korean strings (zh / en / ko) + locale detect/storage helpers
         ├── engine.ts     # Web Audio playback engine
         ├── tempo.ts      # beat↔time mapping and tempo map builder
         ├── stretch/      # Time-stretch engines: signalsmith (default) / soundtouch (fallback) + worker
@@ -164,8 +164,8 @@ src/
 ### Internationalization
 
 - The single source of truth is the reactive `locale` exported by `i18n/index.ts` (read it via `currentLocale()`); a watcher keeps `<html lang>` in sync. Don't read `document.documentElement.lang` from feature code.
-- The language preference is persisted as the `locale` setting (`auto` follows the OS / `zh` / `en`). Native main-process dialogs and the welcome window follow it too; the welcome window uses the lightweight `i18n/locale.ts` + `welcomeMessages.ts` and never bundles vue-i18n.
-- When adding strings, update both `i18n/zh.ts` and `i18n/en.ts`. `i18n.test.ts` asserts en/zh key parity and `keys.test.ts` asserts every hard-coded `t("...")` key exists.
+- The language preference is persisted as the `locale` setting (`auto` follows the OS / `zh` / `en` / `ko`). Native main-process dialogs and the welcome window follow it too; the welcome window uses the lightweight `i18n/locale.ts` + `welcomeMessages.ts` and never bundles vue-i18n.
+- When adding strings, update `i18n/zh.ts`, `i18n/en.ts` and `i18n/ko.ts`. `i18n.test.ts` asserts key parity across locales and `keys.test.ts` asserts every hard-coded `t("...")` key exists.
 
 ## Development
 

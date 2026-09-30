@@ -5,7 +5,7 @@ import {
   patchSettings,
   useSettingsStore,
 } from "../../stores/settings";
-import { i18n, LOCALES, setLocale } from "../../i18n";
+import { i18n, isLocale, LOCALES, setLocale } from "../../i18n";
 import { THEME_TOKEN_ORDER } from "../../theme";
 import type { CloseMode } from "@shared/ipc";
 import type { AlignRounding, StretchEngine } from "@shared/settings";
@@ -233,7 +233,7 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const language = computed<string>({
     get: () => i18n.global.locale.value,
     set: (v: string) => {
-      const loc = v === "en" ? "en" : "zh";
+      const loc = isLocale(v) ? v : "en";
       setLocale(loc);
       // persist so the main process dialogs and the welcome window follow too
       void patchSettings({ locale: loc });

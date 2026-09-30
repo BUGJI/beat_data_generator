@@ -1,6 +1,6 @@
 # <img width="24" alt="logo" src="./build/icon.png"> Beat Data Generator
 
-[English](README_EN.md) | **中文**
+[English](README_EN.md) | **中文** | [한국어](README_KO.md)
 
 音乐节拍踩点编辑器：在波形图上对齐歌曲节拍轴，放置踩点（beat marker）与 BPM 变速点，为节奏类应用生成节拍数据。**一次踩点，可导出到多个目标软件**（见[导出与对接目标](#导出与对接目标)）。软件交流群 [556896494](https://qm.qq.com/q/CfV8lKXsNc)
 
@@ -59,7 +59,7 @@
 - **外观**：可将本地图片设为应用背景（铺满 / 完整显示 / 平铺，附模糊与变暗），并调节界面缩放、字号缩放、圆角、阴影与面板不透明度。
 - **简化模式**：默认开启，隐藏进阶选项与「高级」分类，只保留常用设置；可在 **设置 → 常规** 关闭。
 - **网络**：代理来源可选 系统代理 / 环境变量 / 不使用，并可启用 GitHub 加速镜像，便于访问插件市场与更新。
-- **其他**：多语言界面（中文 / English）、欢迎页与最近工程、记住窗口位置、退出模式设置。
+- **其他**：多语言界面（中文 / English / 한국어）、欢迎页与最近工程、记住窗口位置、退出模式设置。
 
 ## 导出与对接目标
 
@@ -143,7 +143,7 @@ src/
         ├── services/     # 业务编排：timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
         ├── schemas/      # zod 工程文件 schema（v1 → v2 迁移与逐项容错）
         ├── plugins/      # 插件宿主：注册表 / 事件 / 桥接 API
-        ├── i18n/         # 中英文案（zh / en）+ locale 检测/存储助手
+        ├── i18n/         # 中文、英文与韩语文案（zh / en / ko）+ locale 检测/存储助手
         ├── engine.ts     # Web Audio 播放引擎
         ├── tempo.ts      # 节拍 ↔ 时间换算与 tempo map
         ├── stretch/      # 变速引擎：signalsmith（默认）/ soundtouch（回退）+ Worker
@@ -161,8 +161,8 @@ src/
 ### 国际化
 
 - 语言的唯一数据源是 `i18n/index.ts` 导出的响应式 `locale`（`currentLocale()` 读取它），`<html lang>` 由 watcher 自动同步；业务代码不要再读 `document.documentElement.lang`。
-- 语言偏好持久化在设置项 `locale`（`auto` 跟随系统 / `zh` / `en`），主进程原生对话框与欢迎窗都据此切换；欢迎窗走轻量的 `i18n/locale.ts` + `welcomeMessages.ts`，不打包 vue-i18n。
-- 新增文案时同时补 `i18n/zh.ts` 与 `i18n/en.ts`。`i18n.test.ts` 做中英 key 对齐校验，`keys.test.ts` 校验代码里写死的 `t("...")` key 都存在——两边一致才通过测试。
+- 语言偏好持久化在设置项 `locale`（`auto` 跟随系统 / `zh` / `en` / `ko`），主进程原生对话框与欢迎窗都据此切换；欢迎窗走轻量的 `i18n/locale.ts` + `welcomeMessages.ts`，不打包 vue-i18n。
+- 新增文案时同时补 `i18n/zh.ts`、`i18n/en.ts` 与 `i18n/ko.ts`。`i18n.test.ts` 做各语言 key 对齐校验，`keys.test.ts` 校验代码里写死的 `t("...")` key 都存在——全部一致才通过测试。
 
 ## 开发
 
