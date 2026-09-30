@@ -16,11 +16,12 @@
 | 平台 | 安装方式 | 状态 |
 | --- | --- | --- |
 | **Windows**（x64） | 到 [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest) 下载 `Beat-Data-Generator-<版本>-setup.exe` 运行安装 | ✅ 可用 |
-| **macOS / Linux** | 暂无预编译包，可参考[开发](#开发)从源码运行 | 🚧 适配中 |
+| **Linux**（x64） | 到 [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest) 下载 `Beat-Data-Generator-<版本>.AppImage` 或 `beat-data-generator_<版本>_amd64.deb` | ✅ 可用 |
+| **macOS** | 暂无预编译包，可参考[开发](#开发)从源码运行 | 🚧 适配中 |
 
-当前发布为**公测版**。macOS / Linux 的支持已在计划内，欢迎在这两个平台上试用源码版本并反馈问题。
+当前发布为**公测版**。Linux 自 0.3.5 起提供 AppImage 与 deb 安装包，macOS 支持已在计划内，欢迎试用源码版本并反馈问题。
 
-**自动更新**：应用启动时会静默检查新版本（可在 **设置 → 常规 → 窗口与启动** 关闭），也可在 **设置 → 关于 → 检查更新** 手动检查；新版本从 GitHub Releases 获取。
+**自动更新**：应用启动时会静默检查新版本（可在 **设置 → 常规 → 窗口与启动** 关闭），也可在 **设置 → 关于 → 检查更新** 手动检查；新版本从 GitHub Releases 获取。Linux 上仅 AppImage 支持应用内自更新，deb 安装请使用系统包管理器升级。
 
 各版本的变更记录见 [`CHANGELOG.md`](CHANGELOG.md)。
 
@@ -99,8 +100,8 @@
 | 空格 | 播放 / 暂停 |
 | Ctrl+S | 保存工程 |
 | Ctrl+C / Ctrl+V | 复制 / 粘贴踩点组 |
-| Ctrl+Z / Ctrl+Shift+Z | 撤销 / 重做 |
-| Delete | 删除选中对象 |
+| Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z | 撤销 / 重做 |
+| Delete / Backspace | 删除选中对象 |
 | ← / → | 按吸附步进左右微调（选中时） |
 | Esc | 关闭浮动卡 / 取消选择 |
 | Home | 回到起点 |
@@ -133,14 +134,14 @@
 
 ```
 src/
-├── main/            # Electron 主进程：入口仅负责生命周期；settings / recents / lastDirs / windowState / metronome / files / windows / ipc / updater / market（registry·inventory·installer）等模块
+├── main/            # Electron 主进程：入口仅负责生命周期；settings / recents / lastDirs / windowState / metronome / files / windows / ipc / ipcHandle / updater / logger / i18n / network / plugins / market（registry·inventory·installer）等模块
 ├── preload/         # 预加载脚本（contextBridge 暴露安全 API）
 ├── shared/          # 主/渲染进程共享的 IPC 类型、设置 schema 与插件契约
 └── renderer/        # Vue 渲染进程
     └── src/
         ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar / AnalysisPanel 等
         ├── stores/       # Pinia stores：project（store / queries / tracks / markers / notes / bpm / timeAlign 子模块）/ selection / transport / view / settings / ui
-        ├── services/     # 业务编排：timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
+        ├── services/     # 业务编排：timeline / history / clipboard / playback / audioIO / projectIO / bootstrap / flash
         ├── schemas/      # zod 工程文件 schema（v1 → v2 迁移与逐项容错）
         ├── plugins/      # 插件宿主：注册表 / 事件 / 桥接 API
         ├── i18n/         # 中文、英文与韩语文案（zh / en / ko）+ locale 检测/存储助手
@@ -225,7 +226,7 @@ npm run format:check
 - **日志在哪？** 见[运行日志](#运行日志)：默认不落盘，需在开发者选项里手动开启。
 - **保调变速音质 / 卡顿？** 默认走 `signalsmith-stretch`；渲染失败或超时会自动回退 `soundtouchjs`，也可在 **设置 → 音频 → 播放** 固定引擎。
 - **点“检查更新”没反应？** 开发模式下不支持检查更新；检查失败时可直接到 [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest) 手动下载。
-- **macOS / Linux 能用吗？** 目前只在 Windows 上发布安装包；其他平台的适配在计划中，欢迎先在源码模式下试用并反馈。
+- **macOS / Linux 能用吗？** Linux 已提供 AppImage 与 deb 安装包；macOS 适配在计划中，欢迎先在源码模式下试用并反馈。
 - **EDL 为什么只有 25 fps？** 当前固定 25 fps Non-Drop Frame；需要其他帧率或导出格式，欢迎到 [Issues](https://github.com/BUGJI/beat_data_generator/issues) 提需求，或参考[导出与对接目标](#导出与对接目标)用插件自行实现。
 
 ## 参与贡献
@@ -246,6 +247,7 @@ npm run format:check
 | signalsmith-stretch | MIT |
 | pleco-xa | MIT |
 | slimdown-js | MIT |
+| fflate（ZIP 解压） | MIT |
 | electron-log / electron-updater | MIT |
 | soundtouchjs（SoundTouch） | LGPL-2.1 |
 

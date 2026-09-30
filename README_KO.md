@@ -16,11 +16,12 @@
 | 플랫폼 | 설치 방법 | 상태 |
 | --- | --- | --- |
 | **Windows** (x64) | [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest)에서 `Beat-Data-Generator-<버전>-setup.exe`를 내려받아 실행하세요 | ✅ 사용 가능 |
-| **macOS / Linux** | 아직 사전 빌드 패키지가 없어요 — [개발](#개발)을 참고해 소스에서 실행하세요 | 🚧 준비 중 |
+| **Linux** (x64) | [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest)에서 `Beat-Data-Generator-<버전>.AppImage` 또는 `beat-data-generator_<버전>_amd64.deb`를 내려받으세요 | ✅ 사용 가능 |
+| **macOS** | 아직 사전 빌드 패키지가 없어요 — [개발](#개발)을 참고해 소스에서 실행하세요 | 🚧 준비 중 |
 
-현재 릴리스는 **공개 베타**예요. macOS / Linux 지원은 로드맵에 있으며, 해당 플랫폼에서 소스 빌드를 사용해 보시고 피드백을 주시면 감사하겠어요.
+현재 릴리스는 **공개 베타**예요. Linux는 0.3.5부터 AppImage와 deb 설치 패키지를 제공하며, macOS 지원은 로드맵에 있어요 — 소스 빌드를 사용해 보시고 피드백을 주시면 감사하겠어요.
 
-**자동 업데이트**: 앱은 시작할 때 새 버전을 조용히 확인해요 (**설정 → 일반 → 창 및 시작**에서 끌 수 있어요). **설정 → 정보 → 업데이트 확인**에서 직접 확인할 수도 있어요. 새 버전은 GitHub Releases에서 받아요.
+**자동 업데이트**: 앱은 시작할 때 새 버전을 조용히 확인해요 (**설정 → 일반 → 창 및 시작**에서 끌 수 있어요). **설정 → 정보 → 업데이트 확인**에서 직접 확인할 수도 있어요. 새 버전은 GitHub Releases에서 받아요. Linux에서는 AppImage만 앱 내 자동 업데이트를 지원하며, deb 설치는 시스템 패키지 관리자로 업그레이드하세요.
 
 버전별 변경 내역은 [`CHANGELOG.md`](CHANGELOG.md)(중국어)를 참고하세요.
 
@@ -99,8 +100,8 @@
 | Space | 재생 / 일시정지 |
 | Ctrl+S | 프로젝트 저장 |
 | Ctrl+C / Ctrl+V | 마커 그룹 복사 / 붙여넣기 |
-| Ctrl+Z / Ctrl+Shift+Z | 실행 취소 / 다시 실행 |
-| Delete | 선택 항목 삭제 |
+| Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z | 실행 취소 / 다시 실행 |
+| Delete / Backspace | 선택 항목 삭제 |
 | ← / → | 스냅 단위로 좌우 미세 이동(선택 시) |
 | Esc | 팝오버 닫기 / 선택 해제 |
 | Home | 처음으로 이동 |
@@ -133,14 +134,14 @@
 
 ```
 src/
-├── main/            # Electron 메인: 진입점은 수명 주기만 담당; settings / recents / lastDirs / windowState / metronome / files / windows / ipc / updater / market (registry·inventory·installer)
+├── main/            # Electron 메인: 진입점은 수명 주기만 담당; settings / recents / lastDirs / windowState / metronome / files / windows / ipc / ipcHandle / updater / logger / i18n / network / plugins / market (registry·inventory·installer)
 ├── preload/         # 프리로드 스크립트 (contextBridge가 안전한 API 노출)
 ├── shared/          # 메인 & 렌더러가 공유하는 IPC 타입, 설정 스키마, 플러그인 계약
 └── renderer/        # Vue 렌더러
     └── src/
         ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar / AnalysisPanel 등
         ├── stores/       # Pinia 스토어: project (store / queries / tracks / markers / notes / bpm / timeAlign) / selection / transport / view / settings / ui
-        ├── services/     # 오케스트레이션: timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
+        ├── services/     # 오케스트레이션: timeline / history / clipboard / playback / audioIO / projectIO / bootstrap / flash
         ├── schemas/      # zod 프로젝트 파일 스키마 (v1 → v2 마이그레이션 및 항목별 복구)
         ├── plugins/      # 플러그인 호스트: 레지스트리 / 이벤트 / 브리지 API
         ├── i18n/         # 중국어·영어·한국어 문자열 (zh / en / ko) + locale 감지/저장 헬퍼
@@ -225,7 +226,7 @@ npm run format:check
 - **로그는 어디에 있나요?** [실행 로그](#실행-로그)를 참고하세요 — 개발자 옵션에서 직접 켜기 전까지는 디스크에 기록되지 않아요.
 - **음높이 유지 재생의 음질이 이상하거나 끊겨요?** 기본은 `signalsmith-stretch`이고, 실패나 타임아웃 시 `soundtouchjs`로 자동 대체돼요. **설정 → 오디오 → 재생**에서 엔진을 고정할 수도 있어요.
 - **"업데이트 확인"이 아무 반응이 없어요?** 개발 모드에서는 업데이트 확인을 지원하지 않아요. 확인이 실패하면 [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest)에서 직접 내려받으세요.
-- **macOS / Linux에서 실행되나요?** 현재는 Windows 설치 관리자만 배포돼요; 다른 플랫폼은 로드맵에 있으니, 우선 소스 빌드를 사용해 보고 알려 주세요.
+- **macOS / Linux에서 실행되나요?** Linux는 AppImage와 deb 설치 패키지를 제공해요; macOS는 로드맵에 있으니, 우선 소스 빌드를 사용해 보고 알려 주세요.
 - **EDL이 왜 25 fps로 고정인가요?** 현재 고정 출력(25 fps, non-drop)이에요. 다른 프레임 레이트나 형식이 필요하면 [이슈](https://github.com/BUGJI/beat_data_generator/issues)를 열거나 [내보내기 및 연동 대상](#내보내기-및-연동-대상)을 참고해 플러그인을 직접 작성하세요.
 
 ## 기여
@@ -246,6 +247,7 @@ npm run format:check
 | signalsmith-stretch | MIT |
 | pleco-xa | MIT |
 | slimdown-js | MIT |
+| fflate (ZIP 압축 해제) | MIT |
 | electron-log / electron-updater | MIT |
 | soundtouchjs (SoundTouch) | LGPL-2.1 |
 

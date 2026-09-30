@@ -16,15 +16,14 @@ A music beat-marker editor: align a beat grid over the audio waveform, place bea
 | Platform | How to install | Status |
 | --- | --- | --- |
 | **Windows** (x64) | Grab `Beat-Data-Generator-<version>-setup.exe` from [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest) and run it | ✅ Available |
-| **macOS / Linux** | No prebuilt package yet — run from source, see [Development](#development) | 🚧 In progress |
+| **Linux** (x64) | Grab `Beat-Data-Generator-<version>.AppImage` or `beat-data-generator_<version>_amd64.deb` from [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest) | ✅ Available |
+| **macOS** | No prebuilt package yet — run from source, see [Development](#development) | 🚧 In progress |
 
-The current release is a **public beta**. macOS and Linux support is on the roadmap; if you try the source build on those platforms, feedback is very welcome.
+The current release is a **public beta**. Linux installers (AppImage + deb) have been available since 0.3.5; macOS support is on the roadmap — feedback from source builds is very welcome.
 
-**Auto-update**: the app checks for new versions silently on startup (turn it off under **Settings → General → Window & Startup**), or check manually via **Settings → About → Check for updates**. Updates come from GitHub Releases.
+**Auto-update**: the app checks for new versions silently on startup (turn it off under **Settings → General → Window & Startup**), or check manually via **Settings → About → Check for updates**. Updates come from GitHub Releases. On Linux only the AppImage self-updates in-app; deb installs should be upgraded through the system package manager.
 
 See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
-
-<!-- TODO: if the installer is unsigned, document the Windows SmartScreen prompt here -->
 
 ## Features
 
@@ -102,8 +101,8 @@ One project can feed several targets: generic formats ship with the editor, ever
 | Space | Play / pause |
 | Ctrl+S | Save project |
 | Ctrl+C / Ctrl+V | Copy / paste marker group |
-| Ctrl+Z / Ctrl+Shift+Z | Undo / redo |
-| Delete | Delete selected |
+| Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z | Undo / redo |
+| Delete / Backspace | Delete selected |
 | ← / → | Nudge left / right by snap step (when selected) |
 | Esc | Close popover / clear selection |
 | Home | Go to start |
@@ -136,14 +135,14 @@ Shortcuts are currently read-only (listed under **Settings → Shortcuts**); use
 
 ```
 src/
-├── main/            # Electron main: entry handles lifecycle only; settings / recents / lastDirs / windowState / metronome / files / windows / ipc / updater / market (registry·inventory·installer)
+├── main/            # Electron main: entry handles lifecycle only; settings / recents / lastDirs / windowState / metronome / files / windows / ipc / ipcHandle / updater / logger / i18n / network / plugins / market (registry·inventory·installer)
 ├── preload/         # Preload script (contextBridge exposes a safe API)
 ├── shared/          # IPC types, settings schema and plugin contract shared by main & renderer
 └── renderer/        # Vue renderer
     └── src/
         ├── components/   # TopBar / SideBar / TransportBar / Timeline / SettingsModal / ProjectBar / AnalysisPanel etc.
         ├── stores/       # Pinia stores: project (store / queries / tracks / markers / notes / bpm / timeAlign) / selection / transport / view / settings / ui
-        ├── services/     # Orchestration: timeline / history / clipboard / playback / audioIO / projectIO / bootstrap
+        ├── services/     # Orchestration: timeline / history / clipboard / playback / audioIO / projectIO / bootstrap / flash
         ├── schemas/      # zod project-file schema (v1 → v2 migration and per-item recovery)
         ├── plugins/      # Plugin host: registry / events / bridge API
         ├── i18n/         # Chinese, English & Korean strings (zh / en / ko) + locale detect/storage helpers
@@ -228,7 +227,7 @@ Pitch-preserving off-speed playback uses `signalsmith-stretch` by default (WASM 
 - **Where are the logs?** See [Runtime logs](#runtime-logs) — nothing is written to disk until you enable it in Developer options.
 - **Pitch-preserving playback sounds off / stutters?** It defaults to `signalsmith-stretch`; failures or timeouts fall back to `soundtouchjs` automatically, and you can pin the engine under **Settings → Audio → Playback**.
 - **"Check for updates" does nothing?** Update checks are unsupported in development mode; if the check fails, download manually from [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest).
-- **Does it run on macOS / Linux?** Only Windows installers are published today; other platforms are on the roadmap — meanwhile you can try the source build and report back.
+- **Does it run on macOS / Linux?** Linux installers (AppImage + deb) are available; macOS is on the roadmap — meanwhile you can try the source build and report back.
 - **Why is the EDL fixed at 25 fps?** That is the current fixed output (25 fps, non-drop); for other frame rates or formats, open an [issue](https://github.com/BUGJI/beat_data_generator/issues) or write a plugin as described in [Export & Integration Targets](#export--integration-targets).
 
 ## Contributing
@@ -249,6 +248,7 @@ This project is released under the **GNU GPL v3** license (see [`LICENSE`](LICEN
 | signalsmith-stretch | MIT |
 | pleco-xa | MIT |
 | slimdown-js | MIT |
+| fflate (ZIP extraction) | MIT |
 | electron-log / electron-updater | MIT |
 | soundtouchjs (SoundTouch) | LGPL-2.1 |
 
