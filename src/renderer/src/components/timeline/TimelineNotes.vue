@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { Pencil } from "@lucide/vue";
 import { render as mdRender, escapeHtml } from "slimdown-js";
 import {
   useProjectStore,
@@ -161,13 +162,21 @@ function cancelNoteEdit(): void {
           @pointerdown.stop
         />
       </div>
-      <div
-        v-else
-        class="note-body md"
-        :title="t('note.editHint')"
-        @dblclick.stop="startNoteEdit(noteOf(nl.id))"
-        v-html="noteHtml(noteTextOf(nl.id))"
-      />
+      <template v-else>
+        <div
+          class="note-body md"
+          :title="t('note.editHint')"
+          @dblclick.stop="startNoteEdit(noteOf(nl.id))"
+          v-html="noteHtml(noteTextOf(nl.id))"
+        />
+        <Pencil
+          v-if="!nl.locked"
+          class="note-edit-hint"
+          :size="11"
+          :stroke-width="1.75"
+          aria-hidden="true"
+        />
+      </template>
     </div>
   </div>
 </template>
@@ -252,14 +261,22 @@ function cancelNoteEdit(): void {
   cursor: default;
   position: relative;
 }
-.note-body::after {
-  content: "dbl-click:edit";
+.note-edit-hint {
   position: absolute;
   right: 6px;
-  bottom: -2px;
-  font-size: var(--bdg-fs-9);
-  color: rgb(var(--bdg-neutral) / 0.35);
-  line-height: 1;
+  bottom: 5px;
+  color: rgb(var(--bdg-neutral) / 0.55);
+  opacity: 0;
+  transition: opacity 0.12s ease;
+  pointer-events: none;
+}
+.note:hover .note-edit-hint {
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .note-edit-hint {
+    transition: none;
+  }
 }
 .note-body.md h1 {
   font-size: var(--bdg-fs-14);
