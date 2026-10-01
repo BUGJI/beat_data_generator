@@ -27,8 +27,12 @@ vi.mock("../analysis", () => ({
 vi.mock("./playback", () => ({ stop: () => {} }));
 
 import { ensureDefaultTrack, useProjectStore } from "../stores/project";
+import { useTransportStore } from "../stores/transport";
 import { loadAudioResult } from "./audioIO";
 import { openProject } from "./projectIO";
+
+const flush = (): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, 0));
 
 function projectDoc(audioName: string | null, audioMd5: string | null) {
   return {
@@ -104,6 +108,50 @@ describe("openProject", () => {
     const p = useProjectStore();
     await openProject("C:/x/song.bdg");
     expect(p.dirty).toBe(false);
+  });
+
+  it("drops an in-flight load when another project is opened mid-check", async () => {
+    const p = useProjectStore();
+    const tr = useTransportStore();
+    let releaseFirst!: () => void;
+    const firstGate = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    let audioCalls = 0;
+    window.api = {
+      readTextFile: async (path: string) => ({
+        canceled: false,
+        filePath: path,
+        content: JSON.stringify(
+          path.includes("first")
+            ? projectDoc("first.mp3", "md5-first")
+            : projectDoc("second.mp3", "md5-second"),
+        ),
+      }),
+      readAudioFile: async () => {
+        const first = audioCalls++ === 0;
+        if (first) await firstGate;
+        return {
+          data: new Uint8Array([1]),
+          filePath: first ? "C:/first.mp3" : "C:/second.mp3",
+          name: first ? "first.mp3" : "second.mp3",
+          md5: first ? "md5-first" : "md5-second",
+        };
+      },
+      computeMd5: async () => null,
+      recordRecent: async () => {},
+    } as unknown as typeof window.api;
+
+    const first = openProject("C:/first.bdg");
+    await flush();
+    const second = openProject("C:/second.bdg");
+    await flush();
+    releaseFirst();
+    await Promise.all([first, second]);
+
+    expect(p.audioName).toBe("second.mp3");
+    expect(p.audioMd5).toBe("md5-second");
+    expect(tr.audioConflict).toBe(false);
   });
 });
 

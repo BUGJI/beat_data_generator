@@ -14,6 +14,24 @@ import type { AudioFileResultLike } from "../types";
 
 /** Audio loading / relinking and the renderer-side path helpers. */
 
+/**
+ * Monotonic id for the active project's audio load. Bumped whenever the project
+ * document is reset (new / open) so a silent load started for a previous project
+ * cannot apply its audio, or its MD5 comparison, to the project that was opened
+ * while that load was still in flight.
+ */
+let loadEpoch = 0;
+
+/** Abandon any in-flight audio load. Call when the project document is reset. */
+export function invalidateAudioLoad(): void {
+  loadEpoch++;
+}
+
+/** Current audio-load epoch; async callers compare against it to detect a reset. */
+export function audioLoadEpoch(): number {
+  return loadEpoch;
+}
+
 /** The actual audio location for a persisted audioName (same folder as the project by default). */
 export function resolveAudioFullPath(name: string | null): string | null {
   if (!name) return null;
@@ -39,9 +57,12 @@ async function decodeAndApply(
   autoApply: boolean,
   markDirty: boolean,
 ): Promise<boolean> {
+  const epoch = loadEpoch;
   const p = useProjectStore();
   const tr = useTransportStore();
   const buffer = await engine.decode(bytes);
+  // A new project was opened while decoding: drop this load entirely.
+  if (epoch !== loadEpoch) return false;
   if (!buffer) return false;
   engine.load(buffer);
   tr.wave = computePeaks(buffer);
@@ -64,6 +85,7 @@ async function decodeAndApply(
   // from being rewritten by auto-BPM / auto-beats.
   const { onAudioLoaded } = await import("../analysis");
   await onAudioLoaded(autoApply);
+  if (epoch !== loadEpoch) return false;
   return true;
 }
 
@@ -72,6 +94,7 @@ export async function loadAudioResult(
   adopt = true,
   autoApply = true,
 ): Promise<void> {
+  const epoch = loadEpoch;
   const p = useProjectStore();
   const tr = useTransportStore();
   // `adopt` is true for user-initiated loads (choose / relink) and false when a
@@ -83,6 +106,10 @@ export async function loadAudioResult(
     autoApply,
     adopt,
   );
+  // The project was switched while loading: the epoch captured above no longer
+  // describes the current document, so do not touch it (this is what previously
+  // produced a bogus MD5-mismatch banner after opening another project).
+  if (epoch !== loadEpoch) return;
   if (!ok) {
     toast.error(t("dialogs.audioDecodeFail"));
     return;
@@ -91,6 +118,7 @@ export async function loadAudioResult(
   // Prefer the MD5 main computed alongside the read; only fall back to a
   // separate hash call when a caller passed bytes without one.
   const md5 = res.md5 ?? (await window.api.computeMd5(res.filePath));
+  if (epoch !== loadEpoch) return;
   const stored = p.audioMd5;
   if (!stored || adopt) {
     p.audioMd5 = md5 ?? stored;

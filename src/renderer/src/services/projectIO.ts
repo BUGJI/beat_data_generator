@@ -14,6 +14,8 @@ import { useSettingsStore } from "../stores/settings";
 import { stop } from "./playback";
 import { markerTime } from "./timeline";
 import {
+  audioLoadEpoch,
+  invalidateAudioLoad,
   loadAudioResult,
   resolveAudioFullPath,
   setAudioNameRelative,
@@ -58,6 +60,9 @@ function recordRecentNow(): void {
 }
 
 function freshProject(): void {
+  // Abandon any silent audio load (and its MD5 check) still in flight for the
+  // project being left behind, so its result can never be applied to the new one.
+  invalidateAudioLoad();
   stop();
   const p = useProjectStore();
   const tr = useTransportStore();
@@ -122,6 +127,9 @@ export async function openProject(explicitPath?: string): Promise<void> {
     const { doc, legacyAudioPath } = parsed;
 
     freshProject();
+    // Tag this open so a later project switch (which bumps the epoch) aborts the
+    // rest of this one instead of writing its state into the new document.
+    const epoch = audioLoadEpoch();
     p.name = doc.name;
     p.baseBpm = doc.baseBpm;
     p.offsetMs = doc.offsetMs;
@@ -148,20 +156,24 @@ export async function openProject(explicitPath?: string): Promise<void> {
       // audio is resolved relative to the project file (or the stored legacy path)
       const guess = resolveAudioFullPath(p.audioName);
       let audio = guess ? await window.api.readAudioFile(guess) : null;
+      if (epoch !== audioLoadEpoch()) return;
       if (!audio && legacyAudioPath && guess !== legacyAudioPath) {
         audio = await window.api.readAudioFile(legacyAudioPath);
+        if (epoch !== audioLoadEpoch()) return;
       }
       if (audio) {
         // Loading audio for an existing project must not auto-apply detected
         // BPM/beats: await the analysis so it finishes before we mark the
         // project clean, and never let it rewrite the loaded document.
         await loadAudioResult(audio, false, false);
+        if (epoch !== audioLoadEpoch()) return;
         setAudioNameRelative();
         p.dirty = false;
       } else {
         tr.audioMissing = true;
       }
     }
+    if (epoch !== audioLoadEpoch()) return;
     markSaved();
     recordRecentNow();
     // Opening stays silent: a matching audio MD5 shows no toast, and a real
