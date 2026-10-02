@@ -78,6 +78,11 @@ module.exports = function activate(ctx) {
 
 - 快照:`api.project.snapshot()` 一次给出节拍视角与 `timeMs` 时间视角(见字段)。
 - 编辑一律走 `api.project.edit.*`,自动计入撤销栈;多步编辑用 `edit.batch(fn)` 合并为一次撤销。
+- 循环组:主踩点可用 `edit.setMarkerLoop(id, { interval, count, exclude? })` 按「间隔拍数 × 个数」
+  批量生成子点;第 k 个子点落在 `主点拍位 + k × interval`,与同轨道已有踩点重合的位置不生成。
+  `count` 上限 **256**(超出按 256 处理),`exclude` 按 **1 起**编号跳过指定子点(如 `[2, 5]`
+  跳过第 2、5 个)。传 `null` 清除循环并删除其子点;`id` 不是主踩点或所在轨道被锁定时
+  该调用无效果。调用计入撤销栈,子点在快照里带 `parentId` 与 `loop` 字段。
 - 类型化轨道:轨道带 `type: "<pluginId>:<localId>"`;点带 `attrs`,字段默认值在放置/粘贴时自动补齐,或由插件用 `setMarkerAttrs` 修改。
 - 内置导出(.txt / EDL / 踩点指示灯)**不**包含类型化轨道;插件导出自行读取。
 - `.bdg` 直接存 `type` + `attrs`,字段全可选、向后兼容。若保存的工程含某插件类型而该插件未安装:轨道与数据照常显示(点属性只读),属性卡提示需要安装对应插件。
