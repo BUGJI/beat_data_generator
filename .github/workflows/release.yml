@@ -114,7 +114,7 @@ jobs:
           ' CHANGELOG.md > RELEASE_NOTES.md
           SUMMARY=$(grep -m1 "^## \[$VERSION\]" CHANGELOG.md | awk -F'·' 'NF > 1 { sub(/^[ \t]+/, "", $2); print $2 }')
           if [ -n "$SUMMARY" ]; then
-            echo "TITLE=$VERSION — $SUMMARY" >> "$GITHUB_ENV"
+            echo "TITLE=v$VERSION $SUMMARY" >> "$GITHUB_ENV"
           else
             echo "TITLE=$VERSION" >> "$GITHUB_ENV"
           fi
