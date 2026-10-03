@@ -116,7 +116,7 @@ jobs:
           if [ -n "$SUMMARY" ]; then
             echo "TITLE=v$VERSION $SUMMARY" >> "$GITHUB_ENV"
           else
-            echo "TITLE=$VERSION" >> "$GITHUB_ENV"
+            echo "TITLE=v$VERSION" >> "$GITHUB_ENV"
           fi
 
       # electron-builder 默认把 Release 建为草稿（draft），打包全部完成后转正，
