@@ -50,6 +50,7 @@ import { useProjectStore, removeSelectedMarkers } from "../stores/project";
 import { selectAllMarkers } from "../stores/selection";
 import { setSettingsOpen } from "../stores/settings";
 import { useViewStore, zoomBy, fitZoom } from "../stores/view";
+import { MAX_PX_PER_SEC, MIN_PX_PER_SEC } from "../metrics";
 import { useSettingsStore } from "../stores/settings";
 import { useUiStore } from "../stores/ui";
 import UiButton from "./ui/UiButton.vue";
@@ -234,8 +235,8 @@ function onFit(): void {
   fitZoom(window.innerWidth * 0.62);
 }
 
-const zoomInDisabled = computed(() => view.pxPerSec >= 4000);
-const zoomOutDisabled = computed(() => view.pxPerSec <= 6);
+const zoomInDisabled = computed(() => view.pxPerSec >= MAX_PX_PER_SEC);
+const zoomOutDisabled = computed(() => view.pxPerSec <= MIN_PX_PER_SEC);
 
 // History has no reactive store, so re-check it whenever the Edit menu opens.
 const historyNonce = ref(0);
@@ -278,6 +279,9 @@ onMounted(() => {
         <Files class="size-3.5" />
         <span class="recent-title" :title="r.path">{{ r.title }}</span>
       </UiDropdownItem>
+      <UiDropdownItem v-if="!recents.length" value="no-recent" disabled>
+        <span class="recent-empty">{{ t("menu.noRecent") }}</span>
+      </UiDropdownItem>
       <UiDropdownSeparator />
       <UiDropdownItem value="save">
         <FileText class="size-3.5" />{{ t("menu.saveProject") }}
@@ -316,7 +320,7 @@ onMounted(() => {
       </UiDropdownItem>
       <UiDropdownItem value="redo" :disabled="redoDisabled">
         <Redo2 class="size-3.5" />{{ t("menu.redo") }}
-        <span class="kbd">Ctrl+Y</span>
+        <span class="kbd">Ctrl+Shift+Z</span>
       </UiDropdownItem>
       <UiDropdownSeparator />
       <UiDropdownItem value="cut">
@@ -541,6 +545,9 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.recent-empty {
+  color: var(--bdg-text-faint);
 }
 .kbd {
   margin-left: auto;

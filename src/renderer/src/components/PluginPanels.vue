@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, reactive } from "vue";
 import { useI18n } from "vue-i18n";
+import { X } from "@lucide/vue";
 import {
   panels as allPanels,
   openPanels,
@@ -233,7 +234,7 @@ function onClose(card: Card): void {
           :aria-label="t('a11y.close')"
           @click.stop="onClose(card)"
         >
-          ✕
+          <X class="size-3" />
         </button>
       </div>
       <div class="pw-body" :ref="panelRefFor(card.key)" />

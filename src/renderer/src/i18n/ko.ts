@@ -33,6 +33,7 @@ export default {
     new: "새 프로젝트",
     openAudio: "오디오 열기…",
     openProject: "프로젝트 열기…",
+    noRecent: "최근 프로젝트 없음",
     saveProject: "프로젝트 저장",
     saveProjectAs: "다른 이름으로 저장…",
     export: "타임스탬프 내보내기…",
@@ -110,6 +111,7 @@ export default {
     lastMark: "마지막",
   },
   timeline: {
+    editorLabel: "타임라인 편집기",
     none: "프로젝트나 오디오가 로드되지 않았어요. 파일 메뉴에서 가져오세요.",
     hintNew:
       "BPM / 마커 레인을 클릭해 포인트를 놓으세요 (기본적으로 박자축에 스냅)",
@@ -406,6 +408,12 @@ export default {
       pan: "세로 / 가로 스크롤",
       wheel: "스크롤",
       wheelShift: "Shift + 스크롤",
+      zoomIn: "타임라인 확대",
+      zoomOut: "타임라인 축소",
+      zoomFit: "보기에 맞게 타임라인 조정",
+      prevMarker: "이전 마커 선택 및 이동",
+      nextMarker: "다음 마커 선택 및 이동",
+      placeMarker: "재생 헤드에 마커 배치",
     },
     advanced: {
       developer: "개발자",

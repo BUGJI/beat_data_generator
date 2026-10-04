@@ -30,6 +30,7 @@ export default {
     new: "新建工程",
     openAudio: "打开音频…",
     openProject: "打开工程…",
+    noRecent: "暂无最近工程",
     saveProject: "保存工程",
     saveProjectAs: "另存为…",
     export: "导出时间戳…",
@@ -106,6 +107,7 @@ export default {
     lastMark: "末标记",
   },
   timeline: {
+    editorLabel: "时间线编辑器",
     none: "未载入工程或音频，请从「文件」菜单导入",
     hintNew: "点击 BPM 轨/踩点轨以放置点（默认吸附节拍轴）",
     hintBeatAxis: "拖动调整位置 · 点选后在浮动卡编辑拍位/速度",
@@ -379,6 +381,12 @@ export default {
       pan: "上下/左右滚动",
       wheel: "滚轮",
       wheelShift: "Shift + 滚轮",
+      zoomIn: "放大时间线",
+      zoomOut: "缩小时间线",
+      zoomFit: "适配视图（缩放至整首）",
+      prevMarker: "选中并跳到上一个标记",
+      nextMarker: "选中并跳到下一个标记",
+      placeMarker: "在播放头处放置标记",
     },
     advanced: {
       developer: "开发者",

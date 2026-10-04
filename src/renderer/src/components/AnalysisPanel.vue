@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
+import { X } from "@lucide/vue";
 import {
   analysis,
   applyDetectedBpm,
@@ -22,6 +23,51 @@ const ui = useUiStore();
 const canvas = ref<HTMLCanvasElement | null>(null);
 let cw = 0;
 let ch = 0;
+
+// ---- draggable window (position remembered in the session ui store) ----
+const winEl = ref<HTMLElement | null>(null);
+const pos = ref<{ x: number; y: number } | null>(ui.analysisPos);
+const winStyle = computed<Record<string, string> | undefined>(() =>
+  pos.value ? { left: `${pos.value.x}px`, top: `${pos.value.y}px` } : undefined,
+);
+let dragGrab: { dx: number; dy: number } | null = null;
+
+function clampPos(x: number, y: number): { x: number; y: number } {
+  const el = winEl.value;
+  const w = el?.offsetWidth ?? 360;
+  const h = el?.offsetHeight ?? 200;
+  const vw = window.innerWidth || 1280;
+  const vh = window.innerHeight || 800;
+  return {
+    x: Math.min(Math.max(0, x), Math.max(0, vw - w)),
+    y: Math.min(Math.max(0, y), Math.max(0, vh - h)),
+  };
+}
+
+function startDrag(e: PointerEvent): void {
+  if (e.button !== 0) return;
+  if ((e.target as HTMLElement).closest("button")) return;
+  const el = winEl.value;
+  if (!el) return;
+  const rect = el.getBoundingClientRect();
+  dragGrab = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+  window.addEventListener("pointermove", onDragMove);
+  window.addEventListener("pointerup", endDrag);
+  e.preventDefault();
+}
+
+function onDragMove(e: PointerEvent): void {
+  if (!dragGrab) return;
+  pos.value = clampPos(e.clientX - dragGrab.dx, e.clientY - dragGrab.dy);
+}
+
+function endDrag(): void {
+  if (!dragGrab) return;
+  dragGrab = null;
+  window.removeEventListener("pointermove", onDragMove);
+  window.removeEventListener("pointerup", endDrag);
+  ui.analysisPos = pos.value;
+}
 
 function fmtSec(s: number | null): string {
   if (s === null || !Number.isFinite(s)) return "--";
@@ -149,6 +195,7 @@ watch(
 
 function onResize(): void {
   if (showSpectrum.value) drawSpectrum();
+  if (pos.value) pos.value = clampPos(pos.value.x, pos.value.y);
 }
 
 function onKeydown(e: KeyboardEvent): void {
@@ -165,14 +212,23 @@ onBeforeUnmount(() => {
   stopLiveBpm();
   window.removeEventListener("resize", onResize);
   window.removeEventListener("keydown", onKeydown);
+  window.removeEventListener("pointermove", onDragMove);
+  window.removeEventListener("pointerup", endDrag);
 });
 </script>
 
 <template>
   <teleport to="body">
     <div v-if="ui.analysisOpen" class="ana-mask">
-      <div class="ana-win" role="dialog" :aria-label="t('settings.cats.audio')">
-        <header class="ana-head">
+      <div
+        ref="winEl"
+        class="ana-win"
+        :class="{ positioned: !!pos }"
+        :style="winStyle"
+        role="dialog"
+        :aria-label="t('settings.cats.audio')"
+      >
+        <header class="ana-head" @pointerdown="startDrag">
           <span class="ana-title">{{ t("settings.cats.audio") }}</span>
           <button
             class="ana-x"
@@ -180,7 +236,7 @@ onBeforeUnmount(() => {
             :aria-label="t('a11y.close')"
             @click="close"
           >
-            ✕
+            <X class="size-3.5" />
           </button>
         </header>
 
@@ -251,6 +307,9 @@ onBeforeUnmount(() => {
   pointer-events: none;
 }
 .ana-win {
+  position: fixed;
+  top: 56px;
+  right: 16px;
   pointer-events: auto;
   width: 360px;
   max-width: 92vw;
@@ -262,12 +321,18 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
 }
+.ana-win.positioned {
+  right: auto;
+}
 .ana-head {
   flex: none;
   display: flex;
   align-items: center;
   padding: 10px 14px;
   border-bottom: 1px solid var(--bdg-border);
+  cursor: move;
+  user-select: none;
+  touch-action: none;
 }
 .ana-title {
   font-weight: 700;

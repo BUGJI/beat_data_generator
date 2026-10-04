@@ -10,11 +10,18 @@ import SettingsModal from "./components/SettingsModal.vue";
 import PluginPanels from "./components/PluginPanels.vue";
 import AnalysisPanel from "./components/AnalysisPanel.vue";
 import UiToaster from "./components/ui/UiToaster.vue";
-import { setScroll, useViewStore } from "./stores/view";
+import { setScroll, useViewStore, zoomBy, fitZoom } from "./stores/view";
 import { loadSettings, useSettingsStore } from "./stores/settings";
-import { closeCard, useSelectionStore } from "./stores/selection";
-import { useUiStore } from "./stores/ui";
 import {
+  closeCard,
+  useSelectionStore,
+  selectSingleMarker,
+} from "./stores/selection";
+import { useUiStore } from "./stores/ui";
+import { useTransportStore } from "./stores/transport";
+import {
+  useProjectStore,
+  addMarker,
   removeBpmPoint,
   removeSelectedMarkers,
   moveMarker,
@@ -22,6 +29,7 @@ import {
   findMarker,
   findBpmPoint,
 } from "./stores/project";
+import { beatOfTime, timeOfBeat } from "./services/timeline";
 import { seekTo, togglePlay } from "./services/playback";
 import { bindWelcomeActions, saveProjectQuick } from "./services/projectIO";
 import { redo, undo } from "./services/history";
@@ -32,6 +40,8 @@ const settings = useSettingsStore();
 const selection = useSelectionStore();
 const view = useViewStore();
 const ui = useUiStore();
+const transport = useTransportStore();
+const project = useProjectStore();
 
 function isTyping(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
@@ -49,6 +59,42 @@ function isTyping(el: EventTarget | null): boolean {
 function ownsActivationKey(el: EventTarget | null): boolean {
   if (!(el instanceof HTMLElement)) return false;
   return !!el.closest("button, a[href], [role='button'], [role='tab']");
+}
+
+/** Add a marker at the playhead on the selected track (or the first one). */
+function placeMarkerAtPlayhead(): void {
+  const sel = selection.selected;
+  const selMarker =
+    sel.kind === "marker" && sel.id ? findMarker(sel.id) : undefined;
+  const track =
+    (selMarker && project.tracks.find((tr) => tr.id === selMarker.trackId)) ??
+    project.tracks[0];
+  if (!track) return;
+  addMarker(track.id, beatOfTime(transport.positionMs));
+}
+
+/** Select and seek to the previous / next marker in time order. */
+function selectAdjacentMarker(dir: 1 | -1): void {
+  const list = [...project.markers].sort(
+    (a, b) => timeOfBeat(a.beat) - timeOfBeat(b.beat),
+  );
+  if (!list.length) return;
+  const cur = transport.positionMs;
+  let target: (typeof list)[number] | undefined;
+  if (dir === 1) {
+    target = list.find((m) => timeOfBeat(m.beat) > cur + 1e-6);
+  } else {
+    for (let i = list.length - 1; i >= 0; i--) {
+      const m = list[i]!;
+      if (timeOfBeat(m.beat) < cur - 1e-6) {
+        target = m;
+        break;
+      }
+    }
+  }
+  if (!target) return;
+  selectSingleMarker(target.id);
+  seekTo(timeOfBeat(target.beat));
 }
 
 let unbindWelcome: (() => void) | null = null;
@@ -88,6 +134,43 @@ function onKeydown(e: KeyboardEvent): void {
       pasteMarkerGroup();
       return;
     }
+    if (k === "0") {
+      e.preventDefault();
+      fitZoom(view.vw);
+      return;
+    }
+    if (k === "=" || k === "+") {
+      e.preventDefault();
+      zoomBy(1.3);
+      return;
+    }
+    if (k === "-") {
+      e.preventDefault();
+      zoomBy(1 / 1.3);
+      return;
+    }
+  }
+  const cmd = e.ctrlKey || e.metaKey;
+  if (code === "KeyM" && !e.altKey && !cmd) {
+    e.preventDefault();
+    placeMarkerAtPlayhead();
+    return;
+  }
+  if (
+    (code === "Comma" && !e.altKey && !cmd) ||
+    (code === "ArrowLeft" && e.altKey)
+  ) {
+    e.preventDefault();
+    selectAdjacentMarker(-1);
+    return;
+  }
+  if (
+    (code === "Period" && !e.altKey && !cmd) ||
+    (code === "ArrowRight" && e.altKey)
+  ) {
+    e.preventDefault();
+    selectAdjacentMarker(1);
+    return;
   }
   if (code === "Space") {
     e.preventDefault();

@@ -16,12 +16,24 @@ const shortcutRows = computed(() => [
   { label: t("settings.shortcuts.playPause"), keys: ["Space"] },
   { label: t("settings.shortcuts.deleteSel"), keys: ["Delete", "Backspace"] },
   { label: t("settings.shortcuts.nudge"), keys: ["←", "→"] },
+  { label: t("settings.shortcuts.placeMarker"), keys: ["M"] },
+  {
+    label: t("settings.shortcuts.prevMarker"),
+    keys: [",", "/", "Alt+←"],
+  },
+  {
+    label: t("settings.shortcuts.nextMarker"),
+    keys: [".", "/", "Alt+→"],
+  },
   { label: t("settings.shortcuts.esc"), keys: ["Esc"] },
   { label: t("settings.shortcuts.home"), keys: ["Home"] },
   {
     label: t("settings.shortcuts.zoom"),
     keys: ["Ctrl", t("settings.shortcuts.wheel")],
   },
+  { label: t("settings.shortcuts.zoomIn"), keys: ["Ctrl", "+"] },
+  { label: t("settings.shortcuts.zoomOut"), keys: ["Ctrl", "-"] },
+  { label: t("settings.shortcuts.zoomFit"), keys: ["Ctrl", "0"] },
   {
     label: t("settings.shortcuts.pan"),
     keys: [t("settings.shortcuts.wheelShift")],

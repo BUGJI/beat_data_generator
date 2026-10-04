@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
-import { Pencil } from "@lucide/vue";
+import { GripVertical, Lock, Pencil, Unlock, X } from "@lucide/vue";
 import { render as mdRender, escapeHtml } from "slimdown-js";
 import {
   useProjectStore,
@@ -130,7 +130,7 @@ function cancelNoteEdit(): void {
       @contextmenu.stop
     >
       <div class="note-head">
-        <span class="note-grip">⠿</span>
+        <GripVertical class="note-grip" :size="12" aria-hidden="true" />
         <span class="note-title">{{ t("note.title") }}</span>
         <span class="note-tools">
           <button
@@ -140,7 +140,8 @@ function cancelNoteEdit(): void {
             :aria-pressed="nl.locked"
             @click.stop="setNoteLocked(nl.id, !nl.locked)"
           >
-            {{ nl.locked ? "🔒" : "🔓" }}
+            <Lock v-if="nl.locked" class="size-3" />
+            <Unlock v-else class="size-3" />
           </button>
           <button
             class="note-tool"
@@ -148,7 +149,7 @@ function cancelNoteEdit(): void {
             :aria-label="t('a11y.deleteNote')"
             @click.stop="removeNote(nl.id)"
           >
-            ✕
+            <X class="size-3" />
           </button>
         </span>
       </div>
@@ -219,9 +220,8 @@ function cancelNoteEdit(): void {
   cursor: default;
 }
 .note-grip {
+  flex: none;
   color: var(--bdg-text-dim);
-  font-size: var(--bdg-fs-12);
-  line-height: 1;
 }
 .note-title {
   flex: 1;

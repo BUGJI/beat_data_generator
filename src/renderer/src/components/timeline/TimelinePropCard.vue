@@ -8,6 +8,7 @@ import {
   watch,
 } from "vue";
 import { useI18n } from "vue-i18n";
+import { X } from "@lucide/vue";
 import {
   useProjectStore,
   MAX_LOOP_CHILDREN,
@@ -427,7 +428,7 @@ onBeforeUnmount(() => {
           :aria-label="t('a11y.close')"
           @click="emit('close')"
         >
-          ✕
+          <X class="size-3" />
         </button>
       </div>
       <label class="pc-field">
@@ -522,7 +523,7 @@ onBeforeUnmount(() => {
           :aria-label="t('a11y.close')"
           @click="emit('close')"
         >
-          ✕
+          <X class="size-3" />
         </button>
       </div>
       <label class="pc-field">

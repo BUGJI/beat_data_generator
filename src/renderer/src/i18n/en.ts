@@ -33,6 +33,7 @@ export default {
     new: "New Project",
     openAudio: "Open Audio…",
     openProject: "Open Project…",
+    noRecent: "No recent projects",
     saveProject: "Save Project",
     saveProjectAs: "Save As…",
     export: "Export Timestamps…",
@@ -110,6 +111,7 @@ export default {
     lastMark: "Last",
   },
   timeline: {
+    editorLabel: "Timeline editor",
     none: "No project or audio loaded. Import from the File menu.",
     hintNew:
       "Click the BPM / marker lane to place points (snapped to the beat axis by default)",
@@ -411,6 +413,12 @@ export default {
       pan: "Scroll vertically / horizontally",
       wheel: "Scroll",
       wheelShift: "Shift + Scroll",
+      zoomIn: "Zoom timeline in",
+      zoomOut: "Zoom timeline out",
+      zoomFit: "Fit timeline to view",
+      prevMarker: "Select & jump to previous marker",
+      nextMarker: "Select & jump to next marker",
+      placeMarker: "Place a marker at the playhead",
     },
     advanced: {
       developer: "Developer",

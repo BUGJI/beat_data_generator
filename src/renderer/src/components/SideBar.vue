@@ -108,7 +108,6 @@ function clickTrack(_id: string): void {
 }
 
 const addBtnText = computed(() => t("sidebar.addTrack"));
-const renameBusy = ref<string | null>(null);
 /** Tracks whose rename input was cancelled with Escape (skip the blur commit). */
 const renameCancelled = new Set<string>();
 
@@ -262,7 +261,6 @@ onBeforeUnmount(() => {
                 (e: KeyboardEvent) =>
                   onRenameEsc(e, row.track.id, row.track.name)
               "
-              @focus="renameBusy = row.track.id"
             />
             <span class="t-sub num">
               <span :style="{ color: row.track.color }">{{ row.i + 1 }}</span>
@@ -406,8 +404,6 @@ onBeforeUnmount(() => {
   padding: 4px;
   display: flex;
   flex-direction: column;
-  height: 260px;
-  min-height: 100px;
   max-height: 260px;
   overflow: auto;
 }

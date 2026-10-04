@@ -6,6 +6,7 @@ import {
   timeOfBeat,
   markerTime as storeMarkerTime,
   contentEndMs,
+  formatTime,
 } from "../services/timeline";
 import { seekTo } from "../services/playback";
 import { historyGestureBegin, historyGestureEnd } from "../services/history";
@@ -168,10 +169,32 @@ function hitMarkerAt(x: number, y: number): Marker | null {
   if (lane.kind !== "marker") return null;
   const track = trackAt(lane.index);
   if (!track) return null;
-  for (const m of markersInTrack(track.id)) {
-    if (Math.abs(timeToScreenX(storeMarkerTime(m)) - x) <= HIT_PX) return m;
+  const list = markersInTrack(track.id);
+  if (!list.length) return null;
+  // Markers are sorted by beat and screen x is monotonic in beat, so the
+  // closest marker is one of the two straddling the beat under the cursor.
+  const beat = beatOfTime(screenToTime(x));
+  let lo = 0;
+  let hi = list.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    const mm = list[mid];
+    if (!mm) break;
+    if (mm.beat < beat) lo = mid + 1;
+    else hi = mid;
   }
-  return null;
+  let best: Marker | null = null;
+  let bestDx = Number.POSITIVE_INFINITY;
+  for (const i of [lo - 1, lo]) {
+    const m = list[i];
+    if (!m) continue;
+    const dx = Math.abs(timeToScreenX(storeMarkerTime(m)) - x);
+    if (dx < bestDx) {
+      bestDx = dx;
+      best = m;
+    }
+  }
+  return bestDx <= HIT_PX ? best : null;
 }
 
 function hitBpmAt(x: number, y: number): BpmPoint | null {
@@ -661,12 +684,32 @@ const selectionMs = computed<string | null>(() => {
   if (!Number.isFinite(lo)) return null;
   return `⌖ ${Math.round(lo)}ms – ${Math.round(hi)}ms`;
 });
+
+/** Spoken summary of the current selection, for the screen-reader live region. */
+const selectionAnnounce = computed(() => {
+  const sel = selection.selected;
+  if (sel.kind === "marker" && sel.id) {
+    const m = project.markers.find((x) => x.id === sel.id);
+    if (!m) return "";
+    const track = project.tracks.find((x) => x.id === m.trackId);
+    return `${t("keys.marker")}: ${track?.name ?? ""} ${formatTime(storeMarkerTime(m))}`;
+  }
+  if (sel.kind === "bpm" && sel.id) {
+    const p = project.bpmPoints.find((x) => x.id === sel.id);
+    if (!p) return "";
+    return `${t("keys.bpmPoint")}: ${formatTime(timeOfBeat(p.beat))}`;
+  }
+  return "";
+});
 </script>
 
 <template>
   <div
     ref="rootEl"
     class="editor"
+    tabindex="0"
+    role="application"
+    :aria-label="t('timeline.editorLabel')"
     :style="{ cursor }"
     @pointerdown="onPointerDown"
     @pointermove="onPointerMove"
@@ -675,7 +718,11 @@ const selectionMs = computed<string | null>(() => {
     @wheel="onWheel"
     @contextmenu.prevent="onContext"
   >
-    <canvas ref="canvasEl" class="editor-canvas" />
+    <canvas ref="canvasEl" class="editor-canvas" aria-hidden="true" />
+
+    <div class="sr-only" role="status" aria-live="polite">
+      {{ selectionAnnounce }}
+    </div>
 
     <TimelineNotes />
 
@@ -721,6 +768,10 @@ const selectionMs = computed<string | null>(() => {
   overflow: hidden;
   background: var(--bdg-bg);
 }
+.editor:focus-visible {
+  outline: 2px solid var(--bdg-accent);
+  outline-offset: -2px;
+}
 .editor-canvas {
   position: absolute;
   inset: 0;
@@ -748,7 +799,7 @@ const selectionMs = computed<string | null>(() => {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
+  bottom: 10px;
   height: 22px;
   display: flex;
   align-items: center;

@@ -8,6 +8,8 @@ import { ref } from "vue";
 export const useUiStore = defineStore("ui", () => {
   /** session-only: audio analysis panel open state. */
   const analysisOpen = ref(false);
+  /** session-only: last dragged position of the analysis panel (null = default). */
+  const analysisPos = ref<{ x: number; y: number } | null>(null);
   const beatPulse = ref(0);
   const overlapPulse = ref(0);
   const overlapCount = ref(0);
@@ -22,6 +24,7 @@ export const useUiStore = defineStore("ui", () => {
 
   return {
     analysisOpen,
+    analysisPos,
     beatPulse,
     overlapPulse,
     overlapCount,
