@@ -1,6 +1,7 @@
 import { reactive } from "vue";
 import type { LocaText } from "@shared/plugin";
 import { currentLocale, pickLocale } from "../i18n";
+import { toast } from "../ui/toast";
 
 /**
  * UI contribution registry. Plugins push contributions here while enabled;
@@ -332,6 +333,8 @@ export function dispatchShortcut(e: KeyboardEvent): boolean {
   return false;
 }
 
+export type PluginToastType = "info" | "success" | "warning" | "error";
+
 export type UiContributions = {
   registerAction: (def: PluginActionDef) => () => void;
   registerPanel: (def: PluginPanelDef) => PanelHandle;
@@ -340,6 +343,11 @@ export type UiContributions = {
   registerExporter: (def: PluginExporterDef) => () => void;
   registerTimelineOverlay: (def: PluginTimelineOverlayDef) => () => void;
   registerBarButton: (def: PluginBarButtonDef) => BarButtonHandle;
+  notify: (opts: {
+    message: string;
+    type?: PluginToastType;
+    durationMs?: number;
+  }) => void;
   openPanel: (uid: number) => void;
   closePanel: (uid: number) => void;
 };
@@ -384,6 +392,12 @@ export function uiHandleFor(pluginId: string): UiContributions & {
       const h = registerBarButton(pluginId, def);
       disposers.push(h.dispose);
       return h;
+    },
+    notify: ({ message, type = "info", durationMs }) => {
+      if (type === "error") toast.error(message, durationMs);
+      else if (type === "warning") toast.warning(message, durationMs);
+      else if (type === "success") toast.success(message, durationMs);
+      else toast.info(message, durationMs);
     },
     openPanel: (uid: number) => openPanel(pluginId, uid),
     closePanel: (uid: number) => closePanel(pluginId, uid),

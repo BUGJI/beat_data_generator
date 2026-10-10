@@ -138,6 +138,7 @@ window.__bdgPluginRegister(function activate(api) {
           })
           .then(function (ok) {
             logText(ok ? "saved" : "write failed");
+            if (ok) api.ui.notify({ message: "Tracks exported", type: "success" });
           });
       });
       wrap.appendChild(btnExport);
@@ -167,15 +168,13 @@ window.__bdgPluginRegister(function activate(api) {
   api.ui.registerExporter({
     label: { zh: "示例:翻转点 CSV", en: "Sample: flip points CSV" },
     run: function () {
-      var s = api.project.snapshot();
+      // v2: query typed-track markers directly instead of scanning the whole
+      // snapshot and joining tracks by hand.
+      var points = api.project.markersOfType(flipKey);
       var lines = ["beat,timeMs,direction,power,hold"];
-      for (var i = 0; i < s.markers.length; i++) {
-        var m = s.markers[i];
-        var track = null;
-        for (var j = 0; j < s.tracks.length; j++) {
-          if (s.tracks[j].id === m.trackId) track = s.tracks[j];
-        }
-        if (!track || track.type !== flipKey || !m.attrs) continue;
+      for (var i = 0; i < points.length; i++) {
+        var m = points[i];
+        if (!m.attrs) continue;
         lines.push(
           m.beat +
             "," +
@@ -189,7 +188,7 @@ window.__bdgPluginRegister(function activate(api) {
         );
       }
       if (lines.length === 1) {
-        api.log("exporter: no flip points to export");
+        api.ui.notify({ message: "No flip points to export", type: "warning" });
         return;
       }
       api.system
@@ -203,7 +202,7 @@ window.__bdgPluginRegister(function activate(api) {
           return api.system.writeText(res.filePath, lines.join("\n"));
         })
         .then(function (ok) {
-          api.log("exporter:", ok ? "saved" : "write failed");
+          if (ok) api.ui.notify({ message: "Flip CSV exported", type: "success" });
         });
     },
   });
@@ -245,6 +244,10 @@ window.__bdgPluginRegister(function activate(api) {
             }
           });
           api.log("importer: done, track =", trackId);
+          api.ui.notify({
+            message: trackId ? "Imported flip CSV" : "Import failed",
+            type: trackId ? "success" : "error",
+          });
         });
     },
   });

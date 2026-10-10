@@ -28,6 +28,7 @@ import { engine } from "../engine";
 import { replaceAudioFromBytes } from "../services/audioIO";
 import { encodeWav, sliceAudioBuffer } from "../services/audioCrop";
 import { baseName } from "@shared/path";
+import type { LocaText } from "@shared/plugin";
 import type { LoopConfig } from "../types";
 import { useProjectStore } from "../stores/project";
 import { useSelectionStore } from "../stores/selection";
@@ -45,6 +46,8 @@ import {
   registerTrackType,
   dropPluginTrackTypes,
   type PanelHandle,
+  type BarButtonHandle,
+  type PluginBarButtonDef,
   type TrackTypeDef,
 } from "./registry";
 
@@ -120,6 +123,12 @@ export interface PluginApi {
     bpmAtTime: (ms: number) => number;
     timeOfBeat: (beat: number) => number;
     beatOfTime: (ms: number) => number;
+    /** Markers on every track of the given plugin track type `<pluginId>:<id>`. */
+    markersOfType: (typeKey: string) => MarkerView[];
+    /** Tracks of the given plugin track type `<pluginId>:<id>`. */
+    tracksOfType: (typeKey: string) => TrackView[];
+    /** A single track view by id, or null when it does not exist/is hidden. */
+    trackById: (id: string) => TrackView | null;
     edit: {
       addTrack: (opts?: { name?: string }) => string;
       removeTrack: (trackId: string) => void;
@@ -221,12 +230,12 @@ export interface PluginApi {
 
   ui: {
     registerAction: (def: {
-      label: string | Record<string, string>;
+      label: LocaText;
       run: () => void | Promise<void>;
     }) => () => void;
     registerPanel: (def: {
       id: string;
-      title: string | Record<string, string>;
+      title: LocaText;
       mount: (el: HTMLElement) => void | (() => void);
       /** Initial window size in px (used until the user resizes/moves it). */
       defaultWidth?: number;
@@ -237,18 +246,18 @@ export interface PluginApi {
     }) => PanelHandle;
     registerShortcut: (def: {
       id: string;
-      label: string | Record<string, string>;
+      label: LocaText;
       combo: string;
       run: () => void | Promise<void>;
     }) => () => void;
     /** File > Import entries; the plugin reads a file and edits the project. */
     registerImporter: (def: {
-      label: string | Record<string, string>;
+      label: LocaText;
       run: () => void | Promise<void>;
     }) => () => void;
     /** Export menu entries; the plugin serializes the project to a file. */
     registerExporter: (def: {
-      label: string | Record<string, string>;
+      label: LocaText;
       run: () => void | Promise<void>;
     }) => () => void;
     /**
@@ -262,6 +271,18 @@ export interface PluginApi {
       mount: (el: HTMLElement) => void | (() => void);
       z?: number;
     }) => () => void;
+    /**
+     * Add a quick-action button to the project bar. Toggle buttons flip their
+     * pressed state on click and receive the new value in `run`; use the
+     * returned handle to drive it programmatically.
+     */
+    registerBarButton: (def: PluginBarButtonDef) => BarButtonHandle;
+    /** Show a transient toast in the editor (info/success/warning/error). */
+    notify: (opts: {
+      message: string;
+      type?: "info" | "success" | "warning" | "error";
+      durationMs?: number;
+    }) => void;
     openPanel: (uid: number) => void;
     closePanel: (uid: number) => void;
   };
@@ -403,6 +424,16 @@ export function createPluginApi(binding: PluginBinding): {
       bpmAtTime: (ms) => tempoMap().bpmAtTime(ms),
       timeOfBeat: (b) => tempoMap().timeOfBeat(b),
       beatOfTime: (ms) => tempoMap().beatOfTime(ms),
+      markersOfType: (typeKey) => {
+        const snap = snapshot();
+        const ids = new Set(
+          snap.tracks.filter((t) => t.type === typeKey).map((t) => t.id),
+        );
+        return snap.markers.filter((m) => ids.has(m.trackId));
+      },
+      tracksOfType: (typeKey) =>
+        snapshot().tracks.filter((t) => t.type === typeKey),
+      trackById: (id) => snapshot().tracks.find((t) => t.id === id) ?? null,
       edit: {
         addTrack: (opts) => addTrack(opts?.name)?.id ?? "",
         removeTrack,

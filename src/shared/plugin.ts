@@ -14,9 +14,35 @@
 /** A single locale -> text map or a plain string. */
 export type LocaText = string | { [locale: string]: string };
 
+/**
+ * Highest plugin API version this host understands. Plugins declare the version
+ * they were written against in their manifest (`apiVersion`); the host refuses to
+ * load anything that targets a newer major surface. Bump this only when the
+ * plugin API changes in a way plugins must opt into.
+ */
+export const PLUGIN_API_VERSION = 2;
+
+/** Version assumed for manifests that predate version negotiation. */
+export const PLUGIN_API_VERSION_FALLBACK = 1;
+
+/**
+ * Optional host-version constraint, e.g. `{ "bdg": ">=0.4.0" }`. Stored and
+ * surfaced in settings; not enforced yet (kept for the marketplace).
+ */
+export interface PluginEngines {
+  bdg?: string;
+  [key: string]: string | undefined;
+}
+
 export interface PluginManifest {
   id: string;
   version: string;
+  /**
+   * Plugin API version the plugin targets. Omitted = 1 (legacy). When greater
+   * than the host's `PLUGIN_API_VERSION`, the plugin is listed but not loaded.
+   */
+  apiVersion?: number;
+  engines?: PluginEngines;
   name?: LocaText;
   description?: LocaText;
   /** relative path to the optional main-process entry (CommonJS). */
@@ -44,6 +70,15 @@ export interface PluginEntry {
   main: string | null;
   /** relative renderer entry path or null. */
   renderer: string | null;
+  /** declared plugin API version (falls back to 1 when the manifest omits it). */
+  apiVersion: number;
+  /** optional host-version constraint declared by the manifest. */
+  engines?: PluginEngines;
+  /**
+   * false when the plugin targets a newer API than this host supports; such a
+   * plugin is listed (so the user sees why) but never loaded.
+   */
+  compatible: boolean;
   enabled: boolean;
   /** load/parse error, when the plugin could not be used. */
   error?: string;

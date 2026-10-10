@@ -114,7 +114,7 @@ watch(
             <span v-if="entry.renderer" class="badge">renderer</span>
             <UiSwitch
               :model-value="entry.enabled"
-              :disabled="pluginBusy === entry.id"
+              :disabled="pluginBusy === entry.id || !entry.compatible"
               :aria-label="pluginName(entry)"
               @update:model-value="() => void onTogglePlugin(entry)"
             />

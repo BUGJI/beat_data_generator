@@ -10,7 +10,13 @@ import {
 import { join } from "node:path";
 import log from "./logger";
 import { IPC } from "../shared/ipc";
-import type { PluginEntry, PluginManifest } from "../shared/plugin";
+import {
+  PLUGIN_API_VERSION,
+  PLUGIN_API_VERSION_FALLBACK,
+  type PluginEngines,
+  type PluginEntry,
+  type PluginManifest,
+} from "../shared/plugin";
 import { handle } from "./ipcHandle";
 
 /**
@@ -132,6 +138,22 @@ function resolveText(v: unknown): {
   return { fallback: "", i18n: {} };
 }
 
+/** Coerce a manifest `apiVersion` to a positive integer, defaulting to 1. */
+function normalizeApiVersion(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 1) return PLUGIN_API_VERSION_FALLBACK;
+  return Math.floor(n);
+}
+
+function readEngines(v: unknown): PluginEngines | undefined {
+  if (!v || typeof v !== "object") return undefined;
+  const out: PluginEngines = {};
+  for (const [k, val] of Object.entries(v)) {
+    if (typeof val === "string" && val.trim()) out[k] = val.trim();
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 function scanPluginDir(dir: string): PluginEntry | null {
   const manifestPath = join(dir, "manifest.json");
   if (!existsSync(manifestPath)) return null;
@@ -153,6 +175,8 @@ function scanPluginDir(dir: string): PluginEntry | null {
       descriptions: {},
       main: null,
       renderer: null,
+      apiVersion: PLUGIN_API_VERSION_FALLBACK,
+      compatible: true,
       enabled: false,
       error: `invalid manifest.json: ${String(err)}`,
     };
@@ -170,6 +194,8 @@ function scanPluginDir(dir: string): PluginEntry | null {
     typeof manifest.renderer === "string" && manifest.renderer
       ? manifest.renderer
       : null;
+  const apiVersion = normalizeApiVersion(manifest.apiVersion);
+  const compatible = apiVersion <= PLUGIN_API_VERSION;
   return {
     id,
     version,
@@ -180,7 +206,15 @@ function scanPluginDir(dir: string): PluginEntry | null {
     descriptions: description.i18n,
     main,
     renderer,
+    apiVersion,
+    engines: readEngines(manifest.engines),
+    compatible,
     enabled: isEnabled(id),
+    ...(compatible
+      ? {}
+      : {
+          error: `requires plugin API v${apiVersion}; this host supports up to v${PLUGIN_API_VERSION}`,
+        }),
   };
 }
 
@@ -298,7 +332,7 @@ function refreshEnabled(): PluginEntry[] {
   // the pruned list here would silently disable the plugin for good. Unknown
   // ids are simply inert until their plugin reappears.
   for (const entry of list) {
-    if (entry.enabled && entry.main) {
+    if (entry.enabled && entry.main && entry.compatible) {
       unloadMain(entry.id);
       loadMain(entry);
     }
@@ -316,7 +350,7 @@ export function setEnabled(id: string, enabled: boolean): PluginEntry[] {
     unloadMain(id);
   }
   persistState();
-  if (enabled && entry.main) {
+  if (enabled && entry.main && entry.compatible) {
     unloadMain(id);
     loadMain(entry);
   }
@@ -361,7 +395,7 @@ export function installPluginManager(): void {
   handle("readPluginRenderer", (_e, id: string): string | null => {
     if (typeof id !== "string") return null;
     const entry = scanAll().find((e) => e.id === id);
-    if (!entry?.renderer || !entry.enabled) return null;
+    if (!entry?.renderer || !entry.enabled || !entry.compatible) return null;
     const full = join(entry.dir, entry.renderer);
     try {
       return readFileSync(full, "utf-8");

@@ -51,7 +51,7 @@ export function pluginDescription(entry: PluginEntry): string | undefined {
 }
 
 async function loadRenderer(entry: PluginEntry): Promise<void> {
-  if (!entry.enabled || !entry.renderer) return;
+  if (!entry.enabled || !entry.renderer || !entry.compatible) return;
   if (actives.has(entry.id) || loading.has(entry.id)) return;
   loading.add(entry.id);
   try {
@@ -133,13 +133,15 @@ function disposeRenderer(id: string): void {
 function replaceEntries(list: PluginEntry[]): void {
   for (const id of [...actives.keys()]) {
     const next = list.find((e) => e.id === id);
-    if (!next?.enabled || !next.renderer) {
+    if (!next?.enabled || !next.renderer || !next.compatible) {
       disposeRenderer(id);
     }
   }
   pluginEntries.splice(0, pluginEntries.length, ...list);
   for (const entry of list) {
-    if (entry.enabled && entry.renderer) void loadRenderer(entry);
+    if (entry.enabled && entry.renderer && entry.compatible) {
+      void loadRenderer(entry);
+    }
   }
 }
 

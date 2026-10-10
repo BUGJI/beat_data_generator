@@ -27,8 +27,9 @@ export function dismissToast(id: number): void {
 }
 
 export const toast = {
-  success: (m: string) => push("success", m),
-  error: (m: string) => push("error", m, 3600),
-  info: (m: string) => push("info", m),
-  warning: (m: string) => push("warning", m, 3200),
+  success: (m: string, duration?: number) => push("success", m, duration),
+  error: (m: string, duration?: number) => push("error", m, duration ?? 3600),
+  info: (m: string, duration?: number) => push("info", m, duration),
+  warning: (m: string, duration?: number) =>
+    push("warning", m, duration ?? 3200),
 };
