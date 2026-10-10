@@ -180,9 +180,9 @@ module.exports = function activate(ctx) {
 
 `plugins/example-basic` 覆盖:面板、快捷键、导入/导出、main 往返调用、类型化轨道注册、
 `api.storage` 持久化（并按上文约定只保留一个菜单入口）。
-`plugins/bdg_plugin_audiotrim`(音频裁剪)演示时间轴叠加层 + 拖拽手柄 + `api.timeline` 换算、
-`api.audio` 编码/替换与 `system.writeBytes`。开发时把工程目录当扫描根即可(见上),
-发布则把插件放入 `<userData>/plugins`。
+音频裁剪插件（独立仓库 [`beat-data-generator/bdg_plugin_audiotrim`](https://github.com/beat-data-generator/bdg_plugin_audiotrim)）
+演示时间轴叠加层 + 拖拽手柄 + `api.timeline` 换算、`api.audio` 编码/替换与 `system.writeBytes`。
+开发时把工程目录当扫描根即可(见上),发布则把插件放入 `<userData>/plugins`（或从应用内插件市场安装）。
 
 ## 插件市场
 

@@ -9,7 +9,8 @@
 > 因此**不要再用 `registerAction` 重复开关同一个面板——菜单入口只保留一个**。
 
 - 插件结构、扫描目录、`manifest.json`、市场与发布流程见 [`plugin-system.md`](./plugin-system.md)。
-- 示例：`plugins/example-basic`（基础贡献）、`plugins/bdg_plugin_audiotrim`（叠加层 + 音频）。
+- 示例：`plugins/example-basic`（基础贡献）；音频裁剪插件
+  （[bdg_plugin_audiotrim](https://github.com/beat-data-generator/bdg_plugin_audiotrim)）演示叠加层与音频 API。
 
 ---
 
