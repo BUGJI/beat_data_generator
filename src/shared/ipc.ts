@@ -1,4 +1,5 @@
 import type { PluginEntry } from "./plugin";
+import type { PanelLayout, PluginDataMap } from "./pluginData";
 import type {
   MarketInstallResult,
   MarketPluginView,
@@ -113,6 +114,17 @@ export interface IpcApi {
     method: string,
     args: unknown[],
   ) => Promise<unknown>;
+  /** Persisted key/value bag of every plugin (used to back `api.storage`). */
+  getPluginData: () => Promise<PluginDataMap>;
+  /** Replace one plugin's persisted key/value bag. */
+  setPluginData: (
+    id: string,
+    data: Record<string, unknown>,
+  ) => Promise<boolean>;
+  /** Persisted floating-panel geometry, keyed by "<pluginId>:<panelId>". */
+  getPluginPanelLayout: () => Promise<PanelLayout>;
+  /** Replace the persisted floating-panel geometry. */
+  setPluginPanelLayout: (layout: PanelLayout) => Promise<boolean>;
   /** Fired by the main process whenever the plugin set or its state changes. */
   onPluginsChanged: (cb: () => void) => () => void;
   /** Registry plugins merged with local install state (uses the cached index). */
@@ -139,6 +151,10 @@ export interface IpcApi {
   ) => Promise<SaveResult>;
   /** Write UTF-8 text to an absolute path (plugin service). */
   writeTextFile: (filePath: string, content: string) => Promise<boolean>;
+  /** Read raw bytes from an absolute path; null when the file is missing. */
+  readBinaryFile: (filePath: string) => Promise<Uint8Array | null>;
+  /** Write raw bytes to an absolute path (audio export, plugin service). */
+  writeBinaryFile: (filePath: string, data: Uint8Array) => Promise<boolean>;
   /** Open an extra window loading an arbitrary page (plugin service). */
   openWindow: (opts: IpcOpenWindowOptions) => Promise<void>;
   /** Copy plain text to the system clipboard. */
@@ -172,6 +188,8 @@ export const IPC = {
   readTextFile: "text:read",
   writeProjectFile: "text:write",
   writeTextFile: "text:write",
+  readBinaryFile: "io:read-binary",
+  writeBinaryFile: "io:write-binary",
   getFilePath: "file:path",
   getSettings: "settings:get",
   updateSettings: "settings:update",
@@ -192,6 +210,10 @@ export const IPC = {
   readPluginRenderer: "plugins:renderer-source",
   openPluginsFolder: "plugins:open-folder",
   invokePlugin: "plugins:invoke",
+  getPluginData: "plugins:data:get",
+  setPluginData: "plugins:data:set",
+  getPluginPanelLayout: "plugins:panel-layout:get",
+  setPluginPanelLayout: "plugins:panel-layout:set",
   marketList: "plugins:market:list",
   marketRefresh: "plugins:market:refresh",
   marketInstall: "plugins:market:install",

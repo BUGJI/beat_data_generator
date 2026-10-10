@@ -213,6 +213,32 @@ export function installIpc(): void {
     },
   );
 
+  handle(
+    "readBinaryFile",
+    async (_e, filePath: string): Promise<Uint8Array | null> => {
+      try {
+        const buf = await readFile(filePath);
+        return new Uint8Array(buf);
+      } catch {
+        return null;
+      }
+    },
+  );
+
+  handle(
+    "writeBinaryFile",
+    async (_e, filePath: string, data: Uint8Array): Promise<boolean> => {
+      if (typeof filePath !== "string" || !filePath) return false;
+      if (!(data instanceof Uint8Array)) return false;
+      try {
+        await writeFile(filePath, data);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  );
+
   handle("recordRecent", (_e, filePath: string, title?: string): void => {
     addRecent(filePath, title);
   });

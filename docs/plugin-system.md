@@ -4,6 +4,8 @@
 自定义快捷键、独立预览窗口,以及针对特定游戏新增“类型化轨道”(如翻转事件),
 它们与内置踩点共用同一条节拍时间轴。
 
+> 完整的接口清单（命名空间 / 方法 / 类型 / 示例）见 [**插件 API 参考**](./plugin-api.md)。
+
 ## 插件形态
 
 插件是一个文件夹,内含:
@@ -54,11 +56,90 @@ window.__bdgPluginRegister(function activate(api) {
 可以注册的贡献:
 
 - `api.ui.registerAction({ label, run })` → 出现在顶部「插件」菜单;
-- `api.ui.registerPanel({ id, title, mount })` → 浮动静默窗口(可拖动、右下角可缩放),`mount(hostEl)` 里用 DOM 自由渲染,返回可选清理函数;返回 `PanelHandle` 可 `open()/toggle()` 等;
+- `api.ui.registerPanel({ id, title, mount, defaultWidth?, defaultHeight?, minWidth?, minHeight? })` → 浮动静默窗口(可拖动、右下角可缩放),`mount(hostEl)` 里用 DOM 自由渲染,返回可选清理函数;返回 `PanelHandle` 可 `open()/toggle()` 等。**窗口的位置与尺寸会按插件+面板 id 自动记忆**并在重启后恢复,`defaultWidth/Height` 只作为首次打开的初始尺寸,`minWidth/Height` 为缩放下限;
 - `api.ui.registerShortcut({ id, label, combo, run })` → `combo` 形如 `Alt+1`、`Ctrl+Shift+F`;
 - `api.ui.registerImporter({ label, run })` → 出现在「文件 → 导入…」;
 - `api.ui.registerExporter({ label, run })` → 出现在「导出」菜单的“插件导出”分组;
+- `api.ui.registerTimelineOverlay({ id, mount, z? })` → 在时间轴视口内叠加一层,用于可视化/拖拽(见下);
+- `api.ui.registerBarButton({ id, title, icon?, toggle?, active?, order?, run })` → 在工程栏快捷行(`pb-quick`)加一个小按钮(见下);
 - `api.trackTypes.register({ id, trackName, pointName, color?, fields })` → 新增类型化轨道,侧栏 `＋` 可创建,点在属性卡里编辑字段。
+
+> 本系统**不提供“替换核心 UI”的能力**(插件无法接管/替换 Timeline、Transport 等宿主组件)。插件对界面的扩展方式只有浮窗面板与时间轴叠加层,宿主内部实现重构不会破坏插件。
+
+> **菜单入口只保留一个**:注册面板(`registerPanel`)已自动在「插件」菜单生成一个带开合状态的菜单项,
+> 因此**不要再用 `registerAction` 重复开关同一个面板**,否则会出现两个功能重复的入口。
+
+### 时间轴叠加层
+
+`api.ui.registerTimelineOverlay` 在时间轴视口内挂载一层 `position:absolute; inset:0;
+pointer-events:none` 的容器,`mount(container)` 里用 DOM 自由绘制,返回可选清理函数。
+用来把“区间选区、手柄、参考线”等贴到节拍时间轴上。
+
+- **坐标换算**:用 `api.timeline.timeToScreenX(ms)` / `api.timeline.screenToTime(x)` /
+  `api.timeline.timeToX(ms)` 在时间与像素间换算;`api.timeline.viewport()` 给出当前
+  滚动与缩放(`x/y/vw/vh/pxPerSec`);`api.timeline.durationMs()` 为当前音频时长。
+- **跟随缩放/滚动**:订阅 `api.events.on("view", cb)`(滚动、缩放、尺寸变化时触发,
+  已按帧节流)重绘,否则叠加层不会随视口变化。
+- **指针仲裁(重要)**:容器是 `pointer-events:none`,只有需要交互的子元素自行设
+  `pointer-events:auto`;且这些元素在 `pointerdown/move/up` 里必须调用
+  `stopPropagation()`(并用 `setPointerCapture`),否则事件会穿透到下方画布,触发
+  编辑器的放置/拖拽。
+
+### 插件持久化存储
+
+不要在插件里用 `localStorage`(会被清缓存/E2E 环境清掉,且与其他插件混在一起,受同源限制)。
+用 `api.storage` —— 一个按插件隔离、由主进程写到磁盘(`<userData>/plugin-data.json`)的键值库:
+
+- `api.storage.get(key, def?)` / `set(key, value)` / `remove(key)` / `all()` / `clear()`;
+- **同步读写**(像 localStorage),写入会被合并后稍后落盘;插件卸载时自动 flush;
+- 数据按插件 id 命名空间隔离,插件之间互不可见。
+
+```js
+var snap = api.storage.get("snapDiv", 4);        // 读取,缺省 4
+api.storage.set("snapDiv", 8);                    // 写入(自动持久化)
+```
+
+只适合存放配置/偏好等小数据,不要塞入大块内容(音频/工程数据请走文件)。
+
+### 工程栏快捷按钮
+
+`api.ui.registerBarButton` 在工程栏的快捷操作行(`pb-quick`)注册一个小按钮,适合
+“一键开/关某功能”。`icon` 是插件自带的**内联 SVG 字符串**;`toggle: true` 时宿主在
+点击后翻转按下态并把新值传给 `run(active)`,按钮随之高亮。返回的句柄可
+`setActive(v)` / `isActive()` 编程控制与 `dispose()` 注销。
+
+```js
+var handle = api.ui.registerBarButton({
+  id: "toggle-x",
+  title: { zh: "功能 X", en: "Feature X" },
+  icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="..."/></svg>',
+  toggle: true,
+  active: false,
+  order: 100,
+  run: function (active) { console.log("enabled:", active); },
+});
+// later: handle.setActive(true)
+```
+
+最小片段:
+
+```js
+var el = null;
+api.events.on("view", function () {
+  if (!el) return;
+  el.style.left = api.timeline.timeToScreenX(2000) + "px"; // 时间轴上的 2s 处
+});
+
+api.ui.registerTimelineOverlay({
+  id: "my-overlay",
+  mount: function (host) {
+    el = document.createElement("div");
+    el.style.cssText = "position:absolute;top:0;bottom:0;width:2px;background:#f00";
+    host.appendChild(el);
+    return function () { el = null; host.textContent = ""; };
+  },
+});
+```
 
 ## main.js(主进程侧)
 
@@ -91,13 +172,17 @@ module.exports = function activate(ctx) {
 
 编辑器渲染层是沙箱(`sandbox:true` + `contextIsolation`)。插件拿到的是受限桥接:
 
-- 数据/编辑/播放/选区/事件、`api.system.pickFile/saveFile/readText/writeText`、`openWindow(加载任意页面)`、`api.system.audioPath()`(当前加载音频的绝对路径，便于 main.js 用 Node 读取并打包)、`callMain`;
+- 数据/编辑/播放/选区/事件、`api.timeline.*`(只读时间轴换算)、`api.system.pickFile/saveFile/readText/writeText/readBytes/writeBytes`、`openWindow(加载任意页面)`、`api.system.audioPath()`(当前加载音频的绝对路径，便于 main.js 用 Node 读取并打包)、`callMain`;
+- **音频能力**:`api.audio.getBuffer()`(当前解码后的 `AudioBuffer`)、`api.audio.encodeWav(buffer, startMs?, endMs?)`(转 16-bit PCM WAV 字节)、`api.audio.replaceFromBytes(bytes, { filePath, name?, autoApply? })`(解码并替换当前音频,刷新波形/重链/MD5/分析;`autoApply` 默认 `false`)。注意**替换音频不进入撤销栈**。
 - 需要任意 Node 能力时让插件自带 `main.js` 处理。本系统**不弹权限确认**,安装插件即视为信任。
 
 ## 示例
 
-`plugins/example-basic` 覆盖:面板、动作、快捷键、导入/导出、main 往返调用、类型化轨道注册。
-开发时把工程目录当扫描根即可(见上),发布则把插件放入 `<userData>/plugins`。
+`plugins/example-basic` 覆盖:面板、快捷键、导入/导出、main 往返调用、类型化轨道注册、
+`api.storage` 持久化（并按上文约定只保留一个菜单入口）。
+`plugins/bdg_plugin_audiotrim`(音频裁剪)演示时间轴叠加层 + 拖拽手柄 + `api.timeline` 换算、
+`api.audio` 编码/替换与 `system.writeBytes`。开发时把工程目录当扫描根即可(见上),
+发布则把插件放入 `<userData>/plugins`。
 
 ## 插件市场
 

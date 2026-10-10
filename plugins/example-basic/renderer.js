@@ -66,6 +66,10 @@ window.__bdgPluginRegister(function activate(api) {
       var stats = el("div", "demo-row");
       wrap.appendChild(stats);
 
+      // api.storage: persist a small preference/counter across restarts.
+      var stored = el("div", "demo-row");
+      wrap.appendChild(stored);
+
       var log = el("pre", "demo-log");
       wrap.appendChild(log);
 
@@ -77,6 +81,9 @@ window.__bdgPluginRegister(function activate(api) {
           " markers=" + s.markers.length +
           " bpm=" + s.baseBpm.toFixed(1) +
           " t=" + pos.toFixed(0) + "ms";
+        stored.textContent =
+          "storage.addedCount = " + api.storage.get("addedCount", 0) +
+          (api.storage.get("lastAction", "") ? " (last: " + api.storage.get("lastAction") + ")" : "");
       }
 
       function logText(msg) {
@@ -94,6 +101,10 @@ window.__bdgPluginRegister(function activate(api) {
         if (!trackId) return;
         var id = api.project.edit.addMarker({ trackId: trackId, beat: beat });
         logText("added marker " + id);
+        var n = api.storage.get("addedCount", 0) + 1;
+        api.storage.set("addedCount", n);
+        api.storage.set("lastAction", "add marker");
+        renderStats();
       });
       wrap.appendChild(btnAdd);
 
@@ -140,13 +151,8 @@ window.__bdgPluginRegister(function activate(api) {
     },
   });
 
-  api.ui.registerAction({
-    label: { zh: "切换示例面板", en: "Toggle demo panel" },
-    run: function () {
-      panel.toggle();
-    },
-  });
-
+  // No registerAction here: registerPanel already adds one menu entry (with an
+  // open/closed state), so a toggling action would duplicate it. Keep one entry.
   api.ui.registerShortcut({
     id: "toggle-demo",
     label: { zh: "切换示例面板", en: "Toggle demo panel" },

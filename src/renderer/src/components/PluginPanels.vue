@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, reactive } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive } from "vue";
 import { useI18n } from "vue-i18n";
 import { X } from "@lucide/vue";
+import type { PanelLayout } from "@shared/pluginData";
 import {
   panels as allPanels,
   openPanels,
   closePanel,
   localeText,
+  type RegisteredPanel,
 } from "../plugins/registry";
 import { pluginEntries, pluginName } from "../plugins/host";
 
@@ -30,8 +32,12 @@ function panelRefFor(key: string): (el: unknown) => void {
 interface Card {
   pluginId: string;
   uid: number;
+  /** uid-based element key (refs / mount binding). */
   key: string;
+  /** Stable geometry key "<pluginId>:<panelId>" used for persistence. */
+  panelKey: string;
   title: string;
+  def: RegisteredPanel["def"];
 }
 
 interface WinState {
@@ -44,6 +50,9 @@ interface WinState {
 
 const winStates = reactive<Record<string, WinState>>({});
 let zTop = 10;
+/** Restored geometry, applied before each panel's first render. */
+let persistedLayout: PanelLayout = {};
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 const list = computed<Card[]>(() =>
   openPanels
@@ -59,7 +68,9 @@ const list = computed<Card[]>(() =>
         pluginId: o.pluginId,
         uid: o.uid,
         key: `${o.pluginId}:${o.uid}`,
+        panelKey: `${o.pluginId}:${p.def.id}`,
         title,
+        def: p.def,
       };
     })
     .filter((x): x is Card => !!x),
@@ -71,24 +82,38 @@ function hashKey(s: string): number {
   return Math.abs(h);
 }
 
-function stateOf(key: string): WinState {
-  let st = winStates[key];
-  if (!st) {
-    const n = hashKey(key);
-    const vw = window.innerWidth || 1280;
-    const vh = window.innerHeight || 800;
-    const w = 340;
-    const h = 210;
-    const x = Math.max(16, Math.min(vw - w - 16, 40 + (n % 6) * 30));
-    const y = Math.max(54, Math.min(vh - h - 24, 70 + (n % 5) * 34));
-    st = { x, y, w, h, z: ++zTop };
-    winStates[key] = st;
+function stateOf(panelKey: string, def: RegisteredPanel["def"]): WinState {
+  let st = winStates[panelKey];
+  if (st) return st;
+  const vw = window.innerWidth || 1280;
+  const vh = window.innerHeight || 800;
+  const minW = Math.max(160, def.minWidth ?? 240);
+  const minH = Math.max(100, def.minHeight ?? 130);
+  const saved = persistedLayout[panelKey];
+  let x: number;
+  let y: number;
+  let w: number;
+  let h: number;
+  if (saved) {
+    // Restore the user's geometry, clamped into the current window size.
+    w = Math.min(vw, Math.max(minW, saved.w));
+    h = Math.min(vh, Math.max(minH, saved.h));
+    x = Math.min(vw - 90, Math.max(-w + 90, saved.x));
+    y = Math.min(vh - 30, Math.max(0, saved.y));
+  } else {
+    const n = hashKey(panelKey);
+    w = Math.max(minW, def.defaultWidth ?? 340);
+    h = Math.max(minH, def.defaultHeight ?? 210);
+    x = Math.max(16, Math.min(vw - w - 16, 40 + (n % 6) * 30));
+    y = Math.max(54, Math.min(vh - h - 24, 70 + (n % 5) * 34));
   }
+  st = { x, y, w, h, z: ++zTop };
+  winStates[panelKey] = st;
   return st;
 }
 
-function styleOf(key: string): Record<string, string> {
-  const st = stateOf(key);
+function styleOf(card: Card): Record<string, string> {
+  const st = stateOf(card.panelKey, card.def);
   return {
     left: `${st.x}px`,
     top: `${st.y}px`,
@@ -98,13 +123,13 @@ function styleOf(key: string): Record<string, string> {
   };
 }
 
-function bringToFront(key: string): void {
-  const st = stateOf(key);
+function bringToFront(card: Card): void {
+  const st = stateOf(card.panelKey, card.def);
   if (st.z < zTop) st.z = ++zTop;
 }
 
 interface Drag {
-  key: string;
+  card: Card;
   mode: "move" | "resize";
   sx: number;
   sy: number;
@@ -112,52 +137,42 @@ interface Drag {
   by: number;
   bw: number;
   bh: number;
+  minW: number;
+  minH: number;
 }
 
 let drag: Drag | null = null;
 
-function onHeaderDown(e: PointerEvent, card: Card): void {
+function beginDrag(e: PointerEvent, card: Card, mode: "move" | "resize"): void {
   if (e.button !== 0) return;
   e.preventDefault();
-  bringToFront(card.key);
-  const st = stateOf(card.key);
+  bringToFront(card);
+  const st = stateOf(card.panelKey, card.def);
   drag = {
-    key: card.key,
-    mode: "move",
+    card,
+    mode,
     sx: e.clientX,
     sy: e.clientY,
     bx: st.x,
     by: st.y,
     bw: st.w,
     bh: st.h,
+    minW: Math.max(160, card.def.minWidth ?? 240),
+    minH: Math.max(100, card.def.minHeight ?? 130),
   };
   window.addEventListener("pointermove", onWinMove);
   window.addEventListener("pointerup", onWinUp);
 }
 
-function onResizeDown(e: PointerEvent, card: Card): void {
-  if (e.button !== 0) return;
-  e.preventDefault();
-  bringToFront(card.key);
-  const st = stateOf(card.key);
-  drag = {
-    key: card.key,
-    mode: "resize",
-    sx: e.clientX,
-    sy: e.clientY,
-    bx: st.x,
-    by: st.y,
-    bw: st.w,
-    bh: st.h,
-  };
-  window.addEventListener("pointermove", onWinMove);
-  window.addEventListener("pointerup", onWinUp);
-}
+const onHeaderDown = (e: PointerEvent, card: Card): void =>
+  beginDrag(e, card, "move");
+const onResizeDown = (e: PointerEvent, card: Card): void =>
+  beginDrag(e, card, "resize");
 
 function onWinMove(e: PointerEvent): void {
   const d = drag;
   if (!d) return;
-  const st = winStates[d.key];
+  const st = winStates[d.card.panelKey];
   if (!st) return;
   const dx = e.clientX - d.sx;
   const dy = e.clientY - d.sy;
@@ -167,19 +182,45 @@ function onWinMove(e: PointerEvent): void {
     st.x = Math.min(vw - 90, Math.max(-st.w + 90, d.bx + dx));
     st.y = Math.min(vh - 30, Math.max(0, d.by + dy));
   } else {
-    st.w = Math.min(vw - st.x, Math.max(240, d.bw + dx));
-    st.h = Math.min(vh - st.y, Math.max(130, d.bh + dy));
+    st.w = Math.min(vw - st.x, Math.max(d.minW, d.bw + dx));
+    st.h = Math.min(vh - st.y, Math.max(d.minH, d.bh + dy));
   }
 }
 
+/** Persist every panel's geometry (coalesced) so it survives restarts. */
+function persistLayout(): void {
+  const out: PanelLayout = {};
+  for (const [k, st] of Object.entries(winStates)) {
+    out[k] = { x: st.x, y: st.y, w: st.w, h: st.h };
+  }
+  if (persistTimer !== null) clearTimeout(persistTimer);
+  persistTimer = setTimeout(() => {
+    persistTimer = null;
+    void window.api.setPluginPanelLayout(out);
+  }, 250);
+}
+
 function onWinUp(): void {
+  const moved = drag !== null;
   drag = null;
   window.removeEventListener("pointermove", onWinMove);
   window.removeEventListener("pointerup", onWinUp);
+  if (moved) persistLayout();
 }
+
+onMounted(async () => {
+  try {
+    persistedLayout = (await window.api.getPluginPanelLayout()) ?? {};
+  } catch {
+    persistedLayout = {};
+  }
+  // Rebuild any panels created before the layout arrived so they use it.
+  for (const k of Object.keys(winStates)) delete winStates[k];
+});
 
 onBeforeUnmount(() => {
   drag = null;
+  if (persistTimer !== null) clearTimeout(persistTimer);
   window.removeEventListener("pointermove", onWinMove);
   window.removeEventListener("pointerup", onWinUp);
 });
@@ -221,10 +262,10 @@ function onClose(card: Card): void {
       v-for="card in list"
       :key="card.key"
       class="plugin-win"
-      :style="styleOf(card.key)"
+      :style="styleOf(card)"
       role="dialog"
       :aria-label="card.title"
-      @pointerdown="bringToFront(card.key)"
+      @pointerdown="bringToFront(card)"
     >
       <div class="pw-head" @pointerdown.stop="onHeaderDown($event, card)">
         <span class="pw-title">{{ card.title }}</span>

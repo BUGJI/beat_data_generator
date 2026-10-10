@@ -36,6 +36,7 @@ import UiButton from "./ui/UiButton.vue";
 import UiCombobox from "./ui/UiCombobox.vue";
 import UiIconButton from "./ui/UiIconButton.vue";
 import UiNumberInput from "./ui/UiNumberInput.vue";
+import PluginBarButtons from "./PluginBarButtons.vue";
 
 const project = useProjectStore();
 const transport = useTransportStore();
@@ -416,6 +417,7 @@ async function onDetectBpm(): Promise<void> {
         <UiIconButton :title="t('follow.alignTip')" @click="onAlignMarkers">
           <AlignJustify :size="15" />
         </UiIconButton>
+        <PluginBarButtons />
       </div>
     </div>
   </section>

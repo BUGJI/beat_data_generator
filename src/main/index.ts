@@ -6,6 +6,7 @@ import { installMarketManager } from "./market";
 import { seedMetronomePresets } from "./metronome";
 import { applyProxyMode } from "./network";
 import { installPluginManager } from "./plugins";
+import { installPluginStore } from "./pluginStore";
 import { loadRecents } from "./recents";
 import { getSettings, loadSettings } from "./settings";
 import { checkUpdatesSilent } from "./updater";
@@ -30,6 +31,7 @@ app.whenReady().then(() => {
   loadRecents();
   installIpc();
   installPluginManager();
+  installPluginStore();
   installMarketManager({ getSettings });
   void applyProxyMode(getSettings().proxyMode);
   checkUpdatesSilent();

@@ -25,11 +25,21 @@ import {
   redo,
 } from "../services/history";
 import { engine } from "../engine";
+import { replaceAudioFromBytes } from "../services/audioIO";
+import { encodeWav, sliceAudioBuffer } from "../services/audioCrop";
+import { baseName } from "@shared/path";
 import type { LoopConfig } from "../types";
 import { useProjectStore } from "../stores/project";
 import { useSelectionStore } from "../stores/selection";
 import { useTransportStore } from "../stores/transport";
+import {
+  useViewStore,
+  timeToScreenX,
+  screenToTime,
+  timeToX,
+} from "../stores/view";
 import { onEvent } from "./events";
+import { pluginStorageFor, flushPluginStorage } from "./storage";
 import {
   uiHandleFor,
   registerTrackType,
@@ -158,11 +168,55 @@ export interface PluginApi {
     rate: () => number;
   };
 
+  /** Read the decoded audio and swap in a new one (used by audio tools). */
+  audio: {
+    /** The currently loaded decoded audio, or null when no audio is loaded. */
+    getBuffer: () => AudioBuffer | null;
+    /**
+     * Encode an AudioBuffer to 16-bit PCM WAV bytes. When `startMs`/`endMs` are
+     * given, only that span is encoded; otherwise the whole buffer.
+     */
+    encodeWav: (
+      buffer: AudioBuffer,
+      startMs?: number,
+      endMs?: number,
+    ) => Uint8Array;
+    /**
+     * Decode `bytes` and make them the current audio (waveform, relink, MD5,
+     * analysis). `autoApply` defaults to false so auto-BPM/beats do not clobber
+     * the user's chart after a replace.
+     */
+    replaceFromBytes: (
+      bytes: Uint8Array,
+      opts: { filePath: string; name?: string; autoApply?: boolean },
+    ) => Promise<boolean>;
+  };
+
   events: {
     on: (
-      name: "project" | "selection" | "playhead" | "playing",
+      name: "project" | "selection" | "playhead" | "playing" | "view",
       cb: (payload?: unknown) => void,
     ) => () => void;
+  };
+
+  /** Read-only timeline transform, for positioning overlays in time space. */
+  timeline: {
+    /** Screen x (px inside the editor) of a time in ms. */
+    timeToScreenX: (ms: number) => number;
+    /** Time in ms at a screen x (px inside the editor). */
+    screenToTime: (x: number) => number;
+    /** Content x (unscrolled px) of a time in ms. */
+    timeToX: (ms: number) => number;
+    /** Current scroll offset, viewport size and horizontal zoom. */
+    viewport: () => {
+      x: number;
+      y: number;
+      vw: number;
+      vh: number;
+      pxPerSec: number;
+    };
+    /** Loaded audio duration in ms (0 when no audio). */
+    durationMs: () => number;
   };
 
   ui: {
@@ -174,6 +228,12 @@ export interface PluginApi {
       id: string;
       title: string | Record<string, string>;
       mount: (el: HTMLElement) => void | (() => void);
+      /** Initial window size in px (used until the user resizes/moves it). */
+      defaultWidth?: number;
+      defaultHeight?: number;
+      /** Lower bounds enforced while resizing. */
+      minWidth?: number;
+      minHeight?: number;
     }) => PanelHandle;
     registerShortcut: (def: {
       id: string;
@@ -190,6 +250,17 @@ export interface PluginApi {
     registerExporter: (def: {
       label: string | Record<string, string>;
       run: () => void | Promise<void>;
+    }) => () => void;
+    /**
+     * Mount a full-bleed overlay inside the timeline viewport. The container is
+     * pointer-events:none; interactive children must opt into pointer-events
+     * and stopPropagation so the canvas beneath does not also react. Return an
+     * optional cleanup from `mount`.
+     */
+    registerTimelineOverlay: (def: {
+      id: string;
+      mount: (el: HTMLElement) => void | (() => void);
+      z?: number;
     }) => () => void;
     openPanel: (uid: number) => void;
     closePanel: (uid: number) => void;
@@ -209,6 +280,10 @@ export interface PluginApi {
       path: string,
     ) => Promise<{ canceled: boolean; filePath?: string; content?: string }>;
     writeText: (path: string, content: string) => Promise<boolean>;
+    /** Read raw bytes from an absolute path; null when missing (audio export). */
+    readBytes: (path: string) => Promise<Uint8Array | null>;
+    /** Write raw bytes to an absolute path (audio export). */
+    writeBytes: (path: string, bytes: Uint8Array) => Promise<boolean>;
     openWindow: (opts: OpenWindowOptions) => Promise<void>;
     openPluginsFolder: () => Promise<void>;
     /** Absolute filesystem path of the loaded audio, or null when none. */
@@ -221,6 +296,22 @@ export interface PluginApi {
   };
 
   callMain: (method: string, ...args: unknown[]) => Promise<unknown>;
+
+  /**
+   * Per-plugin persistent key/value store, scoped to this plugin and saved to
+   * disk by the main process. Synchronous get/set like localStorage, but kept
+   * out of web storage (namespaced, survives cache clears, written to a real
+   * file). Use it for panel preferences and small settings, not large data.
+   */
+  storage: {
+    /** Read a value; returns `def` when the key is absent. */
+    get: <T = unknown>(key: string, def?: T) => T;
+    /** Write a value (persisted shortly after; coalesced with other writes). */
+    set: (key: string, value: unknown) => void;
+    remove: (key: string) => void;
+    all: () => Record<string, unknown>;
+    clear: () => void;
+  };
 }
 
 export interface PluginBinding {
@@ -245,6 +336,7 @@ export function createPluginApi(binding: PluginBinding): {
   const project = useProjectStore();
   const selection = useSelectionStore();
   const transport = useTransportStore();
+  const view = useViewStore();
   const ui = uiHandleFor(binding.id);
   const unsubs: Array<() => void> = [];
   const log = (...args: unknown[]) =>
@@ -367,12 +459,43 @@ export function createPluginApi(binding: PluginBinding): {
       rate: () => transport.rate,
     },
 
+    audio: {
+      getBuffer: () => engine.sourceBuffer,
+      encodeWav: (buffer, startMs, endMs) =>
+        encodeWav(
+          typeof startMs === "number" && typeof endMs === "number"
+            ? sliceAudioBuffer(buffer, startMs, endMs)
+            : buffer,
+        ),
+      replaceFromBytes: (bytes, opts) =>
+        replaceAudioFromBytes(bytes, {
+          path: opts.filePath,
+          name: opts.name ?? baseName(opts.filePath),
+          adopt: true,
+          autoApply: opts.autoApply ?? false,
+        }),
+    },
+
     events: {
       on: (name, cb) => {
         const off = onEvent(name, cb);
         unsubs.push(off);
         return off;
       },
+    },
+
+    timeline: {
+      timeToScreenX: (ms) => timeToScreenX(ms),
+      screenToTime: (x) => screenToTime(x),
+      timeToX: (ms) => timeToX(ms),
+      viewport: () => ({
+        x: view.x,
+        y: view.y,
+        vw: view.vw,
+        vh: view.vh,
+        pxPerSec: view.pxPerSec,
+      }),
+      durationMs: () => engine.durationMs(),
     },
 
     ui,
@@ -388,6 +511,8 @@ export function createPluginApi(binding: PluginBinding): {
         ),
       readText: (path) => window.api.readTextFile(path),
       writeText: (path, content) => window.api.writeTextFile(path, content),
+      readBytes: (path) => window.api.readBinaryFile(path),
+      writeBytes: (path, bytes) => window.api.writeBinaryFile(path, bytes),
       openWindow: (opts) => window.api.openWindow(opts),
       openPluginsFolder: () => window.api.openPluginsFolder(),
       /** absolute filesystem path of the currently loaded audio, or null. */
@@ -396,6 +521,8 @@ export function createPluginApi(binding: PluginBinding): {
 
     callMain: (method, ...args) =>
       window.api.invokePlugin(binding.id, method, args),
+
+    storage: pluginStorageFor(binding.id),
 
     trackTypes: {
       register: (def) => registerTrackType(binding.id, def),
@@ -413,6 +540,8 @@ export function createPluginApi(binding: PluginBinding): {
     unsubs.length = 0;
     ui.dispose();
     dropPluginTrackTypes(binding.id);
+    // make sure any debounced api.storage writes are on disk before unload
+    flushPluginStorage(binding.id);
   };
 
   return { api, finalize };

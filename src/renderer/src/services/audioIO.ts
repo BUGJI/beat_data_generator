@@ -89,36 +89,53 @@ async function decodeAndApply(
   return true;
 }
 
-export async function loadAudioResult(
-  res: AudioFileResultLike,
-  adopt = true,
-  autoApply = true,
-): Promise<void> {
+export interface ReplaceAudioOptions {
+  /** Absolute path written to `audioPath`. */
+  path: string;
+  /** Display/file name written to `audioName` (usually the basename). */
+  name: string;
+  /** True for user-initiated loads (choose / relink / crop); false when a
+   *  project opens its already-recorded audio. Only the former is an edit. */
+  adopt?: boolean;
+  /** Whether pleco-auto analysis may auto-apply BPM/beats (default true). */
+  autoApply?: boolean;
+  /** MD5 already computed by the caller, to skip a full re-read of the file. */
+  md5?: string | null;
+}
+
+/**
+ * Decode `bytes` and make them the current audio: swap the wave, relink the
+ * path, refresh peaks/MD5 and run analysis. Shared by user audio loads and the
+ * plugin `audio.replaceFromBytes` API. Resolves true on success, false when the
+ * bytes fail to decode or a newer load (project switch / another load) superseded
+ * this one.
+ */
+export async function replaceAudioFromBytes(
+  bytes: Uint8Array,
+  opts: ReplaceAudioOptions,
+): Promise<boolean> {
   const epoch = loadEpoch;
   const p = useProjectStore();
   const tr = useTransportStore();
-  // `adopt` is true for user-initiated loads (choose / relink) and false when a
-  // project opens its already-recorded audio; only the former is an edit.
+  const adopt = opts.adopt ?? true;
+  const autoApply = opts.autoApply ?? true;
   const ok = await decodeAndApply(
-    res.data,
-    res.filePath,
-    res.name,
+    bytes,
+    opts.path,
+    opts.name,
     autoApply,
     adopt,
   );
   // The project was switched while loading: the epoch captured above no longer
   // describes the current document, so do not touch it (this is what previously
   // produced a bogus MD5-mismatch banner after opening another project).
-  if (epoch !== loadEpoch) return;
-  if (!ok) {
-    toast.error(t("dialogs.audioDecodeFail"));
-    return;
-  }
+  if (epoch !== loadEpoch) return false;
+  if (!ok) return false;
   tr.audioMissing = false;
-  // Prefer the MD5 main computed alongside the read; only fall back to a
-  // separate hash call when a caller passed bytes without one.
-  const md5 = res.md5 ?? (await window.api.computeMd5(res.filePath));
-  if (epoch !== loadEpoch) return;
+  // Prefer a caller-supplied MD5; only fall back to a separate hash call when the
+  // bytes arrived without one.
+  const md5 = opts.md5 ?? (await window.api.computeMd5(opts.path));
+  if (epoch !== loadEpoch) return false;
   const stored = p.audioMd5;
   if (!stored || adopt) {
     p.audioMd5 = md5 ?? stored;
@@ -129,6 +146,28 @@ export async function loadAudioResult(
     // Only surface a mismatch when we actually have a hash to compare. A
     // matching MD5 leaves the editor completely quiet.
     tr.audioConflict = !!md5 && md5 !== stored;
+  }
+  return true;
+}
+
+export async function loadAudioResult(
+  res: AudioFileResultLike,
+  adopt = true,
+  autoApply = true,
+): Promise<void> {
+  const epoch = loadEpoch;
+  // `adopt` is true for user-initiated loads (choose / relink) and false when a
+  // project opens its already-recorded audio; only the former is an edit.
+  const ok = await replaceAudioFromBytes(res.data, {
+    path: res.filePath,
+    name: res.name,
+    adopt,
+    autoApply,
+    md5: res.md5,
+  });
+  if (epoch !== loadEpoch) return;
+  if (!ok) {
+    toast.error(t("dialogs.audioDecodeFail"));
   }
 }
 

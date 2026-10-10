@@ -2,13 +2,14 @@ import { watch } from "vue";
 import { useProjectStore } from "../stores/project";
 import { useSelectionStore } from "../stores/selection";
 import { useTransportStore } from "../stores/transport";
+import { useViewStore } from "../stores/view";
 
 /**
  * Thin event bus the plugin API subscribes to. Events are emitted from a few
  * central watchers so individual plugins do not each attach their own deep
  * watchers to the whole project state.
  *
- * Events: "project" | "selection" | "playhead" | "playing"
+ * Events: "project" | "selection" | "playhead" | "playing" | "view"
  *
  * The watchers read Pinia stores, so they are installed by
  * `initPluginEvents()` once Pinia is active (see services/bootstrap.ts).
@@ -50,6 +51,7 @@ export function initPluginEvents(): void {
   const project = useProjectStore();
   const selection = useSelectionStore();
   const transport = useTransportStore();
+  const view = useViewStore();
 
   let projectQueued = false;
   watch(
@@ -90,5 +92,20 @@ export function initPluginEvents(): void {
   watch(
     () => transport.playing,
     (playing) => emit("playing", playing),
+  );
+
+  // Scroll / zoom / viewport-size changes (rAF-coalesced: wheel and resize fire
+  // far faster than an overlay needs to reposition).
+  let viewQueued = false;
+  watch(
+    () => [view.x, view.y, view.pxPerSec, view.vw, view.vh],
+    () => {
+      if (viewQueued) return;
+      viewQueued = true;
+      requestAnimationFrame(() => {
+        viewQueued = false;
+        emit("view");
+      });
+    },
   );
 }

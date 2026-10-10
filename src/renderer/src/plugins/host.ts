@@ -3,6 +3,7 @@ import type { PluginEntry } from "@shared/plugin";
 import { currentLocale } from "../i18n";
 import { createPluginApi, type PluginApi } from "./api";
 import { dispatchShortcut } from "./registry";
+import { loadPluginStorage } from "./storage";
 
 /**
  * Renderer-side plugin host.
@@ -200,6 +201,8 @@ export async function initPlugins(): Promise<void> {
   window.api.onPluginsChanged(() => {
     void refreshPlugins();
   });
+  // Load persisted plugin data first so api.storage is ready before activate().
+  await loadPluginStorage();
   await refreshPlugins();
 }
 

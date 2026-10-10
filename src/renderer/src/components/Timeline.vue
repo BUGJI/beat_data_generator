@@ -44,6 +44,7 @@ import { useSettingsStore } from "../stores/settings";
 import { useViewStore } from "../stores/view";
 import { useUiStore } from "../stores/ui";
 import TimelineNotes from "./timeline/TimelineNotes.vue";
+import PluginTimelineOverlays from "./timeline/PluginTimelineOverlays.vue";
 import TimelineScrollbars from "./timeline/TimelineScrollbars.vue";
 import TimelinePropCard from "./timeline/TimelinePropCard.vue";
 import { setScroll, timeToScreenX, screenToTime } from "../stores/view";
@@ -725,6 +726,8 @@ const selectionAnnounce = computed(() => {
     </div>
 
     <TimelineNotes />
+
+    <PluginTimelineOverlays />
 
     <div
       v-if="!transport.hasAudio && project.markers.length === 0"

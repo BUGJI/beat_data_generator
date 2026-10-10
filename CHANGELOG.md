@@ -4,6 +4,30 @@
 
 版本号遵循语义化版本；`0.x` 阶段仍可能有破坏性改动（如工程文件 schema 升级）。
 
+## [0.3.8] - 2026-10-10 · 插件扩展能力与音频裁剪
+
+插件系统
+
+- 新增插件**音频裁剪**（`plugins/bdg_plugin_audiotrim`）：在时间轴上框选一段音频，可导出裁剪副本（WAV），或就地裁剪并替换当前音频——踩点按拍号自动对齐、范围外踩点清除，撤销可恢复偏移与踩点（音频本身需手动回退）
+- 新增**时间轴叠加层**扩展点 `api.ui.registerTimelineOverlay`：插件可在节拍时间轴上叠加可视化 / 可拖拽图层；配套 `api.timeline.*`（时间 ↔ 像素换算、视口信息、时长）与新增 `"view"` 事件（滚动 / 缩放 / 尺寸变化时按帧节流触发）
+- 新增**工程栏快捷按钮**扩展点 `api.ui.registerBarButton`：在 `pb-quick` 注册小按钮，支持内联 SVG 图标、开关（`toggle` / `active`）与排序，句柄可 `setActive` / `isActive`
+- 新增**插件持久化存储** `api.storage`：按插件命名空间隔离、同步读写、由主进程写入 `<userData>/plugin-data.json`，替代 `localStorage`，插件卸载时自动落盘
+- 插件**浮窗面板记忆位置与尺寸**（按「插件 + 面板 id」持久化，重启恢复）；`registerPanel` 新增 `defaultWidth` / `defaultHeight` / `minWidth` / `minHeight`
+- 新增插件**音频与二进制能力**：`api.audio.getBuffer` / `encodeWav` / `replaceFromBytes`、`api.system.readBytes` / `writeBytes`
+- 明确**不提供核心 UI 替换**能力：插件对界面的扩展方式仅浮窗面板与时间轴叠加层，宿主内部重构不会破坏插件
+
+界面
+
+- 插件菜单中注册面板会自动生成一个带开合状态的菜单项；建议面板不要再 `registerAction` 重复开关，**菜单入口只保留一个**（`example-basic` 已按此调整）
+
+文档
+
+- 新增 `docs/plugin-api.md`：当前插件 API 参考（命名空间、方法、类型与最小示例）
+- `docs/plugin-system.md` 补充时间轴叠加层、持久化存储、工程栏按钮、面板尺寸与「单一菜单入口」约定
+- `example-basic` 增加 `api.storage` 用法示例
+
+- 安装包：`Beat-Data-Generator-0.3.8-setup.exe`
+
 ## [0.3.7] - 2026-10-04 · 交互快捷键与无障碍优化
 
 交互与界面
@@ -332,6 +356,8 @@ Linux 打包与发布
 - 插件系统：可导出几乎任何格式，也可新增专用轨道承载额外内容
 - 定位说明：不是音游编辑器，也不是视频剪辑工具，目标是给其他编辑器提供一套标准的踩点基板
 
+[0.3.8]: https://github.com/BUGJI/beat_data_generator/compare/v0.3.7...v0.3.8
+[0.3.7]: https://github.com/BUGJI/beat_data_generator/compare/v0.3.6...v0.3.7
 [0.3.3]: https://github.com/BUGJI/beat_data_generator/compare/v0.3.2...v0.3.3
 [0.2.14]: https://github.com/BUGJI/beat_data_generator/compare/v0.2.13...v0.2.14
 [0.2.13]: https://github.com/BUGJI/beat_data_generator/compare/v0.2.12...v0.2.13

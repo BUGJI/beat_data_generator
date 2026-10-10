@@ -70,6 +70,11 @@ const api: IpcApi = {
   openPluginsFolder: () => ipcRenderer.invoke(IPC.openPluginsFolder),
   invokePlugin: (id, method, args) =>
     ipcRenderer.invoke(IPC.invokePlugin, id, method, args),
+  getPluginData: () => ipcRenderer.invoke(IPC.getPluginData),
+  setPluginData: (id, data) => ipcRenderer.invoke(IPC.setPluginData, id, data),
+  getPluginPanelLayout: () => ipcRenderer.invoke(IPC.getPluginPanelLayout),
+  setPluginPanelLayout: (layout) =>
+    ipcRenderer.invoke(IPC.setPluginPanelLayout, layout),
   onPluginsChanged,
   marketList: () => ipcRenderer.invoke(IPC.marketList),
   marketRefresh: () => ipcRenderer.invoke(IPC.marketRefresh),
@@ -85,6 +90,10 @@ const api: IpcApi = {
     ipcRenderer.invoke(IPC.saveFileDialog, title, defaultPath, filters),
   writeTextFile: (filePath, content) =>
     ipcRenderer.invoke(IPC.writeTextFile, filePath, content),
+  readBinaryFile: (filePath) =>
+    ipcRenderer.invoke(IPC.readBinaryFile, filePath),
+  writeBinaryFile: (filePath, data) =>
+    ipcRenderer.invoke(IPC.writeBinaryFile, filePath, data),
   openWindow: (opts) => ipcRenderer.invoke(IPC.openWindow, opts),
   writeClipboard: (text) => ipcRenderer.invoke(IPC.writeClipboard, text),
   setDirty: (dirty) => ipcRenderer.send(IPC.setDirty, dirty),

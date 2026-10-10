@@ -30,6 +30,52 @@ export interface PluginPanelDef {
   id: string;
   title: LocaText;
   mount: (el: HTMLElement) => void | (() => void);
+  /** Initial window size in px; the user's own size (once set) wins and persists. */
+  defaultWidth?: number;
+  defaultHeight?: number;
+  /** Lower bounds enforced while the user resizes. */
+  minWidth?: number;
+  minHeight?: number;
+}
+
+/**
+ * A full-bleed overlay mounted inside the timeline viewport. The host renders a
+ * `position:absolute; inset:0; pointer-events:none` layer; `mount` receives a
+ * container that already fills it. Children that need interaction must opt into
+ * `pointer-events:auto` and `stopPropagation` on their own pointer events,
+ * otherwise the canvas beneath will also react.
+ */
+export interface PluginTimelineOverlayDef {
+  id: string;
+  mount: (el: HTMLElement) => void | (() => void);
+  /** Stacking order within the overlay layer (higher = closer to the top). */
+  z?: number;
+}
+
+/**
+ * A small button contributed to the project bar's quick-action row (`pb-quick`).
+ * Toggle buttons flip `active` on click and receive the new value in `run`.
+ */
+export interface PluginBarButtonDef {
+  id: string;
+  title: LocaText;
+  /** Inline SVG markup for the icon (plugin-authored, rendered as-is). */
+  icon?: string;
+  /** When true the host flips `active` on click and passes it to `run`. */
+  toggle?: boolean;
+  /** Initial pressed state (toggle buttons only). */
+  active?: boolean;
+  /** Sort key; lower sorts further left. */
+  order?: number;
+  run: (active: boolean) => void | Promise<void>;
+}
+
+export interface BarButtonHandle {
+  uid: number;
+  dispose: () => void;
+  /** Programmatically set the pressed state (updates the button). */
+  setActive: (v: boolean) => void;
+  isActive: () => boolean;
 }
 
 export interface PluginShortcutDef {
@@ -51,6 +97,11 @@ export interface RegisteredPanel extends Entry<PluginPanelDef> {}
 export interface RegisteredShortcut extends Entry<PluginShortcutDef> {}
 export interface RegisteredImporter extends Entry<PluginImporterDef> {}
 export interface RegisteredExporter extends Entry<PluginExporterDef> {}
+export interface RegisteredTimelineOverlay
+  extends Entry<PluginTimelineOverlayDef> {}
+export interface RegisteredBarButton extends Entry<PluginBarButtonDef> {
+  active: boolean;
+}
 
 export interface OpenPanelRef {
   pluginId: string;
@@ -65,6 +116,8 @@ export const panels = reactive<RegisteredPanel[]>([]);
 export const shortcuts = reactive<RegisteredShortcut[]>([]);
 export const importers = reactive<RegisteredImporter[]>([]);
 export const exporters = reactive<RegisteredExporter[]>([]);
+export const timelineOverlays = reactive<RegisteredTimelineOverlay[]>([]);
+export const barButtons = reactive<RegisteredBarButton[]>([]);
 export const openPanels = reactive<OpenPanelRef[]>([]);
 
 export function localeText(v: LocaText | undefined): string {
@@ -173,6 +226,44 @@ function registerExporter(
   };
 }
 
+function registerTimelineOverlay(
+  pluginId: string,
+  def: PluginTimelineOverlayDef,
+): () => void {
+  const item: RegisteredTimelineOverlay = { pluginId, uid: nextUid(), def };
+  timelineOverlays.push(item);
+  return () => {
+    const i = timelineOverlays.indexOf(item);
+    if (i >= 0) timelineOverlays.splice(i, 1);
+  };
+}
+
+function registerBarButton(
+  pluginId: string,
+  def: PluginBarButtonDef,
+): BarButtonHandle {
+  // reactive() so the button's pressed state updates the rendered row.
+  const item = reactive<RegisteredBarButton>({
+    pluginId,
+    uid: nextUid(),
+    def,
+    active: def.toggle === true && def.active === true,
+  });
+  barButtons.push(item);
+  barButtons.sort((a, b) => (a.def.order ?? 0) - (b.def.order ?? 0));
+  return {
+    uid: item.uid,
+    dispose: () => {
+      const i = barButtons.indexOf(item);
+      if (i >= 0) barButtons.splice(i, 1);
+    },
+    setActive: (v: boolean) => {
+      item.active = v === true;
+    },
+    isActive: () => item.active,
+  };
+}
+
 // ---- shortcut matching ----
 
 interface ComboParts {
@@ -247,6 +338,8 @@ export type UiContributions = {
   registerShortcut: (def: PluginShortcutDef) => () => void;
   registerImporter: (def: PluginImporterDef) => () => void;
   registerExporter: (def: PluginExporterDef) => () => void;
+  registerTimelineOverlay: (def: PluginTimelineOverlayDef) => () => void;
+  registerBarButton: (def: PluginBarButtonDef) => BarButtonHandle;
   openPanel: (uid: number) => void;
   closePanel: (uid: number) => void;
 };
@@ -281,6 +374,16 @@ export function uiHandleFor(pluginId: string): UiContributions & {
       const d = registerExporter(pluginId, def);
       disposers.push(d);
       return d;
+    },
+    registerTimelineOverlay: (def) => {
+      const d = registerTimelineOverlay(pluginId, def);
+      disposers.push(d);
+      return d;
+    },
+    registerBarButton: (def) => {
+      const h = registerBarButton(pluginId, def);
+      disposers.push(h.dispose);
+      return h;
     },
     openPanel: (uid: number) => openPanel(pluginId, uid),
     closePanel: (uid: number) => closePanel(pluginId, uid),

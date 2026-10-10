@@ -1,0 +1,13 @@
+{
+  "id": "dev.bdg.audiotrim",
+  "version": "0.1.0",
+  "name": {
+    "zh": "音频裁剪",
+    "en": "Audio Trim"
+  },
+  "description": {
+    "zh": "在时间轴上框选一段音频，导出裁剪副本或就地裁剪并平移时间轴。",
+    "en": "Select a span on the timeline to export a trimmed copy, or crop in place and shift the timeline."
+  },
+  "renderer": "renderer.js"
+}

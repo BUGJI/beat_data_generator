@@ -7,9 +7,10 @@ coverage/
 .DS_Store
 .vite/
 
-# only the shipped sample plugin is tracked; other plugin dirs are local/test plugins
+# only the shipped sample plugins are tracked; other plugin dirs are local/test plugins
 plugins/*
 !plugins/example-basic
+!plugins/bdg_plugin_audiotrim
 !plugins/plugin-api.d.ts
 
 # local debug / temp artefacts

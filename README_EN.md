@@ -54,7 +54,7 @@ See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
 
 ### Extensibility & appearance
 
-- **Plugin system**: extend with new import/export formats, floating sidebar panels, custom shortcuts, standalone preview windows, and typed tracks. See [`docs/plugin-system.md`](docs/plugin-system.md).
+- **Plugin system**: extend with new import/export formats, floating sidebar panels, timeline overlays, custom shortcuts, standalone preview windows, and typed tracks. See [`docs/plugin-system.md`](docs/plugin-system.md).
 - **Plugin marketplace**: browse, search and filter by category, then install / update / uninstall official plugins in one click, or install a local ZIP offline; SHA-256 verification and a trust prompt run before install (see [Installing a plugin](#export--integration-targets)).
 - **Theming**: 6 presets (default / midnight / forest / amber / graphite / light) with per-token color overrides and an independent accent color, applied live.
 - **Appearance**: use a local image as the app background (cover / contain / tile, with blur and dimming), and tune UI zoom, font scale, corner radius, shadow and panel opacity.
