@@ -4,6 +4,22 @@
 
 版本号遵循语义化版本；`0.x` 阶段仍可能有破坏性改动（如工程文件 schema 升级）。
 
+## [0.3.9] - 2026-10-11 · 插件 API v2
+
+插件系统
+
+- 新增**插件接口版本协商**：`manifest.json` 可声明 `apiVersion`（省略视为 1）；宿主不加载高于自身支持的插件，并在设置页说明原因、禁用开关
+- 新增 `api.ui.notify`：插件可直接调用宿主提示条（`info` / `success` / `warning` / `error`），替代各自注入 DOM / `window.alert` 的私有实现
+- 新增项目查询 helper：`api.project.markersOfType` / `tracksOfType` / `trackById`，免去插件手写快照过滤与轨道 join
+- 统一 `LocaText` 类型；补全 `api.ui.registerBarButton` 的声明（此前运行时已有、类型缺失）
+
+文档与示例
+
+- 新增 `docs/plugin-api-v2.md`：v2 设计与迁移依据（版本协商规则、变更清单、submodule 类型分发、迁移清单）
+- `example-basic` 与 `plugins/plugin-api.d.ts` 同步到 v2
+
+- 安装包：`Beat-Data-Generator-0.3.9-setup.exe`
+
 ## [0.3.8] - 2026-10-10 · 插件扩展能力与音频裁剪
 
 插件系统
