@@ -193,6 +193,11 @@ export default {
         developer: "개발자",
       },
     },
+    preview: {
+      title: "실시간 미리보기",
+      hint: "아래 스위치를 전환하면 여기에 바로 표시돼요.",
+      replay: "애니메이션 재생",
+    },
     theme: {
       subs: { preset: "프리셋", custom: "사용자 지정", appearance: "모양" },
       preset: "프리셋 테마",
@@ -296,8 +301,11 @@ export default {
       closeModeDesc: "창 X와 모든 종료 경로에 적용돼요",
       modeAsk: "묻기",
       modeAskDesc: "종료 전에 물어봐요",
+      modeAskHint: "종료 전에 확인 창을 띄워요.",
       modeMinimize: "최소화",
+      modeMinimizeHint: "X를 누르면 작업 표시줄로 최소화하고 계속 실행해요.",
       modeClose: "닫기",
+      modeCloseHint: "X를 누르면 앱을 바로 종료해요.",
       showWelcome: "시작할 때 환영 창 표시",
       showWelcomeDesc:
         "실행 시 새 프로젝트 / 열기 / 최근 프로젝트 옵션이 있는 별도 환영 창을 열어요.",
@@ -330,6 +338,7 @@ export default {
       roundRound: "반올림",
       roundFloor: "내림",
       roundCeil: "올림",
+      roundExample: "예: {from} → {to}",
     },
     audio: {
       tagline:
@@ -362,6 +371,7 @@ export default {
         "폴더가 비어 있어요 — 메트로놈 폴더를 열어 오디오 파일을 추가하세요.",
       metronomeFollowMaster: "마스터 볼륨 따르기",
       metronomeVolume: "메트로놈 볼륨",
+      metronomePreview: "미리듣기",
       reanalyze: "다시 분석",
       applyBpm: "BPM 적용",
       genBeats: "자동 비트 트랙 생성",
@@ -380,6 +390,8 @@ export default {
         "음높이를 유지한 채 속도를 바꿀 때 쓰는 엔진이에요; 대부분의 사용자에게 기본값이 가장 좋아요.",
       engineSoundtouch: "SoundTouch",
       engineSignalsmith: "Signalsmith",
+      engineSoundtouchHint: "기본 엔진으로 호환성이 가장 좋고 부담이 적어요.",
+      engineSignalsmithHint: "더 매끄럽고 자연스럽게 늘려요.",
     },
     display: {
       autoHideGrid: "그리드 선 자동 숨기기",

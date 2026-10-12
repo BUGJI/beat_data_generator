@@ -179,6 +179,11 @@ export default {
       display: { grid: "网格", motion: "动画" },
       advanced: { developer: "开发者" },
     },
+    preview: {
+      title: "实时预览",
+      hint: "切换下面的开关，这里会即时演示效果。",
+      replay: "重播动画",
+    },
     theme: {
       subs: { preset: "预设", custom: "自定义", appearance: "外观" },
       preset: "预设主题",
@@ -277,8 +282,11 @@ export default {
       closeModeDesc: "作用于窗口 X 与所有退出路径",
       modeAsk: "询问",
       modeAskDesc: "退出前询问",
+      modeAskHint: "退出前弹窗询问后再关闭。",
       modeMinimize: "最小化",
+      modeMinimizeHint: "点击 X 时最小化到任务栏，不退出应用。",
       modeClose: "直接关闭",
+      modeCloseHint: "点击 X 时直接退出应用。",
       showWelcome: "启动时打开欢迎窗口",
       showWelcomeDesc:
         "启动时弹出独立的欢迎窗口，提供新建 / 打开 / 最近工程入口。",
@@ -308,6 +316,7 @@ export default {
       roundRound: "四舍五入",
       roundFloor: "向下取整",
       roundCeil: "向上取整",
+      roundExample: "示例：{from} → {to}",
     },
     audio: {
       tagline: "音频智能分析由 pleco-xa 提供。每项能力都是独立开关。",
@@ -337,6 +346,7 @@ export default {
       metronomeEmpty: "文件夹为空，点“打开打拍音文件夹”放入音频文件。",
       metronomeFollowMaster: "跟随主音量",
       metronomeVolume: "打拍音音量",
+      metronomePreview: "试听",
       reanalyze: "重新分析",
       applyBpm: "应用 BPM",
       genBeats: "生成自动节拍轨道",
@@ -355,6 +365,8 @@ export default {
         "变速播放（保持音高）时使用的引擎，保持默认即可；如有问题可切换。",
       engineSoundtouch: "SoundTouch",
       engineSignalsmith: "Signalsmith",
+      engineSoundtouchHint: "默认引擎，兼容性最好、开销更低。",
+      engineSignalsmithHint: "拉伸更平滑、衔接更自然。",
     },
     display: {
       autoHideGrid: "自动隐藏网格线",

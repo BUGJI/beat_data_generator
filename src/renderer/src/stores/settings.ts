@@ -175,6 +175,18 @@ let settingsTimer: number | undefined;
  * persisting.
  */
 export function patchSettings(patch: Partial<SettingsData>): void {
+  previewSettings(patch);
+  if (settingsTimer !== undefined) clearTimeout(settingsTimer);
+  settingsTimer = window.setTimeout(commitSettings, 180);
+}
+
+/**
+ * Merge a patch and run its side effects (theme repaint, appearance, engine)
+ * immediately, but do NOT schedule a persist. Used for live drag feedback so a
+ * slider can repaint on every tick without queueing a write; the final value is
+ * committed once on release through `patchSettings`.
+ */
+export function previewSettings(patch: Partial<SettingsData>): void {
   const store = useSettingsStore();
   store.settings = { ...store.settings, ...patch };
   setFreeInput(store.settings.devFreeInput);
@@ -199,8 +211,6 @@ export function patchSettings(patch: Partial<SettingsData>): void {
   if ("stretchEngine" in patch) engine.clearStretched();
   if ("metronomeVolume" in patch || "metronomeFollowMaster" in patch)
     applyMetronomeSettings();
-  if (settingsTimer !== undefined) clearTimeout(settingsTimer);
-  settingsTimer = window.setTimeout(commitSettings, 180);
 }
 
 /** Sanitize the in-memory settings and flush them to the main process now. */

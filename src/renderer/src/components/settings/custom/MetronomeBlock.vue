@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { Check, Play } from "@lucide/vue";
 import { loadMetronome, previewMetronome } from "@renderer/services/audioIO";
 import { patchSettings, useSettingsStore } from "@renderer/stores/settings";
 import UiButton from "../../ui/UiButton.vue";
@@ -47,6 +48,14 @@ async function selectMetronome(file: string): Promise<void> {
   if (file) previewMetronome();
 }
 
+/** Audition a file without changing which sound is selected. */
+async function previewMetronomeFile(file: string): Promise<void> {
+  await loadMetronome(file);
+  previewMetronome();
+  // restore the selected sound so the preview doesn't become the active one
+  if (metronomePath.value !== file) await loadMetronome(metronomePath.value);
+}
+
 onMounted(refreshMetronomeFiles);
 </script>
 
@@ -70,24 +79,38 @@ onMounted(refreshMetronomeFiles);
       </UiButton>
     </div>
     <div class="metronome-list">
-      <button
-        type="button"
-        class="metronome-item"
-        :class="{ active: !metronomePath }"
-        @click="selectMetronome('')"
-      >
-        {{ t("settings.audio.metronomeNone") }}
-      </button>
-      <button
-        v-for="f in metronomeFiles"
-        :key="f.file"
-        type="button"
-        class="metronome-item"
-        :class="{ active: metronomePath === f.file }"
-        @click="selectMetronome(f.file)"
-      >
-        {{ f.name }}
-      </button>
+      <div class="metronome-chip">
+        <button
+          type="button"
+          class="metronome-item"
+          :class="{ active: !metronomePath }"
+          :data-search="t('settings.audio.metronomeNone')"
+          @click="selectMetronome('')"
+        >
+          {{ t("settings.audio.metronomeNone") }}
+        </button>
+      </div>
+      <div v-for="f in metronomeFiles" :key="f.file" class="metronome-chip">
+        <button
+          type="button"
+          class="metronome-item"
+          :class="{ active: metronomePath === f.file }"
+          :data-search="f.name"
+          @click="selectMetronome(f.file)"
+        >
+          <span class="metronome-name">{{ f.name }}</span>
+          <Check v-if="metronomePath === f.file" class="metronome-check" />
+        </button>
+        <button
+          type="button"
+          class="metronome-play"
+          :title="t('settings.audio.metronomePreview')"
+          :aria-label="t('settings.audio.metronomePreview')"
+          @click="previewMetronomeFile(f.file)"
+        >
+          <Play class="size-3.5" />
+        </button>
+      </div>
       <p v-if="metronomeFiles.length === 0" class="muted metronome-empty">
         {{ t("settings.audio.metronomeEmpty") }}
       </p>
@@ -131,7 +154,15 @@ onMounted(refreshMetronomeFiles);
   flex-wrap: wrap;
   gap: 6px;
 }
+.metronome-chip {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+}
 .metronome-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 1px solid var(--bdg-border);
   background: transparent;
   color: var(--bdg-text);
@@ -141,9 +172,39 @@ onMounted(refreshMetronomeFiles);
   font-family: inherit;
   cursor: pointer;
   max-width: 100%;
+}
+.metronome-chip .metronome-item {
+  border-radius: var(--bdg-radius, 6px) 0 0 var(--bdg-radius, 6px);
+}
+/* The "none" chip has no preview button, so it keeps a full-radius chip. */
+.metronome-chip .metronome-item:only-child {
+  border-radius: var(--bdg-radius, 6px);
+}
+.metronome-name {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.metronome-check {
+  flex: none;
+  width: 13px;
+  height: 13px;
+}
+.metronome-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border: 1px solid var(--bdg-border);
+  border-left: none;
+  border-radius: 0 var(--bdg-radius, 6px) var(--bdg-radius, 6px) 0;
+  background: transparent;
+  color: var(--bdg-text-dim);
+  cursor: pointer;
+}
+.metronome-play:hover {
+  color: var(--bdg-text);
+  background: rgb(var(--bdg-neutral) / 0.12);
 }
 .metronome-item:hover {
   background: rgb(var(--bdg-neutral) / 0.1);

@@ -5,6 +5,7 @@ import { useI18n } from "vue-i18n";
 import {
   backgroundImageUrl,
   patchSettings,
+  previewSettings,
   useSettingsStore,
 } from "../../stores/settings";
 import type { BackgroundFit } from "@shared/settings";
@@ -171,7 +172,10 @@ const uiShadow = computed({
           :max="40"
           :label="t('settings.theme.appearance.bgBlur')"
           class="pct-slider"
-          @update:model-value="(v: number) => (backgroundBlur = v)"
+          @update:model-value="
+            (v: number) => previewSettings({ backgroundBlur: v })
+          "
+          @commit="(v: number) => patchSettings({ backgroundBlur: v })"
         />
         <span class="num pct-value">{{ backgroundBlur }}px</span>
       </div>
@@ -193,7 +197,10 @@ const uiShadow = computed({
           :max="100"
           :label="t('settings.theme.appearance.bgDim')"
           class="pct-slider"
-          @update:model-value="(v: number) => (backgroundDim = v)"
+          @update:model-value="
+            (v: number) => previewSettings({ backgroundDim: v })
+          "
+          @commit="(v: number) => patchSettings({ backgroundDim: v })"
         />
         <span class="num pct-value">{{ backgroundDim }}%</span>
       </div>
@@ -216,7 +223,10 @@ const uiShadow = computed({
         :max="100"
         :label="t('settings.theme.appearance.surfaceOpacity')"
         class="pct-slider"
-        @update:model-value="(v: number) => (surfaceOpacity = v)"
+        @update:model-value="
+          (v: number) => previewSettings({ surfaceOpacity: v })
+        "
+        @commit="(v: number) => patchSettings({ surfaceOpacity: v })"
       />
       <span class="num pct-value">{{ surfaceOpacity }}%</span>
     </div>
@@ -263,7 +273,8 @@ const uiShadow = computed({
         :step="5"
         :label="t('settings.theme.appearance.uiFontScale')"
         class="pct-slider"
-        @update:model-value="(v: number) => (uiFontScale = v)"
+        @update:model-value="(v: number) => previewSettings({ uiFontScale: v })"
+        @commit="(v: number) => patchSettings({ uiFontScale: v })"
       />
       <span class="num pct-value">{{ uiFontScale }}%</span>
     </div>
@@ -301,7 +312,10 @@ const uiShadow = computed({
         :max="24"
         :label="t('settings.theme.appearance.uiBlurAmount')"
         class="pct-slider"
-        @update:model-value="(v: number) => (uiBlurAmount = v)"
+        @update:model-value="
+          (v: number) => previewSettings({ uiBlurAmount: v })
+        "
+        @commit="(v: number) => patchSettings({ uiBlurAmount: v })"
       />
       <span class="num pct-value">{{ uiBlurAmount }}px</span>
     </div>
@@ -323,7 +337,8 @@ const uiShadow = computed({
         :max="20"
         :label="t('settings.theme.appearance.uiRadius')"
         class="pct-slider"
-        @update:model-value="(v: number) => (uiRadius = v)"
+        @update:model-value="(v: number) => previewSettings({ uiRadius: v })"
+        @commit="(v: number) => patchSettings({ uiRadius: v })"
       />
       <span class="num pct-value">{{ uiRadius }}px</span>
     </div>
@@ -345,7 +360,8 @@ const uiShadow = computed({
         :max="100"
         :label="t('settings.theme.appearance.uiShadow')"
         class="pct-slider"
-        @update:model-value="(v: number) => (uiShadow = v)"
+        @update:model-value="(v: number) => previewSettings({ uiShadow: v })"
+        @commit="(v: number) => patchSettings({ uiShadow: v })"
       />
       <span class="num pct-value">{{ uiShadow }}%</span>
     </div>

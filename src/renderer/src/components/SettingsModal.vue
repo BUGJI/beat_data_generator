@@ -272,15 +272,22 @@ function highlightParts(
 
 function goToSetting(hit: SearchEntry & { label: string }): void {
   cat.value = hit.cat;
-  if (hit.cat === "theme")
-    rows.themeSub = hit.group === "appearance" ? "appearance" : "custom";
-  else if (hit.group) setSubCat(hit.cat, hit.group);
+  if (hit.cat === "theme") {
+    if (hit.group === "appearance") rows.themeSub = "appearance";
+    else if (hit.group === "preset") rows.themeSub = "preset";
+    else rows.themeSub = "custom";
+  } else if (hit.group) setSubCat(hit.cat, hit.group);
   search.value = "";
   void nextTick(() => {
-    const fieldRows = contentEl.value?.querySelectorAll(".field-row");
-    if (!fieldRows) return;
-    for (const row of fieldRows) {
-      if (row.textContent?.includes(hit.label)) {
+    // Prefer explicit `data-search` targets (preset cards, metronome chips…);
+    // fall back to matching a regular field row by its visible text.
+    const nodes = contentEl.value?.querySelectorAll<HTMLElement>(
+      "[data-search], .field-row",
+    );
+    if (!nodes) return;
+    for (const row of nodes) {
+      const label = row.getAttribute("data-search") ?? row.textContent ?? "";
+      if (label.includes(hit.label)) {
         row.scrollIntoView({
           block: "center",
           behavior: uiMotion.value ? "smooth" : "auto",

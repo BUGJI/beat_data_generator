@@ -6,7 +6,7 @@ import {
   useSettingsStore,
 } from "../../stores/settings";
 import { i18n, isLocale, LOCALES, setLocale } from "../../i18n";
-import { THEME_TOKEN_ORDER } from "../../theme";
+import { THEME_PRESETS, THEME_TOKEN_ORDER } from "../../theme";
 import type { CloseMode } from "@shared/ipc";
 import type { AlignRounding, StretchEngine } from "@shared/settings";
 import {
@@ -230,6 +230,14 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     { value: "signalsmith", label: t("settings.audio.engineSignalsmith") },
   ]);
 
+  /** One-line tip for the currently selected time-stretch engine. */
+  const stretchEngineHint = (): string =>
+    t(
+      stretchEngine.value === "signalsmith"
+        ? "settings.audio.engineSignalsmithHint"
+        : "settings.audio.engineSoundtouchHint",
+    );
+
   const language = computed<string>({
     get: () => i18n.global.locale.value,
     set: (v: string) => {
@@ -251,6 +259,16 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
       { value: "close", label: t("settings.general.modeClose") },
     ],
   );
+
+  /** Behavior tip for the selected window-close mode. */
+  const closeModeHint = (): string =>
+    t(
+      closeMode.value === "minimize"
+        ? "settings.general.modeMinimizeHint"
+        : closeMode.value === "close"
+          ? "settings.general.modeCloseHint"
+          : "settings.general.modeAskHint",
+    );
 
   const animEnabled = computed({
     get: () => settings.settings.animEnabled,
@@ -345,6 +363,25 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     { value: "ceil", label: t("settings.edit.roundCeil") },
   ]);
 
+  // A concrete worked example so the rounding mode + precision are legible at a
+  // glance, e.g. `1.3765 → 1.38`.
+  const ROUND_SAMPLE = 1.3765;
+  const alignRoundingHint = (): string => {
+    const d = alignDecimals.value;
+    const f = 10 ** d;
+    const mode = alignRounding.value;
+    const r =
+      mode === "floor"
+        ? Math.floor(ROUND_SAMPLE * f) / f
+        : mode === "ceil"
+          ? Math.ceil(ROUND_SAMPLE * f) / f
+          : Math.round(ROUND_SAMPLE * f) / f;
+    return t("settings.edit.roundExample", {
+      from: ROUND_SAMPLE.toFixed(4),
+      to: r.toFixed(d),
+    });
+  };
+
   const audioAutoBpm = computed({
     get: () => settings.settings.audioAutoBpm,
     set: (v: boolean) => void patchSettings({ audioAutoBpm: v }),
@@ -393,7 +430,11 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
           {
             kind: "field",
             key: "closeMode",
-            control: radio(closeMode, () => closeModeOptions.value),
+            control: radio(
+              closeMode,
+              () => closeModeOptions.value,
+              closeModeHint,
+            ),
           },
         ],
       },
@@ -445,7 +486,11 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
             kind: "field",
             key: "alignRounding",
             col: true,
-            control: radio(alignRounding, () => alignRoundingOptions.value),
+            control: radio(
+              alignRounding,
+              () => alignRoundingOptions.value,
+              alignRoundingHint,
+            ),
           },
         ],
       },
@@ -495,7 +540,11 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
             kind: "field",
             key: "stretchEngine",
             col: true,
-            control: radio(stretchEngine, () => stretchEngineOptions.value),
+            control: radio(
+              stretchEngine,
+              () => stretchEngineOptions.value,
+              stretchEngineHint,
+            ),
           },
         ],
       },
@@ -607,6 +656,15 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
       group: "custom",
       key: `tokens.${token}`,
       keywords: [token, "颜色", "color"],
+    });
+  }
+  // Preset names are searchable too, so users can jump straight to a theme.
+  for (const preset of THEME_PRESETS) {
+    searchIndex.push({
+      cat: "theme",
+      group: "preset",
+      key: `presets.${preset.id}`,
+      keywords: ["主题", "预设", "theme", "preset", preset.name],
     });
   }
   searchIndex.push(...EXTRA_SEARCH);

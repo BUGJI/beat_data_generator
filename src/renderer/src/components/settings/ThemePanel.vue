@@ -25,6 +25,7 @@ import {
 import { useSettingsRowsStore } from "./useSettingsRows";
 import ThemePreview from "../ThemePreview.vue";
 import ThemeAppearancePanel from "./ThemeAppearancePanel.vue";
+import SettingsSubnav from "./SettingsSubnav.vue";
 import UiButton from "../ui/UiButton.vue";
 import UiColorField from "../ui/UiColorField.vue";
 import UiInput from "../ui/UiInput.vue";
@@ -68,6 +69,10 @@ const themeSubs = computed<
   { key: "custom", label: t("settings.theme.subs.custom") },
   { key: "appearance", label: t("settings.theme.subs.appearance") },
 ]);
+
+function setThemeSub(key: string): void {
+  themeSub.value = key as "preset" | "custom" | "appearance";
+}
 
 const contrastIssues = computed(() => themeContrastIssues(themeSpec.value));
 
@@ -133,17 +138,12 @@ function onImportTheme(): void {
 <template>
   <section class="theme-section">
     <h3>{{ t("settings.cats.theme") }}</h3>
-    <nav class="subnav">
-      <button
-        v-for="s in themeSubs"
-        :key="s.key"
-        class="subnav-item"
-        :class="{ active: themeSub === s.key }"
-        @click="themeSub = s.key"
-      >
-        {{ s.label }}
-      </button>
-    </nav>
+    <SettingsSubnav
+      :items="themeSubs"
+      :model-value="themeSub"
+      :aria-label="t('settings.cats.theme')"
+      @update:model-value="setThemeSub"
+    />
 
     <div class="theme-split">
       <div class="theme-main">
@@ -155,6 +155,7 @@ function onImportTheme(): void {
               :key="p.id"
               class="theme-preset"
               :class="{ active: settings.settings.themePreset === p.id }"
+              :data-search="t(`settings.theme.presets.${p.name}`)"
               @click="setThemePreset(p.id)"
             >
               <ThemePreview

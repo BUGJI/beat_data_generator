@@ -1,3 +1,5 @@
+import type { Component } from "vue";
+
 /**
  * Shared model for the declarative settings rows.
  *
@@ -33,6 +35,8 @@ export type FieldControl =
       get: () => string;
       set: (v: string) => void;
       options: () => ColOption[];
+      /** Optional one-line hint (e.g. a live example) shown under the group. */
+      hint?: () => string;
     }
   | {
       type: "number";
@@ -47,6 +51,8 @@ export type FieldControl =
       type: "slider";
       get: () => number;
       set: (v: number) => void;
+      /** Live, non-persisting repaint while dragging (optional). */
+      preview?: (v: number) => void;
       min: number;
       max: number;
       step?: number;
@@ -66,7 +72,13 @@ export type RowDef =
       control: FieldControl;
     };
 
-export type GroupDef = { key: string; rows: RowDef[]; expert?: boolean };
+export type GroupDef = {
+  key: string;
+  rows: RowDef[];
+  expert?: boolean;
+  /** Optional icon shown in the category's second-level tab chip. */
+  icon?: Component;
+};
 
 export const sw = (
   m: RefLike<boolean>,
@@ -83,6 +95,7 @@ export const sw = (
 export const radio = (
   m: RefLike<string>,
   options: () => ColOption[],
+  hint?: () => string,
 ): FieldControl => ({
   type: "radio",
   get: () => m.value,
@@ -90,6 +103,7 @@ export const radio = (
     m.value = v;
   },
   options,
+  hint,
 });
 
 export const num = (
@@ -115,12 +129,14 @@ export const slider = (
   max: number,
   suffix?: string,
   step?: number,
+  preview?: (v: number) => void,
 ): FieldControl => ({
   type: "slider",
   get: () => m.value,
   set: (v) => {
     m.value = v;
   },
+  preview,
   min,
   max,
   suffix,

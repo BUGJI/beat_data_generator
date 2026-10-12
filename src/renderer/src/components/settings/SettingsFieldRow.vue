@@ -1,11 +1,12 @@
 <script setup lang="ts">
+import { computed, ref } from "vue";
 import { setNumber, setRadio, setSwitch, type FieldControl } from "./types";
 import UiNumberInput from "../ui/UiNumberInput.vue";
 import UiRadioGroup from "../ui/UiRadioGroup.vue";
 import UiSlider from "../ui/UiSlider.vue";
 import UiSwitch from "../ui/UiSwitch.vue";
 
-defineProps<{
+const props = defineProps<{
   label: string;
   desc?: string;
   /** Translated unit label rendered next to a `number` control with `unitKey`. */
@@ -14,6 +15,27 @@ defineProps<{
   showIf?: () => boolean;
   control: FieldControl;
 }>();
+
+// A slider only writes to the store on release; while dragging it keeps a local
+// draft so pointermove never churns the global settings store (the same pattern
+// the theme tokens and the UI-zoom slider use). A control can opt into live
+// feedback by supplying `preview`.
+const sliderDraft = ref<number | null>(null);
+
+const sliderValue = computed(
+  () =>
+    sliderDraft.value ??
+    (props.control.type === "slider" ? props.control.get() : 0),
+);
+
+function onSliderInput(v: number): void {
+  sliderDraft.value = v;
+  if (props.control.type === "slider") props.control.preview?.(v);
+}
+function onSliderCommit(v: number): void {
+  if (props.control.type === "slider") props.control.set(v);
+  sliderDraft.value = null;
+}
 </script>
 
 <template>
@@ -30,13 +52,15 @@ defineProps<{
       :aria-label="label"
       @update:model-value="(v: boolean) => setSwitch(control, v)"
     />
-    <UiRadioGroup
-      v-else-if="control.type === 'radio'"
-      :model-value="control.get()"
-      :options="control.options()"
-      :aria-label="label"
-      @update:model-value="(v: string) => setRadio(control, v)"
-    />
+    <div v-else-if="control.type === 'radio'" class="radio-cell">
+      <UiRadioGroup
+        :model-value="control.get()"
+        :options="control.options()"
+        :aria-label="label"
+        @update:model-value="(v: string) => setRadio(control, v)"
+      />
+      <span v-if="control.hint" class="field-hint">{{ control.hint() }}</span>
+    </div>
     <UiNumberInput
       v-else-if="control.type === 'number' && !control.unitKey"
       :model-value="control.get()"
@@ -61,15 +85,16 @@ defineProps<{
     </div>
     <div v-else-if="control.type === 'slider'" class="pct-row">
       <UiSlider
-        :model-value="control.get()"
+        :model-value="sliderValue"
         :min="control.min"
         :max="control.max"
         :step="control.step"
         :label="label"
         class="pct-slider"
-        @update:model-value="(v: number) => setNumber(control, v)"
+        @update:model-value="onSliderInput"
+        @commit="onSliderCommit"
       />
-      <span class="num pct-value">{{ control.get() }}{{ control.suffix }}</span>
+      <span class="num pct-value">{{ sliderValue }}{{ control.suffix }}</span>
     </div>
   </div>
 </template>

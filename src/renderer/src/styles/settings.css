@@ -16,6 +16,10 @@
   margin: 0 auto;
   padding: 0 10px;
 }
+/* Categories with a live preview pane get a wider, two-column canvas. */
+.settings-panel .content section.has-preview {
+  max-width: 940px;
+}
 
 .settings-panel .sub-head {
   margin: 18px 0 2px;
@@ -89,6 +93,21 @@
   font-size: var(--bdg-fs-12);
   color: var(--bdg-text-dim);
   margin: 0;
+}
+
+/* A radio group plus its optional hint line; the hint sits under the control. */
+.settings-panel .radio-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+.settings-panel .field-row.col .radio-cell {
+  align-items: flex-start;
+}
+.settings-panel .field-hint {
+  font-size: var(--bdg-fs-11);
+  color: var(--bdg-text-faint);
 }
 
 .settings-panel .pct-row {

@@ -193,6 +193,11 @@ export default {
         developer: "Developer",
       },
     },
+    preview: {
+      title: "Live preview",
+      hint: "Toggle the switches below to see the effect here.",
+      replay: "Replay animation",
+    },
     theme: {
       subs: { preset: "Presets", custom: "Custom", appearance: "Appearance" },
       preset: "Preset themes",
@@ -299,8 +304,11 @@ export default {
       closeModeDesc: "Applies to window X and all quit paths",
       modeAsk: "Ask",
       modeAskDesc: "Ask before quitting",
+      modeAskHint: "Show a confirmation prompt before quitting.",
       modeMinimize: "Minimize",
+      modeMinimizeHint: "Minimize to the taskbar on X; the app keeps running.",
       modeClose: "Close",
+      modeCloseHint: "Quit the app immediately on X.",
       showWelcome: "Show welcome window at startup",
       showWelcomeDesc:
         "Open a separate welcome window on launch with new / open / recent project options.",
@@ -334,6 +342,7 @@ export default {
       roundRound: "Round",
       roundFloor: "Floor",
       roundCeil: "Ceil",
+      roundExample: "Example: {from} → {to}",
     },
     audio: {
       tagline:
@@ -367,6 +376,7 @@ export default {
         "Folder is empty — open the metronome folder to add audio files.",
       metronomeFollowMaster: "Follow master volume",
       metronomeVolume: "Metronome volume",
+      metronomePreview: "Preview",
       reanalyze: "Re-analyze",
       applyBpm: "Apply BPM",
       genBeats: "Generate Auto Beat track",
@@ -386,6 +396,8 @@ export default {
         "Engine used for off-speed playback with pitch preserved; the default works best for most users.",
       engineSoundtouch: "SoundTouch",
       engineSignalsmith: "Signalsmith",
+      engineSoundtouchHint: "Default engine; most compatible, lower overhead.",
+      engineSignalsmithHint: "Smoother, more natural time-stretching.",
     },
     display: {
       autoHideGrid: "Auto-hide grid lines",
