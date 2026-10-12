@@ -166,17 +166,17 @@ export const SettingsSchema = z.object({
   metronomeVolume: intInRange(85, 0, 100),
   settingsVersion: z.coerce.number().catch(0).default(0),
   /** On audio load, auto-detect BPM and apply to baseBpm (only when not locked). */
-  audioAutoBpm: bool(true),
+  audioAutoBpm: bool(false),
   /** On audio load, place markers at detected beats on a dedicated "auto beat" track. */
-  audioAutoBeats: bool(true),
+  audioAutoBeats: bool(false),
   /** On audio load, run loop detection and keep the best loop segment as a hint. */
-  audioLoopDetect: bool(true),
+  audioLoopDetect: bool(false),
   /** While playing, periodically refresh a live BPM readout (never modifies the project). */
-  audioLiveBpm: bool(true),
+  audioLiveBpm: bool(false),
   /** Compute and show a spectrum / mel spectrogram in the audio analysis panel. */
-  audioSpectrum: bool(true),
+  audioSpectrum: bool(false),
   /** Show the audio analysis panel button in the top bar. */
-  audioPanel: bool(true),
+  audioPanel: bool(false),
   /** Active theme preset id (see renderer src/theme.ts). */
   themePreset: z
     .string()
