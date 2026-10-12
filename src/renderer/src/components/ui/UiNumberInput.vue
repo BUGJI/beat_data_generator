@@ -55,7 +55,7 @@ function stepBy(dir: 1 | -1): void {
 
 <template>
   <div
-    class="inline-flex h-[var(--bdg-ctl-md)] items-center overflow-hidden rounded-ui border border-line bg-sunken text-xs"
+    class="inline-flex h-[var(--bdg-ctl-md)] items-center overflow-hidden rounded-ui border border-line bg-sunken text-xs transition-colors focus-within:border-line-strong"
     :class="disabled && 'opacity-[var(--bdg-disabled-opacity)]'"
   >
     <input

@@ -632,13 +632,19 @@ onBeforeUnmount(() => {
 }
 .pc-x {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--bdg-ctl-sm);
+  height: var(--bdg-ctl-sm);
   background: none;
   border: none;
+  border-radius: var(--bdg-radius, 6px);
   color: var(--bdg-text-dim);
   cursor: pointer;
-  font-size: var(--bdg-fs-11);
 }
 .pc-x:hover {
+  background: rgb(var(--bdg-neutral) / 0.12);
   color: var(--bdg-text);
 }
 .pc-field {

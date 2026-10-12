@@ -9,6 +9,7 @@ import {
   CircleDot,
   Copy,
   Download,
+  FileDown,
   FilePlus,
   FileText,
   Files,
@@ -16,12 +17,12 @@ import {
   LayoutGrid,
   LibraryBig,
   Maximize,
+  Pencil,
   Redo2,
   Scissors,
   Settings,
   SquareDashedMousePointer,
   Undo2,
-  Upload,
   ZoomIn,
   ZoomOut,
 } from "@lucide/vue";
@@ -298,7 +299,7 @@ onMounted(() => {
           :key="`imp-${im.uid}`"
           :value="`imp-${im.uid}`"
         >
-          <Upload class="size-3.5" />
+          <FileDown class="size-3.5" />
           <span class="plug-label">{{ localeText(im.def.label) }}</span>
         </UiDropdownItem>
       </template>
@@ -310,7 +311,7 @@ onMounted(() => {
     >
       <template #trigger>
         <button class="menu-btn">
-          <Copy class="size-3.5" />{{ t("menu.edit") }}
+          <Pencil class="size-3.5" />{{ t("menu.edit") }}
           <ChevronDown class="caret" />
         </button>
       </template>

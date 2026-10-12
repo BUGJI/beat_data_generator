@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount } from "vue";
 import { useI18n } from "vue-i18n";
+import { Pause, Play, SkipBack, Square } from "@lucide/vue";
 import {
   stop,
   togglePlay,
@@ -15,6 +16,7 @@ import { analysis } from "../analysis";
 import UiNumberInput from "./ui/UiNumberInput.vue";
 import UiSlider from "./ui/UiSlider.vue";
 import UiSwitch from "./ui/UiSwitch.vue";
+import UiTooltip from "./ui/UiTooltip.vue";
 
 const { t } = useI18n();
 const transport = useTransportStore();
@@ -118,52 +120,41 @@ onBeforeUnmount(() => {
     </div>
 
     <div class="tr-controls">
-      <button
-        class="btn-icon"
-        :title="t('transport.backStart')"
-        :aria-label="t('transport.backStart')"
-        @click="seekTo(0)"
-      >
-        <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
-          <path d="M3 2h2v12H3zM13 2v12L6 8z" />
-        </svg>
-      </button>
-      <button
-        class="btn-big"
-        :class="{ playing }"
-        :title="playing ? t('transport.pause') : t('transport.play')"
-        :aria-label="playing ? t('transport.pause') : t('transport.play')"
-        @click="togglePlay()"
-      >
-        <svg
-          v-if="!playing"
-          viewBox="0 0 16 16"
-          width="18"
-          height="18"
-          fill="currentColor"
+      <UiTooltip :content="t('transport.backStart')" side="top">
+        <button
+          class="btn-icon"
+          :disabled="!hasAudio"
+          :aria-label="t('transport.backStart')"
+          @click="seekTo(0)"
         >
-          <path d="M4 2l10 6-10 6z" />
-        </svg>
-        <svg
-          v-else
-          viewBox="0 0 16 16"
-          width="18"
-          height="18"
-          fill="currentColor"
-        >
-          <path d="M4 2h3v12H4zM9 2h3v12H9z" />
-        </svg>
-      </button>
-      <button
-        class="btn-icon"
-        :title="t('transport.stop')"
-        :aria-label="t('transport.stop')"
-        @click="stop()"
+          <SkipBack class="size-4" />
+        </button>
+      </UiTooltip>
+      <UiTooltip
+        :content="playing ? t('transport.pause') : t('transport.play')"
+        side="top"
       >
-        <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
-          <rect x="3" y="3" width="10" height="10" rx="1" />
-        </svg>
-      </button>
+        <button
+          class="btn-big"
+          :class="{ playing }"
+          :disabled="!hasAudio"
+          :aria-label="playing ? t('transport.pause') : t('transport.play')"
+          @click="togglePlay()"
+        >
+          <Pause v-if="playing" class="size-[18px]" />
+          <Play v-else class="size-[18px]" />
+        </button>
+      </UiTooltip>
+      <UiTooltip :content="t('transport.stop')" side="top">
+        <button
+          class="btn-icon"
+          :disabled="!hasAudio"
+          :aria-label="t('transport.stop')"
+          @click="stop()"
+        >
+          <Square class="size-3.5" />
+        </button>
+      </UiTooltip>
 
       <div class="tr-divider" />
 
