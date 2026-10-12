@@ -54,6 +54,7 @@ defineProps<{
         :max="control.max?.()"
         :step="control.step"
         :label="label"
+        class="decimals-input"
         @update:model-value="(v: number) => setNumber(control, v)"
       />
       <span class="muted">{{ unit }}</span>

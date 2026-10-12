@@ -90,7 +90,6 @@ async function testProxies(): Promise<void> {
     <h3>{{ t("settings.cats.network") }}</h3>
 
     <template v-if="!simpleMode">
-      <div class="sub-head">{{ t("settings.network.proxy") }}</div>
       <div class="field-row col">
         <div class="field-info">
           <span class="field-name">{{ t("settings.network.proxy") }}</span>
@@ -111,7 +110,6 @@ async function testProxies(): Promise<void> {
       </p>
     </template>
 
-    <div class="sub-head">{{ t("settings.network.ghProxy") }}</div>
     <div class="field-row">
       <div class="field-info">
         <span class="field-name">{{ t("settings.network.ghProxy") }}</span>

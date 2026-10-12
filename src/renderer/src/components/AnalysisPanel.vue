@@ -368,6 +368,10 @@ onBeforeUnmount(() => {
 }
 .ana-label {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--bdg-fs-12);
   color: var(--bdg-text-dim);
 }
@@ -375,6 +379,10 @@ onBeforeUnmount(() => {
   font-size: var(--bdg-fs-13);
   font-weight: 700;
   min-width: 76px;
+  max-width: 62%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   text-align: right;
 }
 .ana-value.live {

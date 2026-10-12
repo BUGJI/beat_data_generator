@@ -829,6 +829,9 @@ function onSearchEnter(): void {
   flex: 1;
   overflow: auto;
   padding: 18px 22px;
+  /* Reserve the scrollbar on both edges so the centered sections keep the same
+     axis whether or not this tab is tall enough to scroll. */
+  scrollbar-gutter: stable both-edges;
 }
 .panel.drawer .content {
   padding: 14px 16px;

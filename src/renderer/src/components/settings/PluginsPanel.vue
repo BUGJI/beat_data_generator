@@ -13,6 +13,7 @@ import { useMarketplaceStore } from "./useMarketplace";
 import type { PluginEntry } from "@shared/plugin";
 import UiButton from "../ui/UiButton.vue";
 import UiInput from "../ui/UiInput.vue";
+import UiSelect from "../ui/UiSelect.vue";
 import UiSwitch from "../ui/UiSwitch.vue";
 
 const { t } = useI18n();
@@ -99,7 +100,7 @@ watch(
         <div class="plugin-main">
           <div class="plugin-titles">
             <span class="plugin-name">
-              {{ pluginName(entry) }}
+              <span class="plugin-name-text">{{ pluginName(entry) }}</span>
               <span class="plugin-ver num">v{{ entry.version }}</span>
             </span>
             <span class="plugin-desc">
@@ -135,18 +136,12 @@ watch(
         </UiButton>
         <label class="ttl-field" :title="t('settings.plugins.cacheTtlDesc')">
           <span class="muted">{{ t("settings.plugins.cacheTtl") }}</span>
-          <nav class="subnav ttl-chips">
-            <button
-              v-for="o in market.ttlOptions"
-              :key="o.value"
-              type="button"
-              class="subnav-item"
-              :class="{ active: market.cacheTtl === o.value }"
-              @click="market.cacheTtl = o.value"
-            >
-              {{ o.label }}
-            </button>
-          </nav>
+          <UiSelect
+            v-model="market.cacheTtl"
+            size="sm"
+            class="ttl-select"
+            :options="market.ttlOptions"
+          />
         </label>
       </div>
 
@@ -191,7 +186,7 @@ watch(
         <div class="plugin-main">
           <div class="plugin-titles">
             <span class="plugin-name">
-              {{ market.name(p) }}
+              <span class="plugin-name-text">{{ market.name(p) }}</span>
               <span class="plugin-ver num">v{{ p.latest }}</span>
               <span
                 v-if="p.installedVersion && p.updateAvailable"
@@ -297,6 +292,8 @@ watch(
 <style scoped>
 .plugin-tools {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin-bottom: 14px;
 }
@@ -326,8 +323,17 @@ watch(
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+/* Long names ellipsize so they never push the badges / enable switch. */
+.plugin-name-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .plugin-ver {
+  flex: none;
   font-size: var(--bdg-fs-10);
   color: var(--bdg-text-dim);
   font-weight: 400;
@@ -349,7 +355,8 @@ watch(
   gap: 10px;
   flex: none;
 }
-.plugin-meta .badge {
+.badge {
+  flex: none;
   font-size: var(--bdg-fs-9);
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -371,7 +378,7 @@ watch(
 .plugin-sub {
   font-size: var(--bdg-fs-11);
 }
-.plugin-meta .badge.warn {
+.badge.warn {
   color: var(--bdg-amber);
   background: rgb(var(--bdg-amber-rgb) / 0.14);
   border-color: rgb(var(--bdg-amber-rgb) / 0.28);
@@ -395,8 +402,8 @@ watch(
   gap: 6px;
   font-size: var(--bdg-fs-12);
 }
-.ttl-chips {
-  margin: 0;
+.ttl-select {
+  width: 120px;
 }
 .link-btn {
   border: none;

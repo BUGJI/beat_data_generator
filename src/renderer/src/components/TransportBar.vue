@@ -195,8 +195,11 @@ onBeforeUnmount(() => {
 .transport {
   flex: none;
   height: var(--bdg-transport-h);
-  display: flex;
-  align-items: center;
+  /* Equal side columns keep the transport controls centred on the window
+     regardless of how wide the rate / volume groups are. */
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: stretch;
   gap: 16px;
   padding: 0 16px;
   background: linear-gradient(0deg, var(--bdg-bg-sunken), var(--bdg-bg-panel));
@@ -204,6 +207,7 @@ onBeforeUnmount(() => {
 }
 .rate-zone {
   flex: none;
+  justify-self: start;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -265,7 +269,6 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 .tr-controls {
-  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -332,6 +335,7 @@ button:disabled {
 }
 .tr-right {
   width: min(260px, 26vw);
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 10px;

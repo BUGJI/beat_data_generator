@@ -513,11 +513,15 @@ onBeforeUnmount(() => {
   flex-direction: column;
   gap: 1px;
   justify-content: center;
+  /* The lane height is a fixed constant; clip instead of bleeding into the
+     neighbouring track when the Appearance text scale is cranked up. */
+  overflow: hidden;
 }
 .t-name,
 .t-name-input {
   font-size: var(--bdg-fs-12);
   font-weight: 700;
+  line-height: 1.15;
 }
 .t-name-input {
   background: transparent;
@@ -536,6 +540,7 @@ onBeforeUnmount(() => {
 }
 .t-sub {
   font-size: var(--bdg-fs-10);
+  line-height: 1.1;
   color: var(--bdg-text-dim);
   white-space: nowrap;
   overflow: hidden;

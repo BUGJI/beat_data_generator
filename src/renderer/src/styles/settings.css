@@ -71,6 +71,11 @@
   flex-direction: column;
   align-items: stretch;
 }
+/* A radio group is inline by nature; inside a stacked (.col) row it should hug
+   its own content instead of stretching to the full row width. */
+.settings-panel .field-row.col [role="radiogroup"] {
+  align-self: flex-start;
+}
 .settings-panel .field-info {
   display: flex;
   flex-direction: column;

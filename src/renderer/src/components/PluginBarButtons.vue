@@ -24,7 +24,7 @@ function onClick(b: (typeof barButtons)[number]): void {
     :key="`${b.pluginId}:${b.uid}`"
     type="button"
     class="icon-btn"
-    :class="{ on: b.active }"
+    :class="{ on: b.active, 'has-text': !b.def.icon }"
     :title="localeText(b.def.title)"
     :aria-label="localeText(b.def.title)"
     :aria-pressed="b.def.toggle ? b.active : undefined"
@@ -60,6 +60,13 @@ function onClick(b: (typeof barButtons)[number]): void {
   border-color: rgb(var(--bdg-accent-rgb) / 0.45);
   box-shadow: 0 0 8px rgb(var(--bdg-accent-rgb) / 0.25);
 }
+/* Text-only plugin buttons grow with their label instead of overflowing the
+   fixed-width icon square. */
+.icon-btn.has-text {
+  width: auto;
+  min-width: var(--bdg-ctl-md);
+  padding: 0 8px;
+}
 .pb-btn-ico {
   display: inline-flex;
   width: 15px;
@@ -72,7 +79,6 @@ function onClick(b: (typeof barButtons)[number]): void {
 }
 .pb-btn-txt {
   font-size: var(--bdg-fs-11);
-  padding: 0 6px;
   white-space: nowrap;
 }
 .quick-divider {

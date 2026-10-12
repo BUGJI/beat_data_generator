@@ -100,7 +100,7 @@ const uiShadow = computed({
 </script>
 
 <template>
-  <div class="field-row">
+  <div class="field-row col">
     <div class="field-info">
       <span class="field-name">{{
         t("settings.theme.appearance.bgImage")
@@ -354,13 +354,20 @@ const uiShadow = computed({
 
 <style scoped>
 .bg-pick {
-  display: inline-flex;
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
+/* Keep the buttons at their natural size; only the file name may shrink. */
+.bg-pick button {
+  flex: none;
+}
 .bg-pick .bg-name {
-  max-width: 180px;
+  flex: 1 1 120px;
+  min-width: 0;
+  max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
