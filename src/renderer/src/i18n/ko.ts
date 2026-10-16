@@ -151,6 +151,8 @@ export default {
     audioMismatch:
       "오디오가 프로젝트 MD5와 일치하지 않아요. 노래를 다시 선택하고 오프셋을 다시 보정하세요.",
     audioDecodeFail: "오디오 디코딩에 실패했어요. 다른 파일을 시도해 보세요.",
+    analysisWindowLimited:
+      "긴 오디오: 분석은 처음 {minutes}분만 적용돼요 (설정 → 오디오에서 조정).",
   },
   settings: {
     title: "설정",
@@ -360,6 +362,10 @@ export default {
       spectrumDesc: "멜 스펙트로그램을 계산해 오디오 분석 패널에 렌더링해요.",
       panel: "분석 패널 버튼",
       panelDesc: "상단 바에 오디오 분석 패널 버튼을 표시해요.",
+      analysisWindowMinutes: "분석 길이 제한",
+      analysisWindowMinutesUnit: "분 (1–60)",
+      analysisWindowMinutesDesc:
+        "오디오 시작부터 이 길이만큼만 분석해요 (BPM / 박자 / 루프 / 스펙트럼). 긴 오디오의 전체 스펙트럼 분석은 메모리를 많이 사용하므로 창을 제한해 멈춤이나 충돌을 막아요. 재생과 파형은 영향을 받지 않아요.",
       metronomeTitle: "메트로놈",
       metronome: "메트로놈 클릭",
       metronomeDesc:

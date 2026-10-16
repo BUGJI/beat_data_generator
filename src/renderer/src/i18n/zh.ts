@@ -143,6 +143,8 @@ export default {
     audioMissing: "音频文件不存在，请重新选择音频",
     audioMismatch: "音频与工程记录的 MD5 不一致，请重新选择歌曲并校准偏移",
     audioDecodeFail: "音频解码失败，请换一个文件试试",
+    analysisWindowLimited:
+      "音频较长，分析仅覆盖前 {minutes} 分钟（可在设置 → 音频 调整）。",
   },
   settings: {
     title: "设置",
@@ -336,6 +338,10 @@ export default {
       spectrumDesc: "计算梅尔频谱图并渲染到音频分析面板。",
       panel: "分析面板按钮",
       panelDesc: "在顶部工具栏显示音频分析面板的开关按钮。",
+      analysisWindowMinutes: "分析时长上限",
+      analysisWindowMinutesUnit: "分钟（1–60）",
+      analysisWindowMinutesDesc:
+        "只从曲首分析这么久（BPM / 拍位 / 循环 / 频谱）。整曲频谱分析在长音频上会占用大量内存，限制窗口可避免卡死或崩溃；播放与波形不受影响。",
       metronomeTitle: "打拍音",
       metronome: "打拍音",
       metronomeDesc:

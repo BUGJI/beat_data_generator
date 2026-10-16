@@ -177,6 +177,11 @@ export const SettingsSchema = z.object({
   audioSpectrum: bool(false),
   /** Show the audio analysis panel button in the top bar. */
   audioPanel: bool(false),
+  /** Longest span (minutes) analysed from the start of the audio. Whole-file DSP
+   *  allocates a full STFT (~O(minutes)); capping it keeps long files (DJ sets)
+   *  from exhausting memory. Only the analysis window is limited; playback /
+   *  waveform still use the whole track. */
+  analysisWindowMinutes: intInRange(3, 1, 60),
   /** Active theme preset id (see renderer src/theme.ts). */
   themePreset: z
     .string()

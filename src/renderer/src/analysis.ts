@@ -11,6 +11,7 @@ import { useTransportStore } from "./stores/transport";
 import { tempoMap } from "./services/timeline";
 import { historyGestureBegin, historyGestureEnd } from "./services/history";
 import { useSettingsStore } from "./stores/settings";
+import { toast } from "./ui/toast";
 import { t } from "./utils/text";
 import type { AnalyseResponse, LiveResponse } from "./analysis.worker";
 
@@ -57,13 +58,18 @@ function sampleRate(): number | null {
   return buf ? buf.sampleRate : null;
 }
 
-/** Linear-decimate a float signal to a target sample rate (analysis tier). */
-function downsample(
+/**
+ * Linear-decimate a float signal to a target sample rate (analysis tier),
+ * always returning an array the caller owns. When no decimation is needed the
+ * input is copied instead of returned as-is: the result is transferred to the
+ * worker, and transferring a view would detach the engine's live audio buffers.
+ */
+function downsampleOwned(
   y: Float32Array,
   src: number,
   target: number,
 ): Float32Array {
-  if (src <= target || src <= 0) return y;
+  if (src <= target || src <= 0) return y.slice();
   const ratio = src / target;
   const outLen = Math.max(1, Math.floor(y.length / ratio));
   const out = new Float32Array(outLen);
@@ -75,6 +81,24 @@ function downsample(
     out[i] = y[i0]! * (1 - f) + y[i1]! * f;
   }
   return out;
+}
+
+/** Longest span (seconds) analysed from the audio start, from settings. */
+function analysisWindowSeconds(): number {
+  const m = useSettingsStore().settings.analysisWindowMinutes;
+  return Math.max(1, Math.min(60, m || 3)) * 60;
+}
+
+/** Toast once per load when the track exceeds the analysis window. */
+function notifyIfWindowLimited(): void {
+  const buf = engine.sourceBuffer;
+  if (!buf) return;
+  const maxSec = analysisWindowSeconds();
+  if (buf.duration > maxSec + 1) {
+    toast.info(
+      t("dialogs.analysisWindowLimited", { minutes: Math.round(maxSec / 60) }),
+    );
+  }
 }
 
 // ---- worker plumbing ----
@@ -151,16 +175,31 @@ function requestAnalysis(
       spectrum: null,
     });
   }
-  // Downsample to a research-grade sample rate before transferring to keep
-  // the worker cheap; 22050 Hz is plenty for tempo/loop/spectra analysis.
-  const sig = downsample(y, sr, Math.min(sr, 22050));
+  // Only analyse a bounded window from the start: the DSP builds a full STFT
+  // whose memory grows with duration, so an unbounded signal (long DJ sets)
+  // would exhaust the worker. Analysis on the short window is plenty for
+  // tempo/loop/spectra; playback and the waveform still use the whole track.
+  const maxSamples = Math.floor(analysisWindowSeconds() * sr);
+  const window = y.length > maxSamples ? y.subarray(0, maxSamples) : y;
+  // Downsample to a research-grade sample rate before transferring to keep the
+  // worker cheap; 22050 Hz is plenty for tempo/loop/spectra analysis. The
+  // result is an owned copy, so transferring it never detaches the engine.
+  const sig = downsampleOwned(window, sr, Math.min(sr, 22050));
   const downSr = sr < 22050 ? sr : 22050;
   const id = ++workerId;
   return new Promise<AnalyseResponse>((resolve) => {
     pending.set(id, resolve);
     const w = ensureWorker();
     w.postMessage(
-      { kind: "analyze", id, y: sig, sr: downSr, wantLoop, wantSpectrum },
+      {
+        kind: "analyze",
+        id,
+        y: sig,
+        sr: downSr,
+        startSec: 0,
+        wantLoop,
+        wantSpectrum,
+      },
       [sig.buffer],
     );
   });
@@ -175,7 +214,9 @@ function applyWorkerResult(res: AnalyseResponse): void {
   if (res.spectrum) {
     analysis.spectrum = res.spectrum;
     analysis.spectrumKey++;
-  } else if (res.error) {
+  } else {
+    // Release the previous (potentially whole-track) spectrum when the toggle
+    // is off or the run failed, instead of holding it until the next load.
     analysis.spectrum = null;
   }
 }
@@ -223,6 +264,7 @@ export async function analyzeCurrent(): Promise<void> {
 /** Run on every audio load, honouring each independent toggle. */
 export async function onAudioLoaded(autoApply = true): Promise<void> {
   analysis.liveBpm = null;
+  notifyIfWindowLimited();
   await runAnalysis(autoApply);
 }
 
@@ -286,7 +328,11 @@ function pollLiveBpm(): void {
   const end = Math.min(yLen, start + winSec * src);
   if (end - start < src * 0.5) return;
   const downSr = Math.min(src, 22050);
-  const seg = downsample((y as Float32Array).subarray(start, end), src, downSr);
+  const seg = downsampleOwned(
+    (y as Float32Array).subarray(start, end),
+    src,
+    downSr,
+  );
   void requestLive(seg, downSr).then((bpm) => {
     if (bpm !== null) analysis.liveBpm = bpm;
     // keep the last good readout if this window was ambiguous

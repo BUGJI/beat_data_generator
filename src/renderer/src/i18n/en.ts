@@ -151,6 +151,8 @@ export default {
     audioMismatch:
       "Audio does not match the project MD5. Please re-select the song and re-calibrate the offset.",
     audioDecodeFail: "Failed to decode audio. Try another file.",
+    analysisWindowLimited:
+      "Long audio: analysis only covers the first {minutes} minutes (adjust in Settings → Audio).",
   },
   settings: {
     title: "Settings",
@@ -365,6 +367,10 @@ export default {
         "Compute a mel spectrogram and render it in the audio analysis panel.",
       panel: "Analysis panel button",
       panelDesc: "Show the audio analysis panel button in the top bar.",
+      analysisWindowMinutes: "Analysis length limit",
+      analysisWindowMinutesUnit: "minutes (1–60)",
+      analysisWindowMinutesDesc:
+        "Analyse only this much from the start of the audio (BPM / beats / loop / spectrum). Whole-track spectral analysis uses a lot of memory on long audio, so limiting the window prevents stalls or crashes; playback and the waveform are unaffected.",
       metronomeTitle: "Metronome",
       metronome: "Metronome click",
       metronomeDesc:

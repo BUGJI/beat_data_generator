@@ -165,9 +165,16 @@ export class PlaybackEngine {
 
   async decode(bytes: Uint8Array): Promise<AudioBuffer | null> {
     const ctx = this.ensureCtx();
-    const ab = bytes.buffer.slice(
-      bytes.byteOffset,
-      bytes.byteOffset + bytes.byteLength,
+    // Hand decodeAudioData the caller's buffer directly when the view spans it
+    // (the common IPC case), avoiding a full-size copy of the encoded file.
+    // decodeAudioData detaches it, which is fine: callers never reuse `bytes`.
+    const ab = (
+      bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
+        ? bytes.buffer
+        : bytes.buffer.slice(
+            bytes.byteOffset,
+            bytes.byteOffset + bytes.byteLength,
+          )
     ) as ArrayBuffer;
     try {
       return await ctx.decodeAudioData(ab);

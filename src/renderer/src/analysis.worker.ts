@@ -15,6 +15,10 @@ export type AnalyseRequest = {
   id: number;
   y: Float32Array;
   sr: number;
+  /** Absolute start of `y` within the full track, in seconds. Results are
+   *  shifted back by this so beats / loop times always reference the whole
+   *  track even when only a bounded excerpt was analysed. */
+  startSec?: number;
   wantLoop: boolean;
   wantSpectrum: boolean;
 };
@@ -46,6 +50,13 @@ export type LiveResponse = {
 };
 
 export type WorkerResponse = AnalyseResponse | LiveResponse;
+
+/**
+ * Absolute ceiling on the analysed span, independent of the renderer's
+ * setting, so a caller that bypasses the UI (e.g. a plugin) still cannot hand
+ * the DSP a multi-hour signal whose full STFT would exhaust memory.
+ */
+const ANALYSIS_HARD_MAX_SEC = 3600;
 
 const post = (msg: WorkerResponse): void =>
   (self as unknown as { postMessage: (m: WorkerResponse) => void }).postMessage(
@@ -89,15 +100,25 @@ self.onmessage = async (e: MessageEvent<AnalyseRequest | LiveRequest>) => {
   };
 
   try {
-    const y = req.y ? new Float32Array(req.y) : new Float32Array();
     const sr = req.sr;
+    const startSec = Number.isFinite(req.startSec)
+      ? (req.startSec as number)
+      : 0;
+    const hardMax = sr > 0 ? Math.floor(ANALYSIS_HARD_MAX_SEC * sr) : 0;
+    const source = req.y ? new Float32Array(req.y) : new Float32Array();
+    const y =
+      hardMax > 0 && source.length > hardMax
+        ? source.subarray(0, hardMax)
+        : source;
     const bt = beat_track(y, sr, { units: "time" });
     res.bpm =
       typeof bt.tempo === "number" && Number.isFinite(bt.tempo)
         ? bt.tempo
         : null;
     res.beats = Array.isArray(bt.beats)
-      ? (bt.beats as number[]).filter((n) => Number.isFinite(n))
+      ? (bt.beats as number[])
+          .filter((n) => Number.isFinite(n))
+          .map((n) => n + startSec)
       : [];
 
     if (req.wantLoop && sr > 0) {
@@ -108,8 +129,10 @@ self.onmessage = async (e: MessageEvent<AnalyseRequest | LiveRequest>) => {
         duration: y.length / sr,
       };
       const lp = await loop.detect(shim, { strategy: "fast" });
-      res.loopStart = typeof lp.loopStart === "number" ? lp.loopStart : null;
-      res.loopEnd = typeof lp.loopEnd === "number" ? lp.loopEnd : null;
+      res.loopStart =
+        typeof lp.loopStart === "number" ? lp.loopStart + startSec : null;
+      res.loopEnd =
+        typeof lp.loopEnd === "number" ? lp.loopEnd + startSec : null;
       res.loopConfidence =
         typeof lp.confidence === "number" ? lp.confidence : null;
     }

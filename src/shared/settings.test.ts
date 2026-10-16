@@ -36,6 +36,19 @@ describe("defaultSettings", () => {
     expect(s.backgroundDim).toBe(0);
     expect(s.backgroundBlur).toBe(0);
     expect(s.surfaceOpacity).toBe(90);
+    expect(s.analysisWindowMinutes).toBe(3);
+  });
+
+  it("clamps the analysis window length into 1–60 minutes", () => {
+    expect(
+      sanitizeSettings({ analysisWindowMinutes: 0 }).analysisWindowMinutes,
+    ).toBe(1);
+    expect(
+      sanitizeSettings({ analysisWindowMinutes: 999 }).analysisWindowMinutes,
+    ).toBe(60);
+    expect(
+      sanitizeSettings({ analysisWindowMinutes: 7 }).analysisWindowMinutes,
+    ).toBe(7);
   });
 });
 

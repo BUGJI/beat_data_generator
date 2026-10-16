@@ -84,6 +84,17 @@ const SEARCH_KEYWORDS: Record<string, string[]> = {
   "audio.liveBpm": ["实时", "live", "bpm", "速度"],
   "audio.spectrum": ["频谱", "spectrum", "分析", "梅尔", "mel"],
   "audio.panel": ["面板", "panel", "分析"],
+  "audio.analysisWindowMinutes": [
+    "分析时长",
+    "分析范围",
+    "窗口",
+    "长音频",
+    "内存",
+    "analysis",
+    "window",
+    "duration",
+    "memory",
+  ],
   "audio.metronome": [
     "节拍器",
     "打拍",
@@ -406,6 +417,10 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     get: () => settings.settings.audioPanel,
     set: (v: boolean) => void patchSettings({ audioPanel: v }),
   });
+  const analysisWindowMinutes = computed({
+    get: () => settings.settings.analysisWindowMinutes,
+    set: (v: number) => void patchSettings({ analysisWindowMinutes: v }),
+  });
 
   /** Dev options gate: fields that only make sense when dev mode is on. */
   const devOnly = (): boolean => !devEnabled.value;
@@ -524,6 +539,18 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
           { kind: "field", key: "liveBpm", control: sw(audioLiveBpm) },
           { kind: "field", key: "spectrum", control: sw(audioSpectrum) },
           { kind: "field", key: "panel", control: sw(audioPanel) },
+          {
+            kind: "field",
+            key: "analysisWindowMinutes",
+            col: true,
+            expert: true,
+            control: num(analysisWindowMinutes, {
+              min: freeMin(1),
+              max: freeMax(60),
+              step: 1,
+              unitKey: "analysisWindowMinutesUnit",
+            }),
+          },
         ],
       },
       {
@@ -697,6 +724,7 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     audioLiveBpm,
     audioSpectrum,
     audioPanel,
+    analysisWindowMinutes,
     // row navigation
     fieldCats,
     groupsOf,
