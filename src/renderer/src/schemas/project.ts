@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { DEFAULT_DIV } from "../metrics";
 import { buildTempoMap, clampBpm, makeId } from "../tempo";
+import { normalizeGridDiv } from "../grid";
 import { isFreeInput } from "@shared/limits";
 import { baseName } from "@shared/path";
 import type {
@@ -146,6 +148,14 @@ export const BpmPointSchema: z.ZodType<BpmPoint> = z.object({
     .catch(1)
     .default(1)
     .transform((v) => (v > 0 ? v : 1)),
+  gridDiv: z
+    .unknown()
+    .optional()
+    .transform((v) => {
+      if (v == null) return undefined;
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    }),
 });
 
 export const ProjectNoteSchema: z.ZodType<ProjectNote> = z.object({
@@ -175,6 +185,11 @@ export const BeatProjectSchema: z.ZodType<BeatProject> = z.object({
     .default(120)
     .transform((v) => clampBpm(v)),
   offsetMs: z.coerce.number().catch(0).default(0),
+  gridDiv: z.coerce
+    .number()
+    .catch(DEFAULT_DIV)
+    .default(DEFAULT_DIV)
+    .transform((v) => normalizeGridDiv(v)),
   audioName: nullableString,
   audioMd5: nullableString,
   bpmLocked: optionalTrue,
@@ -242,6 +257,7 @@ function parseLegacy(
     name,
     baseBpm,
     offsetMs,
+    gridDiv: DEFAULT_DIV,
     audioName,
     audioMd5: typeof o.audioMd5 === "string" ? o.audioMd5 : null,
     bpmLocked: o.bpmLocked === true,

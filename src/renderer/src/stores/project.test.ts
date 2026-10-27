@@ -6,6 +6,9 @@ import {
   addTrack,
   moveMarker,
   removeSelectedMarkers,
+  setBpmGridDiv,
+  setBpmLocked,
+  setGridDiv,
   setTrackLocked,
   useProjectStore,
 } from "./project";
@@ -65,6 +68,42 @@ describe("setTrackLocked", () => {
   it("does not record an undo step when the value is unchanged", () => {
     const track = addTrack("T", false);
     setTrackLocked(track.id, false);
+    expect(canUndo()).toBe(false);
+  });
+});
+
+describe("grid divisions", () => {
+  it("records a global grid change once", () => {
+    setGridDiv(8);
+    expect(useProjectStore().gridDiv).toBe(8);
+    expect(canUndo()).toBe(true);
+
+    resetHistory();
+    setGridDiv(8);
+    expect(canUndo()).toBe(false);
+  });
+
+  it("sets and clears a BPM point override", () => {
+    const point = addBpmPoint(4)!;
+    resetHistory();
+
+    setBpmGridDiv(point.id, 16);
+    expect(point.gridDiv).toBe(16);
+    expect(canUndo()).toBe(true);
+
+    resetHistory();
+    setBpmGridDiv(point.id, null);
+    expect(point.gridDiv).toBeUndefined();
+    expect(canUndo()).toBe(true);
+  });
+
+  it("ignores grid overrides while BPM is locked", () => {
+    const point = addBpmPoint(4)!;
+    setBpmLocked(true);
+    resetHistory();
+
+    setBpmGridDiv(point.id, 16);
+    expect(point.gridDiv).toBeUndefined();
     expect(canUndo()).toBe(false);
   });
 });

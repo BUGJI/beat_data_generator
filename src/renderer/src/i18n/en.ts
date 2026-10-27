@@ -80,6 +80,8 @@ export default {
     timeAxis: "Time Axis",
     snapToGrid: "Beat grid",
     snapDiv: "Snap division",
+    snapDivTip:
+      "Global grid division; BPM points can override the grid after them. Saved with the project.",
     snapDiv1: "1/1 beat",
     snapDiv2: "1/2 beat",
     snapDiv4: "1/4 beat",
@@ -96,7 +98,8 @@ export default {
     audioTrack: "Audio",
     markerTrack: "Markers",
     bpmTrack: "BPM Track",
-    bpmTrackHint: "drag BPM points to adjust following beats",
+    bpmTrackHint:
+      "drag BPM points to adjust following beats; set the grid after a point in its card",
     addTrack: "Add marker track",
     addBeatTrack: "Marker track (beat)",
     addNote: "Add a sticky note (floating on the timeline)",
@@ -118,7 +121,7 @@ export default {
     hintBeatAxis:
       "Drag to adjust · select a point to edit its beat / BPM in the floating card",
     tempoHint:
-      "BPM lane: add BPM points to change the beat-grid spacing after them (faster → denser)",
+      "BPM lane: add BPM points to change the beat-grid spacing after them (faster → denser); set a grid override in the point's card",
     snap: "snap 1/{div}",
   },
   transport: {
@@ -581,6 +584,10 @@ export default {
     absValue: "BPM value",
     multValue: "Factor",
     effective: "Effective",
+    gridOverride: "Override beat grid",
+    gridDiv: "Grid division",
+    gridHint:
+      "Applies from this BPM point until the next BPM point with a grid setting; off inherits the previous region.",
     loop: "Loop fill",
     loopInterval: "Interval (beats)",
     loopCount: "Count",

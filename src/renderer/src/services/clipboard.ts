@@ -3,6 +3,7 @@ import { defaultAttrsFor } from "../plugins/registry";
 import {
   addMarkerToStore,
   findMarker,
+  gridDivAtBeat,
   isTrackLocked,
   MAX_LOOP_CHILDREN,
   refreshChildren,
@@ -69,7 +70,7 @@ export function pasteMarkerGroup(): boolean {
   const raw = beatOfTime(posMs);
   const anchor = Math.max(
     0,
-    view.snapEnabled ? snapBeat(raw, view.snapDiv) : raw,
+    view.snapEnabled ? snapBeat(raw, gridDivAtBeat(raw)) : raw,
   );
   const trackIds = new Set(p.tracks.map((t) => t.id));
   let created = false;

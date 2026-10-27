@@ -46,6 +46,11 @@ export interface BpmPoint {
   beat: number;
   mode: BpmMode;
   value: number;
+  /**
+   * Optional beat-grid subdivision denominator effective from this point until
+   * the next point that sets one. Absent means "inherit the previous grid".
+   */
+  gridDiv?: number;
 }
 
 export interface BeatProject {
@@ -54,6 +59,8 @@ export interface BeatProject {
   name: string;
   baseBpm: number;
   offsetMs: number;
+  /** Global beat-grid subdivision; BPM points may override it from their beat. */
+  gridDiv: number;
   audioName: string | null;
   audioMd5: string | null;
   bpmLocked?: boolean;

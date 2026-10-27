@@ -80,6 +80,8 @@ export default {
     timeAxis: "시간축",
     snapToGrid: "비트 그리드",
     snapDiv: "스냅 분할",
+    snapDivTip:
+      "전역 그리드 분할; BPM 포인트가 이후 그리드를 덮어쓸 수 있으며 프로젝트와 함께 저장돼요.",
     snapDiv1: "1/1 박자",
     snapDiv2: "1/2 박자",
     snapDiv4: "1/4 박자",
@@ -96,7 +98,8 @@ export default {
     audioTrack: "오디오",
     markerTrack: "마커",
     bpmTrack: "BPM 트랙",
-    bpmTrackHint: "BPM 포인트를 끌어 이후 박자를 조정하세요",
+    bpmTrackHint:
+      "BPM 포인트를 끌어 이후 박자를 조정하세요; 카드에서 이후 그리드를 설정할 수 있어요",
     addTrack: "마커 트랙 추가",
     addBeatTrack: "마커 트랙 (박자)",
     addNote: "스티커 메모 추가 (타임라인에 떠 있음)",
@@ -118,7 +121,7 @@ export default {
     hintBeatAxis:
       "끌어서 조정 · 포인트를 선택하면 떠 있는 카드에서 박자 / BPM을 편집할 수 있어요",
     tempoHint:
-      "BPM 레인: BPM 포인트를 추가하면 그 이후의 비트 그리드 간격이 바뀌어요 (빠를수록 더 촘촘함)",
+      "BPM 레인: BPM 포인트를 추가하면 그 이후의 비트 그리드 간격이 바뀌어요 (빠를수록 더 촘촘함); 포인트 카드에서 그리드 덮어쓰기를 설정할 수 있어요",
     snap: "스냅 1/{div}",
   },
   transport: {
@@ -578,6 +581,10 @@ export default {
     absValue: "BPM 값",
     multValue: "배수",
     effective: "적용",
+    gridOverride: "박자 그리드 덮어쓰기",
+    gridDiv: "그리드 분할",
+    gridHint:
+      "이 BPM 포인트부터 다음 그리드 설정 BPM 포인트까지 적용돼요; 끄면 이전 구간을 따라가요.",
     loop: "루프 채우기",
     loopInterval: "간격 (박자)",
     loopCount: "개수",

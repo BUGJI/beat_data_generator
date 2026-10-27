@@ -1,3 +1,4 @@
+import { gridDivAt } from "../../grid";
 import type { BpmPoint, Marker, MarkerTrack } from "../../types";
 import { useProjectStore } from "./store";
 
@@ -15,3 +16,7 @@ export const findMarker = (id: string): Marker | undefined =>
 
 export const findBpmPoint = (id: string): BpmPoint | undefined =>
   useProjectStore().bpmPoints.find((p) => p.id === id);
+
+/** Effective beat-grid subdivision at a beat. */
+export const gridDivAtBeat = (beat: number): number =>
+  gridDivAt(useProjectStore().gridSegments, beat);

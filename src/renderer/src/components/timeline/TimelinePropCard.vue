@@ -13,13 +13,16 @@ import {
   useProjectStore,
   MAX_LOOP_CHILDREN,
   changeMarkerTrack,
+  gridDivAtBeat,
   moveMarker,
+  setBpmGridDiv,
   updateBpmPoint,
   updateMarkerLoop,
 } from "../../stores/project";
 import { useSelectionStore } from "../../stores/selection";
 import { useSettingsStore } from "../../stores/settings";
-import { useViewStore } from "../../stores/view";
+import { parseGridDenominator } from "../../grid";
+import { DEFAULT_DIV, SNAP_DIVISIONS } from "../../metrics";
 import {
   effectiveBpmFor,
   formatTime,
@@ -31,6 +34,7 @@ import { fmtBar } from "./geometry";
 import TimelineMarkerAttrs from "./TimelineMarkerAttrs.vue";
 import type { BpmMode, BpmPoint, Marker } from "../../types";
 import UiButton from "../ui/UiButton.vue";
+import UiCombobox from "../ui/UiCombobox.vue";
 import UiInput from "../ui/UiInput.vue";
 import UiNumberInput from "../ui/UiNumberInput.vue";
 import UiRadioGroup from "../ui/UiRadioGroup.vue";
@@ -44,7 +48,6 @@ const { t } = useI18n();
 const project = useProjectStore();
 const selection = useSelectionStore();
 const settings = useSettingsStore();
-const view = useViewStore();
 
 const selMarker = computed<Marker | null>(() =>
   selection.selected.kind === "marker"
@@ -283,6 +286,43 @@ const bpmTime = computed(() =>
   selBpm.value ? timeOfBeat(selBpm.value.beat) : 0,
 );
 
+// ---- beat-grid override on the selected BPM point ----
+
+const markerStep = computed(() => 1 / gridDivAtBeat(markerBeat.value));
+const bpmStep = computed(() => 1 / gridDivAtBeat(bpmBeat.value));
+const effectiveGridDiv = computed(() =>
+  selBpm.value ? gridDivAtBeat(selBpm.value.beat) : DEFAULT_DIV,
+);
+const gridOverride = computed({
+  get: () => selBpm.value?.gridDiv != null,
+  set: (on: boolean) => {
+    const p = selBpm.value;
+    if (!p) return;
+    setBpmGridDiv(p.id, on ? effectiveGridDiv.value : null);
+  },
+});
+const gridOptions = computed<Array<{ value: string; label: string }>>(() => {
+  const cur = selBpm.value?.gridDiv ?? effectiveGridDiv.value;
+  const list = SNAP_DIVISIONS.map((d) => ({
+    value: String(d),
+    label: `1/${d}`,
+  }));
+  if (!list.some((o) => o.value === String(cur))) {
+    list.push({ value: String(cur), label: `1/${cur}` });
+    list.sort((a, b) => Number(a.value) - Number(b.value));
+  }
+  return list;
+});
+const gridDivModel = computed({
+  get: () => String(selBpm.value?.gridDiv ?? effectiveGridDiv.value),
+  set: (v: string) => {
+    const p = selBpm.value;
+    if (!p) return;
+    const d = parseGridDenominator(v);
+    if (d !== null) setBpmGridDiv(p.id, d);
+  },
+});
+
 // ---- positioning & dragging ----
 
 const CARD_Y_OFFSET = 10;
@@ -436,7 +476,7 @@ onBeforeUnmount(() => {
         <UiNumberInput
           v-model="markerBeat"
           :min="freeInput ? undefined : 0"
-          :step="1 / view.snapDiv"
+          :step="markerStep"
           :precision="4"
           class="w-full"
         />
@@ -531,7 +571,7 @@ onBeforeUnmount(() => {
         <UiNumberInput
           v-model="bpmBeat"
           :min="freeInput ? undefined : 0"
-          :step="1 / view.snapDiv"
+          :step="bpmStep"
           :precision="4"
           class="w-full"
         />
@@ -581,6 +621,28 @@ onBeforeUnmount(() => {
       <div class="pc-sub num">
         {{ t("prop.effective") }}: {{ effBpm.toFixed(1) }} BPM
       </div>
+      <div class="pc-loop-row">
+        <span class="pc-field-label">{{ t("prop.gridOverride") }}</span>
+        <UiSwitch
+          v-model="gridOverride"
+          :disabled="project.bpmLocked"
+          :aria-label="t('prop.gridOverride')"
+        />
+      </div>
+      <template v-if="gridOverride">
+        <label class="pc-field">
+          <span>{{ t("prop.gridDiv") }}</span>
+          <UiCombobox
+            v-model="gridDivModel"
+            size="sm"
+            creatable
+            :disabled="project.bpmLocked"
+            :label="t('prop.gridDiv')"
+            :options="gridOptions"
+          />
+        </label>
+        <div class="pc-sub">{{ t("prop.gridHint") }}</div>
+      </template>
     </template>
 
     <div class="pc-actions">

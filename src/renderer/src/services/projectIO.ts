@@ -1,5 +1,6 @@
 import { toast } from "../ui/toast";
 import { t } from "../utils/text";
+import { DEFAULT_DIV } from "../metrics";
 import {
   addTrack,
   refreshChildren,
@@ -74,6 +75,7 @@ function freshProject(): void {
   p.name = "";
   p.baseBpm = 120;
   p.offsetMs = 0;
+  p.gridDiv = DEFAULT_DIV;
   p.audioPath = null;
   p.audioName = null;
   p.audioMd5 = null;
@@ -133,6 +135,7 @@ export async function openProject(explicitPath?: string): Promise<void> {
     p.name = doc.name;
     p.baseBpm = doc.baseBpm;
     p.offsetMs = doc.offsetMs;
+    p.gridDiv = doc.gridDiv;
     p.audioPath = null;
     p.audioName = doc.audioName;
     p.audioMd5 = doc.audioMd5;
@@ -198,6 +201,7 @@ export function projectJson(): string {
     name: p.name,
     baseBpm: p.baseBpm,
     offsetMs: p.offsetMs,
+    gridDiv: p.gridDiv,
     audioName: p.audioName,
     audioMd5: p.audioMd5,
     bpmLocked: p.bpmLocked === true,

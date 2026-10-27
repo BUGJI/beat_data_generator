@@ -1,8 +1,11 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
+import { buildGridSegments, type GridSegment } from "../../grid";
+import { DEFAULT_DIV } from "../../metrics";
 import { buildTempoMap, type TempoMap } from "../../tempo";
 import type { BpmPoint, Marker, MarkerTrack, ProjectNote } from "../../types";
 import { setBaseBpmImpl, setOffsetImpl, updateBpmPointImpl } from "./bpm";
+import { setBpmGridDivImpl, setGridDivImpl } from "./grid";
 import {
   addMarkerImpl,
   moveMarkerImpl,
@@ -24,6 +27,7 @@ export interface ProjectState {
   name: string;
   baseBpm: number;
   offsetMs: number;
+  gridDiv: number;
   audioPath: string | null;
   audioName: string | null;
   audioMd5: string | null;
@@ -42,6 +46,7 @@ export const useProjectStore = defineStore("project", () => {
   const name = ref("");
   const baseBpm = ref(120);
   const offsetMs = ref(0);
+  const gridDiv = ref(DEFAULT_DIV);
   const audioPath = ref<string | null>(null);
   const audioName = ref<string | null>(null);
   const audioMd5 = ref<string | null>(null);
@@ -60,6 +65,11 @@ export const useProjectStore = defineStore("project", () => {
   /** Tempo map derived from base BPM / offset / tempo points. */
   const tempoMap = computed<TempoMap>(() =>
     buildTempoMap(baseBpm.value, offsetMs.value, bpmPoints.value),
+  );
+
+  /** Effective beat-grid regions: global subdivision plus BPM-point overrides. */
+  const gridSegments = computed<GridSegment[]>(() =>
+    buildGridSegments(gridDiv.value, bpmPoints.value),
   );
 
   /** Markers grouped and sorted per track. Rebuilt only when a marker's track
@@ -81,6 +91,7 @@ export const useProjectStore = defineStore("project", () => {
     name,
     baseBpm,
     offsetMs,
+    gridDiv,
     audioPath,
     audioName,
     audioMd5,
@@ -92,6 +103,7 @@ export const useProjectStore = defineStore("project", () => {
     projectPath,
     dirty,
     tempoMap,
+    gridSegments,
     markersByTrack,
     // ---- high-frequency mutations exposed as Pinia actions ----
     moveMarker: moveMarkerImpl,
@@ -103,5 +115,7 @@ export const useProjectStore = defineStore("project", () => {
     updateNote: updateNoteImpl,
     setBaseBpm: setBaseBpmImpl,
     setOffset: setOffsetImpl,
+    setGridDiv: setGridDivImpl,
+    setBpmGridDiv: setBpmGridDivImpl,
   };
 });

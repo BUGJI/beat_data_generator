@@ -28,6 +28,7 @@ import {
   updateBpmPoint,
   findMarker,
   findBpmPoint,
+  gridDivAtBeat,
 } from "./stores/project";
 import { beatOfTime, timeOfBeat } from "./services/timeline";
 import { seekTo, togglePlay } from "./services/playback";
@@ -200,25 +201,26 @@ function onKeydown(e: KeyboardEvent): void {
   }
   const sel = selection.selected;
   if (!sel.kind || !sel.id) return;
-  const step = 1 / view.snapDiv;
-  const delta = code === "ArrowLeft" ? -step : code === "ArrowRight" ? step : 0;
 
   if (sel.kind === "marker") {
     const m = findMarker(sel.id);
     if (!m) return;
+    const step = 1 / gridDivAtBeat(m.beat);
+    const delta =
+      code === "ArrowLeft" ? -step : code === "ArrowRight" ? step : 0;
     if (code === "Delete" || code === "Backspace") {
       e.preventDefault();
       removeSelectedMarkers();
-    } else if (
-      (delta && code === "ArrowLeft") ||
-      (delta && code === "ArrowRight")
-    ) {
+    } else if (delta !== 0) {
       e.preventDefault();
       moveMarker(m.id, m.beat + delta, true);
     }
   } else if (sel.kind === "bpm") {
     const p = findBpmPoint(sel.id);
     if (!p) return;
+    const step = 1 / gridDivAtBeat(p.beat);
+    const delta =
+      code === "ArrowLeft" ? -step : code === "ArrowRight" ? step : 0;
     if (code === "Delete" || code === "Backspace") {
       e.preventDefault();
       removeBpmPoint(p.id);

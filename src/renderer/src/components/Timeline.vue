@@ -29,6 +29,7 @@ import {
   removeMarker,
   removeBpmPoint,
   resolveMainMarker,
+  gridDivAtBeat,
 } from "../stores/project";
 import { useTransportStore, disableFollowOnScrub } from "../stores/transport";
 import {
@@ -243,11 +244,8 @@ function brushStep(x: number, y: number): void {
   if (lane.kind !== "marker") return;
   const track = trackAt(lane.index);
   if (!track) return;
-  const beat = doSnap(
-    Math.max(0, beatOfTime(screenToTime(x))),
-    view.snapEnabled,
-    view.snapDiv,
-  );
+  const raw = Math.max(0, beatOfTime(screenToTime(x)));
+  const beat = doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
   const key = `${track.id}@${beat}`;
   if (key === brushLastKey) return;
   brushLastKey = key;
@@ -393,7 +391,11 @@ function onPointerDown(e: PointerEvent): void {
     dragGroupIds = loopGroupIds(main.id);
     // remember the clicked point (may be a child) and the main beat so the
     // grabbed point stays under the mouse while the main translates by the same delta.
-    grabStartBeat = doSnap(mkHit.beat, view.snapEnabled, view.snapDiv);
+    grabStartBeat = doSnap(
+      mkHit.beat,
+      view.snapEnabled,
+      gridDivAtBeat(mkHit.beat),
+    );
     mainStartBeat = main.beat;
     selectSingleMarker(main.id);
     return;
@@ -442,11 +444,8 @@ function onPointerMove(e: PointerEvent): void {
     gestureOn = true;
   }
   if (mode === "dragBpm" && dragId) {
-    const raw = doSnap(
-      Math.max(0, beatOfTime(screenToTime(x))),
-      view.snapEnabled,
-      view.snapDiv,
-    );
+    const rawBeat = Math.max(0, beatOfTime(screenToTime(x)));
+    const raw = doSnap(rawBeat, view.snapEnabled, gridDivAtBeat(rawBeat));
     if (!e.altKey && !bpmOccupy(project.bpmPoints, raw))
       updateBpmPoint(dragId, { beat: raw });
   } else if (mode === "dragMarker" && dragId && dragTrackId) {
@@ -454,7 +453,7 @@ function onPointerMove(e: PointerEvent): void {
     const rawBeat = Math.max(0, beatOfTime(screenToTime(x)));
     const raw = e.altKey
       ? rawBeat
-      : doSnap(rawBeat, view.snapEnabled, view.snapDiv);
+      : doSnap(rawBeat, view.snapEnabled, gridDivAtBeat(rawBeat));
     // children are regenerated with fresh ids on every parent move, so refresh
     // the exception set each frame or the parent gets blocked by its own children.
     dragGroupIds = loopGroupIds(dragId);
@@ -500,22 +499,16 @@ function onPointerUp(e: PointerEvent): void {
     if (mode === "scrub") {
       seekPlayhead();
     } else if (mode === "placeBpm") {
-      const beat = doSnap(
-        Math.max(0, beatOfTime(screenToTime(x))),
-        view.snapEnabled,
-        view.snapDiv,
-      );
+      const raw = Math.max(0, beatOfTime(screenToTime(x)));
+      const beat = doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
       const pt = addBpmPoint(beat);
       if (pt) openCard(x, y);
     } else if (mode === "placeMarker") {
       const lane = laneKindAt(y, view.y);
       const track = lane.kind === "marker" ? trackAt(lane.index) : undefined;
       if (track) {
-        const beat = doSnap(
-          Math.max(0, beatOfTime(screenToTime(x))),
-          view.snapEnabled,
-          view.snapDiv,
-        );
+        const raw = Math.max(0, beatOfTime(screenToTime(x)));
+        const beat = doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
         addMarker(track.id, beat);
         // no popup on placement; click the marker again to open its card
       }
@@ -569,7 +562,7 @@ function updateGhost(lane: { kind: "bpm" | "marker"; index: number }): void {
   ).find((r) => (lane.kind === "bpm" ? r.bpm : !r.bpm && r.i === lane.index));
   if (!laneRow) return;
   const raw = Math.max(0, beatOfTime(screenToTime(hover.x)));
-  const beat = doSnap(raw, view.snapEnabled, view.snapDiv);
+  const beat = doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
   const ok =
     lane.kind === "bpm"
       ? !bpmOccupy(project.bpmPoints, beat)
@@ -748,7 +741,9 @@ const selectionAnnounce = computed(() => {
       <span>{{ t("timeline.tempoHint") }}</span>
       <span v-if="view.snapEnabled" class="sep">·</span>
       <span v-if="view.snapEnabled" class="num">{{
-        t("timeline.snap", { div: view.snapDiv })
+        t("timeline.snap", {
+          div: gridDivAtBeat(beatOfTime(transport.positionMs)),
+        })
       }}</span>
       <span v-if="selectionMs" class="sep">·</span>
       <span v-if="selectionMs" class="num">{{ selectionMs }}</span>

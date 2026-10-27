@@ -15,6 +15,7 @@ export { type ProjectState, useProjectStore } from "./store";
 export {
   findBpmPoint,
   findMarker,
+  gridDivAtBeat,
   markersInTrack,
   sortedTracks,
 } from "./queries";
@@ -70,5 +71,6 @@ export {
   setOffset,
   updateBpmPoint,
 } from "./bpm";
+export { setBpmGridDiv, setGridDiv } from "./grid";
 export { withTimeAlign } from "./timeAlign";
 export { BPM_MIN, clampBpm } from "../../tempo";

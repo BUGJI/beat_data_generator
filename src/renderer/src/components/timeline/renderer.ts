@@ -18,6 +18,7 @@ import {
   RULER_H,
   TIME_RULER_H,
 } from "../../metrics";
+import { gridDivAt } from "../../grid";
 import {
   MIN_SUB_PX,
   beatStr,
@@ -224,15 +225,21 @@ function drawGridLines(
     ctx.fillStyle = isBar ? COLORS.gridBar : COLORS.gridBeat;
     ctx.fillRect(x, RULER_H, isBar ? 1.25 : 1, H - RULER_H);
   }
-  // subdivisions when zoomed & snap on. With auto-hide the displayed detail is
-  // capped by the current zoom so a dense/zoomed-out grid can't stall rendering.
-  if (view.snapEnabled && view.snapDiv > 1) {
-    const div = gridSubDiv(t0, t1);
-    if (div > 0) {
-      const b0s = Math.max(0, Math.floor(beatOfTime(t0) * div) - 1);
-      const b1s = Math.ceil(beatOfTime(t1) * div) + 1;
-      for (let s = b0s; s <= b1s; s++) {
+  // subdivisions when zoomed & snap on. Each grid region can use a different
+  // denominator (BPM-point overrides); auto-hide is applied per region.
+  if (view.snapEnabled) {
+    const project = useProjectStore();
+    for (const seg of project.gridSegments) {
+      const lo = Math.max(seg.beatStart, b0);
+      const hi = Math.min(seg.beatEnd ?? b1, b1);
+      if (hi <= lo) continue;
+      const div = gridSubDivFor(seg.div, lo, hi);
+      if (div <= 1) continue;
+      const s0 = Math.max(0, Math.floor(lo * div) - 1);
+      const s1 = Math.ceil(hi * div) + 1;
+      for (let s = s0; s <= s1; s++) {
         const beat = s / div;
+        if (beat < lo || beat >= hi) continue;
         if (Math.abs(beat * div - Math.round(beat * div)) > 1e-9) continue;
         if (Math.abs(beat - Math.round(beat)) < 1e-6) continue;
         const x = X(timeOfBeat(beat));
@@ -245,24 +252,24 @@ function drawGridLines(
   void endMs;
 }
 
-/** Subdivision denominator to draw for a given zoom.
+/** Subdivision denominator to draw for a given zoom and grid region.
  *  - Power-of-two grids halve cleanly, so auto-hide caps them via the classic
  *    1/4 → 1/8 → 1/16 zoom tiers (see cappedSnapDiv).
  *  - Non power-of-two grids (e.g. 1/5) cannot be coarsened into a different
- *    denominator, so they keep the exact snapDiv and are shown only while a
+ *    denominator, so they keep the exact division and are shown only while a
  *    sub-beat is wide enough on screen; when too dense they are suppressed
  *    entirely (returning 0) instead of substituting 1/4-style lines.
  *  With auto-hide off, the full grid is always drawn. */
-function gridSubDiv(t0: number, t1: number): number {
+function gridSubDivFor(actual: number, loBeat: number, hiBeat: number): number {
+  if (actual <= 1) return actual;
   const view = useViewStore();
   const settings = useSettingsStore();
-  const actual = view.snapDiv;
-  if (actual <= 1 || !settings.settings.gridAutoHide) return actual;
-  if ((actual & (actual - 1)) === 0)
-    return cappedSnapDiv(view.pxPerSec, view.snapDiv);
+  if (!settings.settings.gridAutoHide) return actual;
+  if (Number.isInteger(actual) && (actual & (actual - 1)) === 0)
+    return cappedSnapDiv(view.pxPerSec, actual);
   const pps = view.pxPerSec;
-  const b0 = Math.max(0, Math.floor(beatOfTime(t0)));
-  const b1 = Math.min(Math.max(0, Math.ceil(beatOfTime(t1))), b0 + 4096);
+  const b0 = Math.max(0, Math.floor(loBeat));
+  const b1 = Math.min(Math.max(0, Math.ceil(hiBeat)), b0 + 4096);
   let minSecPerBeat = Infinity;
   for (let b = b0; b < b1; b++) {
     const d = timeOfBeat(b + 1) - timeOfBeat(b);
@@ -320,6 +327,37 @@ function drawBpmLaneContent(
       ctx.fillRect(pxX, cy + lo, 1, Math.max(1, hi - lo));
     }
     ctx.globalAlpha = 1;
+  }
+
+  // beat-grid regions: a subtle band per region plus a label at each override
+  // start. Bars/beats stay unchanged; only the subdivision density differs.
+  for (const s of project.gridSegments) {
+    const x0 = X(timeOfBeat(s.beatStart));
+    const x1 = s.beatEnd === null ? W + 40 : X(timeOfBeat(s.beatEnd));
+    if (x1 < -2 || x0 > W + 2) continue;
+    const left = Math.max(-2, x0);
+    const right = Math.min(W + 2, x1);
+    if (right <= left) continue;
+    ctx.globalAlpha = s.override ? 0.07 : 0.025;
+    ctx.fillStyle = COLORS.bpmPoint;
+    ctx.fillRect(left, y0, right - left, y1 - y0);
+    ctx.globalAlpha = s.override ? 0.65 : 0.2;
+    ctx.fillRect(left, y0 + 1, right - left, 2);
+    ctx.globalAlpha = 1;
+    if (!s.override) continue;
+    ctx.fillStyle = COLORS.bpmFaint;
+    ctx.fillRect(x0, y0, 1, y1 - y0);
+    if (x1 - x0 >= 34) {
+      ctx.font = "9px Consolas, monospace";
+      const label = `1/${s.div}`;
+      const tw = ctx.measureText(label).width;
+      if (tw + 8 <= x1 - x0) {
+        ctx.fillStyle = COLORS.labelBg;
+        ctx.fillRect(x0 + 4, y0 + 21, tw + 6, 13);
+        ctx.fillStyle = COLORS.bpmSegmentText;
+        ctx.fillText(label, x0 + 7, y0 + 31);
+      }
+    }
   }
 
   // tempo segment labels (effective map)
@@ -500,7 +538,7 @@ function drawGhost(
   ghost: GhostState | null,
   hover: { x: number; y: number },
 ): void {
-  const view = useViewStore();
+  const project = useProjectStore();
   const g = ghost;
   if (!g || hover.x < 0 || hover.x > W) return;
   const x = X(timeOfBeat(g.beat));
@@ -514,7 +552,7 @@ function drawGhost(
   ctx.stroke();
   ctx.setLineDash([]);
   ctx.font = "10px Consolas, monospace";
-  const label = `${beatStr(g.beat, view.snapDiv)}`;
+  const label = `${beatStr(g.beat, gridDivAt(project.gridSegments, g.beat))}`;
   const tw = ctx.measureText(label).width;
   ctx.fillStyle = COLORS.labelBg;
   ctx.fillRect(x + 4, g.y1 - 22, tw + 8, 16);

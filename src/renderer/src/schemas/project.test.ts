@@ -49,6 +49,36 @@ describe("parseProjectDocument / v2", () => {
     });
     expect(parsed!.doc.audioName).toBe("audio/song.mp3");
     expect(parsed!.doc.bpmLocked).toBe(true);
+    expect(parsed!.doc.gridDiv).toBe(4);
+  });
+
+  it("keeps the global and per-point grid divisions", () => {
+    const parsed = parseProjectDocument(
+      v2({
+        gridDiv: 8,
+        bpmPoints: [
+          { id: "p1", beat: 4, mode: "abs", value: 120, gridDiv: 16 },
+          { id: "p2", beat: 8, mode: "abs", value: 120 },
+        ],
+      }),
+    );
+    expect(parsed!.doc.gridDiv).toBe(8);
+    expect(parsed!.doc.bpmPoints[0].gridDiv).toBe(16);
+    expect(parsed!.doc.bpmPoints[1].gridDiv).toBeUndefined();
+  });
+
+  it("drops an invalid grid override but keeps the BPM point", () => {
+    const parsed = parseProjectDocument(
+      v2({
+        bpmPoints: [
+          { id: "p1", beat: 4, mode: "abs", value: 120, gridDiv: "nope" },
+          { id: "p2", beat: 8, mode: "abs", value: 120, gridDiv: -2 },
+        ],
+      }),
+    );
+    expect(parsed!.doc.bpmPoints).toHaveLength(2);
+    expect(parsed!.doc.bpmPoints[0].gridDiv).toBeUndefined();
+    expect(parsed!.doc.bpmPoints[1].gridDiv).toBeUndefined();
   });
 
   it("keeps base BPM positive and repairs missing optional fields", () => {
@@ -121,6 +151,7 @@ describe("parseProjectDocument / v1 migration", () => {
     expect(parsed).not.toBeNull();
     expect(parsed!.legacyAudioPath).toBe("C:/music/song.mp3");
     expect(parsed!.doc.version).toBe(PROJECT_VERSION);
+    expect(parsed!.doc.gridDiv).toBe(4);
     expect(parsed!.doc.tracks).toHaveLength(1);
     expect(parsed!.doc.markers.map((m) => m.beat)).toEqual([2, 4]);
     expect(parsed!.doc.audioName).toBe("song.mp3");
@@ -146,6 +177,7 @@ describe("BeatProjectSchema", () => {
     expect(doc.name).toBe("");
     expect(doc.baseBpm).toBe(120);
     expect(doc.offsetMs).toBe(0);
+    expect(doc.gridDiv).toBe(4);
     expect(doc.audioName).toBeNull();
     expect(doc.tracks).toEqual([]);
     expect(doc.markers).toEqual([]);

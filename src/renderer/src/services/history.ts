@@ -20,6 +20,7 @@ interface Snap {
 interface SnapState {
   baseBpm: number;
   offsetMs: number;
+  gridDiv: number;
   bpmLocked: boolean;
   tracks: MarkerTrack[];
   markers: Marker[];
@@ -42,6 +43,7 @@ function captureState(): string {
   return JSON.stringify({
     baseBpm: p.baseBpm,
     offsetMs: p.offsetMs,
+    gridDiv: p.gridDiv,
     bpmLocked: p.bpmLocked,
     tracks: p.tracks,
     markers: p.markers,
@@ -79,6 +81,7 @@ function applySnap(snap: Snap): void {
   const data = JSON.parse(snap.text) as SnapState;
   p.baseBpm = data.baseBpm;
   p.offsetMs = data.offsetMs;
+  p.gridDiv = data.gridDiv;
   p.bpmLocked = data.bpmLocked;
   p.tracks = data.tracks;
   p.markers = data.markers;

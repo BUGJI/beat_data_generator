@@ -77,6 +77,7 @@ export default {
     timeAxis: "时间轴",
     snapToGrid: "节拍网格",
     snapDiv: "吸附细分",
+    snapDivTip: "全局网格细分；BPM 点可单独覆盖其后的网格，随工程保存",
     snapDiv1: "1/1 拍",
     snapDiv2: "1/2 拍",
     snapDiv4: "1/4 拍",
@@ -93,7 +94,7 @@ export default {
     audioTrack: "音频轨",
     markerTrack: "踩点轨",
     bpmTrack: "BPM 轨",
-    bpmTrackHint: "拖放 BPM 点调整其后拍轴",
+    bpmTrackHint: "拖放 BPM 点调整其后拍轴；浮动卡可设置其后的节拍网格",
     addTrack: "新增踩点轨",
     addBeatTrack: "踩点轨（节拍）",
     addNote: "添加便签（悬浮在时间线轨道上）",
@@ -111,7 +112,8 @@ export default {
     none: "未载入工程或音频，请从「文件」菜单导入",
     hintNew: "点击 BPM 轨/踩点轨以放置点（默认吸附节拍轴）",
     hintBeatAxis: "拖动调整位置 · 点选后在浮动卡编辑拍位/速度",
-    tempoHint: "BPM 轨：放置 BPM 点改变其后所有拍轴疏密（更快→更密）",
+    tempoHint:
+      "BPM 轨：放置 BPM 点改变其后所有拍轴疏密（更快→更密），也可在浮动卡覆盖其后的节拍网格",
     snap: "吸附 1/{div}",
   },
   transport: {
@@ -544,6 +546,10 @@ export default {
     absValue: "BPM 值",
     multValue: "倍数",
     effective: "段内生效",
+    gridOverride: "覆盖节拍网格",
+    gridDiv: "网格细分",
+    gridHint:
+      "从该 BPM 点起生效，直到下一个设置网格的 BPM 点；关闭则继承上一段。",
     loop: "循环放置",
     loopInterval: "间隔（拍）",
     loopCount: "个数",

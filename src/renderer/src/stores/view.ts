@@ -5,7 +5,6 @@ import {
   MARKER_LANE_H,
   MAX_PX_PER_SEC,
   MIN_PX_PER_SEC,
-  DEFAULT_DIV,
 } from "../metrics";
 import { contentEndMs } from "../services/timeline";
 import { useSettingsStore } from "./settings";
@@ -23,7 +22,6 @@ export const useViewStore = defineStore("view", () => {
   const vh = ref(100);
   const pxPerSec = ref(90);
   const snapEnabled = ref(true);
-  const snapDiv = ref(DEFAULT_DIV);
 
   // ---- high-frequency viewport mutations exposed as Pinia actions ----
   function setScrollImpl(nx: number, ny: number): void {
@@ -59,7 +57,6 @@ export const useViewStore = defineStore("view", () => {
     vh,
     pxPerSec,
     snapEnabled,
-    snapDiv,
     setScroll: setScrollImpl,
     setViewport: setViewportImpl,
     zoomBy: zoomByImpl,

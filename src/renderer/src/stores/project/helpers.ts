@@ -1,6 +1,8 @@
 import { isFreeInput } from "@shared/limits";
+import { gridDivAt } from "../../grid";
 import { snapBeat } from "../../tempo";
 import { useViewStore } from "../view";
+import { useProjectStore } from "./store";
 
 /** Beat rounding / snapping primitives shared by the marker and BPM editors. */
 
@@ -13,8 +15,10 @@ export function clampBeat(b: number): number {
   return isFreeInput() ? b : Math.max(0, b);
 }
 
-/** Snap a beat to the view's grid, or just round when snapping is off. */
+/** Snap a beat to the effective grid at that beat, or just round when off. */
 export function snapped(b: number): number {
   const view = useViewStore();
-  return view.snapEnabled ? snapBeat(b, view.snapDiv) : round(b);
+  if (!view.snapEnabled) return round(b);
+  const div = gridDivAt(useProjectStore().gridSegments, b);
+  return snapBeat(b, div);
 }

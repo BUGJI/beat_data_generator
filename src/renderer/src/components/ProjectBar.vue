@@ -10,6 +10,7 @@ import {
 } from "../services/timeline";
 import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
+import { parseGridDenominator } from "../grid";
 import { BPM_MIN } from "../tempo";
 import { hexToRgb, resolveTheme, type ThemeOverrides } from "../theme";
 import {
@@ -27,6 +28,7 @@ import {
   markerCount,
   visibleMarkers,
   alignMarkersToStep,
+  setGridDiv,
 } from "../stores/project";
 import { useTransportStore, clickFollow } from "../stores/transport";
 import { useSettingsStore } from "../stores/settings";
@@ -182,7 +184,7 @@ const freeInput = computed(() => settings.settings.devFreeInput);
 // ---- beat grid / snap division: pick a preset or type a custom denominator ----
 
 const snapOptions = computed<Array<{ value: number; label: string }>>(() => {
-  const custom = view.snapDiv;
+  const custom = project.gridDiv;
   const list = SNAP_DIVISIONS.map((d) => ({
     value: d as number,
     label: `1/${d}`,
@@ -194,20 +196,11 @@ const snapOptions = computed<Array<{ value: number; label: string }>>(() => {
   return list;
 });
 
-function parseSnapDenominator(raw: string | number): number | null {
-  if (typeof raw === "number")
-    return Number.isFinite(raw) && raw > 0 ? raw : null;
-  const m = /^(?:1\/)?(\d+(?:\.\d+)?)$/.exec(raw.trim());
-  if (!m) return null;
-  const d = Number(m[1]);
-  return d > 0 ? d : null;
-}
-
 const snapDivModel = computed({
-  get: () => String(view.snapDiv),
+  get: () => String(project.gridDiv),
   set: (v: string) => {
-    const d = parseSnapDenominator(v);
-    if (d !== null) view.snapDiv = d;
+    const d = parseGridDenominator(v);
+    if (d !== null) setGridDiv(d);
   },
 });
 
@@ -298,7 +291,9 @@ async function onDetectBpm(): Promise<void> {
       </div>
 
       <div class="snap-row">
-        <span class="snap-label">{{ t("sidebar.snapToGrid") }}</span>
+        <span class="snap-label" :title="t('sidebar.snapDivTip')">{{
+          t("sidebar.snapToGrid")
+        }}</span>
         <UiCombobox
           v-model="snapDivModel"
           size="sm"
