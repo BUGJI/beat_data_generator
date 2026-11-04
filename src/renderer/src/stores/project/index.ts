@@ -15,6 +15,7 @@ export { type ProjectState, useProjectStore } from "./store";
 export {
   findBpmPoint,
   findMarker,
+  findTrack,
   gridDivAtBeat,
   markersInTrack,
   sortedTracks,

@@ -28,6 +28,7 @@ import {
   updateBpmPoint,
   findMarker,
   findBpmPoint,
+  findTrack,
   gridDivAtBeat,
 } from "./stores/project";
 import { beatOfTime, timeOfBeat } from "./services/timeline";
@@ -36,6 +37,7 @@ import { bindWelcomeActions, saveProjectQuick } from "./services/projectIO";
 import { redo, undo } from "./services/history";
 import { copyMarkerGroup, pasteMarkerGroup } from "./services/clipboard";
 import { initPlugins } from "./plugins/host";
+import { isTypingTarget, ownsActivationKey } from "./utils/dom";
 
 const settings = useSettingsStore();
 const selection = useSelectionStore();
@@ -44,32 +46,13 @@ const ui = useUiStore();
 const transport = useTransportStore();
 const project = useProjectStore();
 
-function isTyping(el: EventTarget | null): boolean {
-  if (!(el instanceof HTMLElement)) return false;
-  const tag = el.tagName;
-  return (
-    tag === "INPUT" ||
-    tag === "TEXTAREA" ||
-    tag === "SELECT" ||
-    el.isContentEditable
-  );
-}
-
-/** Focused interactive controls own Space/Enter, so the global shortcuts must
- *  not also fire while one of them is focused. */
-function ownsActivationKey(el: EventTarget | null): boolean {
-  if (!(el instanceof HTMLElement)) return false;
-  return !!el.closest("button, a[href], [role='button'], [role='tab']");
-}
-
 /** Add a marker at the playhead on the selected track (or the first one). */
 function placeMarkerAtPlayhead(): void {
   const sel = selection.selected;
   const selMarker =
     sel.kind === "marker" && sel.id ? findMarker(sel.id) : undefined;
   const track =
-    (selMarker && project.tracks.find((tr) => tr.id === selMarker.trackId)) ??
-    project.tracks[0];
+    (selMarker && findTrack(selMarker.trackId)) ?? project.tracks[0];
   if (!track) return;
   addMarker(track.id, beatOfTime(transport.positionMs));
 }
@@ -103,7 +86,7 @@ let unbindWelcome: (() => void) | null = null;
 function onKeydown(e: KeyboardEvent): void {
   // The settings dialog is modal: suspend all global shortcuts while it is open.
   if (settings.settingsOpen) return;
-  if (isTyping(e.target)) return;
+  if (isTypingTarget(e.target)) return;
   const code = e.code;
   if ((code === "Space" || code === "Enter") && ownsActivationKey(e.target))
     return;

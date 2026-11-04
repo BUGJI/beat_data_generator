@@ -26,20 +26,15 @@ import {
   Wrench,
   X,
 } from "@lucide/vue";
-import {
-  setSettingsOpen,
-  patchSettings,
-  useSettingsStore,
-} from "../stores/settings";
+import { setSettingsOpen, useSettingsStore } from "../stores/settings";
 import SettingsCategorySection from "./settings/SettingsCategorySection.vue";
 import ShortcutsPanel from "./settings/ShortcutsPanel.vue";
 import NetworkPanel from "./settings/NetworkPanel.vue";
 import PluginsPanel from "./settings/PluginsPanel.vue";
 import ThemePanel from "./settings/ThemePanel.vue";
-import {
-  useSettingsRowsStore,
-  type SearchEntry,
-} from "./settings/useSettingsRows";
+import { useSettingsRowsStore } from "./settings/useSettingsRows";
+import { useSettingsLayout } from "./settings/useSettingsLayout";
+import { useSettingsSearch } from "./settings/useSettingsSearch";
 import type { CatKey } from "./settings/types";
 import UiButton from "./ui/UiButton.vue";
 
@@ -47,7 +42,7 @@ const settings = useSettingsStore();
 const rows = useSettingsRowsStore();
 const { simpleMode, uiMotion } = storeToRefs(rows);
 const { groupsOf, rowsInGroup, activeGroup, setSubCat, fieldCats } = rows;
-const { t, te } = useI18n();
+const { t } = useI18n();
 const cat = ref<CatKey>("general");
 
 const cats: Array<{ key: CatKey; icon: Component }> = [
@@ -67,68 +62,8 @@ const cats: Array<{ key: CatKey; icon: Component }> = [
 const SIMPLE_HIDDEN_CATS: CatKey[] = ["advanced"];
 
 // ---- layout: docked drawer ↔ full screen (persisted) ----
-const layout = computed<"drawer" | "full">({
-  get: () => settings.settings.settingsLayout,
-  set: (v) => void patchSettings({ settingsLayout: v }),
-});
-
-const DRAWER_MIN = 440;
-/** Default drawer = 40% of the window; resizing is capped at 90%. */
-const DRAWER_AUTO_RATIO = 0.4;
-const DRAWER_MAX_RATIO = 0.9;
-function maxDrawerWidth(): number {
-  return window.innerWidth * DRAWER_MAX_RATIO;
-}
-function autoDrawerWidth(): number {
-  return Math.max(
-    DRAWER_MIN,
-    Math.round(window.innerWidth * DRAWER_AUTO_RATIO),
-  );
-}
-
-// While dragging we use a local pixel width; otherwise a stored 0 means "auto"
-// (40% of the window, resolved by CSS). Local width avoids a full settings
-// sanitize + persist on every pointermove; committed once on release.
-const dragging = ref(false);
-const dragWidth = ref(0);
-const panelStyle = computed<Record<string, string> | undefined>(() => {
-  if (layout.value !== "drawer") return undefined;
-  if (dragging.value) return { width: `${dragWidth.value}px` };
-  const stored = settings.settings.settingsDrawerWidth;
-  return { width: stored > 0 ? `${stored}px` : "40%" };
-});
-
-// Interface motion (Settings → Display). Off = panels appear/disappear instantly.
-const transitionName = computed(() =>
-  layout.value === "drawer" ? "settings-drawer" : "settings-full",
-);
-
-function toggleLayout(): void {
-  layout.value = layout.value === "drawer" ? "full" : "drawer";
-}
-
-function startResize(e: PointerEvent): void {
-  if (layout.value !== "drawer") return;
-  e.preventDefault();
-  const startX = e.clientX;
-  const startW =
-    (e.currentTarget as HTMLElement).parentElement?.offsetWidth ??
-    autoDrawerWidth();
-  dragging.value = true;
-  dragWidth.value = startW;
-  const move = (ev: PointerEvent): void => {
-    const next = startW - (ev.clientX - startX);
-    dragWidth.value = Math.max(DRAWER_MIN, Math.min(next, maxDrawerWidth()));
-  };
-  const up = (): void => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
-    dragging.value = false;
-    void patchSettings({ settingsDrawerWidth: Math.round(dragWidth.value) });
-  };
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", up);
-}
+const { layout, panelStyle, transitionName, toggleLayout, startResize } =
+  useSettingsLayout();
 
 onMounted(() => {
   window.addEventListener("keydown", onWindowKeydown);
@@ -167,18 +102,23 @@ watch(simpleMode, (on) => {
   if (on && SIMPLE_HIDDEN_CATS.includes(cat.value)) cat.value = "general";
 });
 
-function catLabel(key: string): string {
-  return t(`settings.cats.${key}`);
-}
-
 // ---- settings search ----
 // The index (derived from FIELD_GROUPS plus theme colors) lives in
 // useSettingsRowsStore so rendering and search share a single source of truth.
-const search = ref("");
 const contentEl = ref<HTMLElement | null>(null);
 const searchEl = ref<HTMLInputElement | null>(null);
 const panelEl = ref<HTMLElement | null>(null);
 let lastFocused: HTMLElement | null = null;
+
+const {
+  search,
+  searchQuery,
+  searchResults,
+  highlightParts,
+  goToSetting,
+  onSearchEnter,
+  catLabel,
+} = useSettingsSearch({ cat, contentEl, searchEl });
 
 /** Escape closes the dialog (or clears an active search first). Handled on the
  *  window so it works regardless of which element currently holds focus. */
@@ -218,91 +158,6 @@ function onPanelKeydown(e: KeyboardEvent): void {
     e.preventDefault();
     first.focus();
   }
-}
-
-/** Normalized query, reused by matching and highlighting. */
-const searchQuery = computed(() => search.value.trim().toLowerCase());
-
-function labelKeyOf(entry: SearchEntry): string {
-  return `settings.${entry.cat}.${entry.key}`;
-}
-
-const searchResults = computed<
-  Array<SearchEntry & { label: string; desc: string }>
->(() => {
-  const q = searchQuery.value;
-  if (!q) return [];
-  const hits: Array<SearchEntry & { label: string; desc: string }> = [];
-  for (const entry of rows.searchIndex) {
-    if (simpleMode.value && entry.expert) continue;
-    const key = labelKeyOf(entry);
-    const label = t(key);
-    const descKey = `${key}Desc`;
-    const desc = te(descKey) ? t(descKey) : "";
-    const haystack = [
-      label,
-      desc,
-      catLabel(entry.cat),
-      ...(entry.keywords ?? []),
-    ]
-      .join(" ")
-      .toLowerCase();
-    if (haystack.includes(q)) {
-      hits.push({ ...entry, label, desc });
-    }
-  }
-  return hits;
-});
-
-/** Split `text` into segments so the matched query can be marked in the list. */
-function highlightParts(
-  text: string,
-  q: string,
-): Array<{ text: string; hit: boolean }> {
-  if (!q) return [{ text, hit: false }];
-  const idx = text.toLowerCase().indexOf(q);
-  if (idx < 0) return [{ text, hit: false }];
-  const parts: Array<{ text: string; hit: boolean }> = [];
-  if (idx > 0) parts.push({ text: text.slice(0, idx), hit: false });
-  parts.push({ text: text.slice(idx, idx + q.length), hit: true });
-  if (idx + q.length < text.length)
-    parts.push({ text: text.slice(idx + q.length), hit: false });
-  return parts;
-}
-
-function goToSetting(hit: SearchEntry & { label: string }): void {
-  cat.value = hit.cat;
-  if (hit.cat === "theme") {
-    if (hit.group === "appearance") rows.themeSub = "appearance";
-    else if (hit.group === "preset") rows.themeSub = "preset";
-    else rows.themeSub = "custom";
-  } else if (hit.group) setSubCat(hit.cat, hit.group);
-  search.value = "";
-  void nextTick(() => {
-    // Prefer explicit `data-search` targets (preset cards, metronome chips…);
-    // fall back to matching a regular field row by its visible text.
-    const nodes = contentEl.value?.querySelectorAll<HTMLElement>(
-      "[data-search], .field-row",
-    );
-    if (!nodes) return;
-    for (const row of nodes) {
-      const label = row.getAttribute("data-search") ?? row.textContent ?? "";
-      if (label.includes(hit.label)) {
-        row.scrollIntoView({
-          block: "center",
-          behavior: uiMotion.value ? "smooth" : "auto",
-        });
-        row.classList.add("search-hit");
-        window.setTimeout(() => row.classList.remove("search-hit"), 1600);
-        break;
-      }
-    }
-  });
-}
-
-function onSearchEnter(): void {
-  const first = searchResults.value[0];
-  if (first) goToSetting(first);
 }
 </script>
 

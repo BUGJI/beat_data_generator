@@ -4,6 +4,9 @@ import {
   addBpmPoint,
   addMarker,
   addTrack,
+  findBpmPoint,
+  findMarker,
+  findTrack,
   moveMarker,
   removeSelectedMarkers,
   setBpmGridDiv,
@@ -37,6 +40,23 @@ describe("removeSelectedMarkers", () => {
     expect(removeSelectedMarkers()).toBe(false);
     expect(canUndo()).toBe(false);
     expect(useProjectStore().markers).toHaveLength(1);
+  });
+});
+
+describe("id indexes", () => {
+  it("resolves tracks, markers and BPM points by id", () => {
+    const track = addTrack("T", false);
+    const marker = addMarker(track.id, 1);
+    const bpm = addBpmPoint(4);
+    expect(marker).not.toBeNull();
+    expect(bpm).not.toBeNull();
+
+    expect(findTrack(track.id)?.id).toBe(track.id);
+    expect(findMarker(marker!.id)?.id).toBe(marker!.id);
+    expect(findBpmPoint(bpm!.id)?.id).toBe(bpm!.id);
+
+    moveMarker(marker!.id, 2);
+    expect(findMarker(marker!.id)?.beat).toBe(2);
   });
 });
 

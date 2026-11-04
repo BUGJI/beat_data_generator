@@ -186,31 +186,43 @@ export function patchSettings(patch: Partial<SettingsData>): void {
  * slider can repaint on every tick without queueing a write; the final value is
  * committed once on release through `patchSettings`.
  */
+/**
+ * Side effects keyed by the setting that triggers them. Keeping the mapping
+ * declarative means adding a new setting with a runtime side effect is one
+ * table entry instead of another clause in a long `if (key in patch)` chain.
+ */
+const SETTINGS_EFFECTS: Partial<
+  Record<keyof SettingsData, (s: SettingsData) => void>
+> = {
+  locale: (s) => applyLocalePreference(s.locale),
+  themePreset: () => applyThemeFromSettings(true),
+  themeOverrides: () => applyThemeFromSettings(true),
+  uiZoom: () => applyUiPreferences(),
+  uiFontScale: () => applyUiPreferences(),
+  uiBlur: () => applyUiPreferences(),
+  uiBlurAmount: () => applyUiPreferences(),
+  uiRadius: () => applyUiPreferences(),
+  uiShadow: () => applyUiPreferences(),
+  surfaceOpacity: () => applyUiPreferences(),
+  backgroundFit: () => applyUiPreferences(),
+  backgroundDim: () => applyUiPreferences(),
+  backgroundBlur: () => applyUiPreferences(),
+  backgroundImage: () => void applyBackgroundImage(),
+  appName: () => applyAppName(),
+  stretchEngine: () => engine.clearStretched(),
+  metronomeVolume: () => applyMetronomeSettings(),
+  metronomeFollowMaster: () => applyMetronomeSettings(),
+};
+
 export function previewSettings(patch: Partial<SettingsData>): void {
   const store = useSettingsStore();
   store.settings = { ...store.settings, ...patch };
   setFreeInput(store.settings.devFreeInput);
-  if ("locale" in patch) applyLocalePreference(store.settings.locale);
-  if ("themePreset" in patch || "themeOverrides" in patch)
-    applyThemeFromSettings(true);
-  if (
-    "uiZoom" in patch ||
-    "uiFontScale" in patch ||
-    "uiBlur" in patch ||
-    "uiBlurAmount" in patch ||
-    "uiRadius" in patch ||
-    "uiShadow" in patch ||
-    "surfaceOpacity" in patch ||
-    "backgroundFit" in patch ||
-    "backgroundDim" in patch ||
-    "backgroundBlur" in patch
-  )
-    applyUiPreferences();
-  if ("backgroundImage" in patch) void applyBackgroundImage();
-  if ("appName" in patch) applyAppName();
-  if ("stretchEngine" in patch) engine.clearStretched();
-  if ("metronomeVolume" in patch || "metronomeFollowMaster" in patch)
-    applyMetronomeSettings();
+  for (const key of Object.keys(SETTINGS_EFFECTS) as Array<
+    keyof SettingsData
+  >) {
+    if (key in patch) SETTINGS_EFFECTS[key]?.(store.settings);
+  }
 }
 
 /** Sanitize the in-memory settings and flush them to the main process now. */

@@ -65,7 +65,7 @@ export function removeTrack(trackId: string): void {
 export function renameTrack(trackId: string, name: string): void {
   if (isTrackLocked(trackId)) return;
   const p = useProjectStore();
-  const tr = p.tracks.find((x) => x.id === trackId);
+  const tr = p.tracksById.get(trackId);
   if (tr && tr.name !== name) {
     pushHistory();
     tr.name = name;
@@ -76,7 +76,7 @@ export function renameTrack(trackId: string, name: string): void {
 export function colorTrack(trackId: string, color: string): void {
   if (isTrackLocked(trackId)) return;
   const p = useProjectStore();
-  const tr = p.tracks.find((x) => x.id === trackId);
+  const tr = p.tracksById.get(trackId);
   if (tr && tr.color !== color) {
     pushHistory();
     tr.color = color;
@@ -98,18 +98,16 @@ export function moveTrack(trackId: string, dir: -1 | 1): void {
 // ---------- track flags (lock / hide) ----------
 
 export const isTrackLocked = (trackId: string): boolean =>
-  !!useProjectStore().tracks.find((tr) => tr.id === trackId)?.locked;
+  !!useProjectStore().tracksById.get(trackId)?.locked;
 export const isTrackHidden = (trackId: string): boolean =>
-  !!useProjectStore().tracks.find((tr) => tr.id === trackId)?.hidden;
+  !!useProjectStore().tracksById.get(trackId)?.hidden;
 
 /** markers on non-hidden tracks (these are the ones playback/export count) */
 export const visibleMarkers = (): Marker[] => {
   const p = useProjectStore();
-  // one track lookup table instead of scanning the track list per marker
-  const byId = new Map(p.tracks.map((t) => [t.id, t]));
   const out: Marker[] = [];
   for (const m of p.markers) {
-    const t = byId.get(m.trackId);
+    const t = p.tracksById.get(m.trackId);
     if (t?.hidden) continue;
     if (t?.type && t.type !== "beat") continue;
     out.push(m);
@@ -119,7 +117,7 @@ export const visibleMarkers = (): Marker[] => {
 
 /** Plugin-typed track whose type plugin is not currently installed. */
 export const isTypedTrackReadOnly = (trackId: string): boolean => {
-  const t = useProjectStore().tracks.find((x) => x.id === trackId);
+  const t = useProjectStore().tracksById.get(trackId);
   return !!t && !!t.type && t.type !== "beat" && !hasTypedef(t.type);
 };
 
@@ -129,7 +127,7 @@ export const isTrackBlocked = (trackId: string): boolean =>
 
 export function setTrackLocked(trackId: string, v: boolean): void {
   const p = useProjectStore();
-  const tr = p.tracks.find((x) => x.id === trackId);
+  const tr = p.tracksById.get(trackId);
   if (!tr || !!tr.locked === v) return;
   pushHistory();
   tr.locked = v;
@@ -138,12 +136,18 @@ export function setTrackLocked(trackId: string, v: boolean): void {
 
 export function setTrackHidden(trackId: string, v: boolean): void {
   const p = useProjectStore();
-  const tr = p.tracks.find((x) => x.id === trackId);
+  const tr = p.tracksById.get(trackId);
   if (!tr || !!tr.hidden === v) return;
   pushHistory();
   tr.hidden = v;
   p.dirty = true;
 }
 
-export const markerCount = (): number =>
-  useProjectStore().markers.filter((m) => !isTrackHidden(m.trackId)).length;
+export const markerCount = (): number => {
+  const p = useProjectStore();
+  let n = 0;
+  for (const m of p.markers) {
+    if (!p.tracksById.get(m.trackId)?.hidden) n++;
+  }
+  return n;
+};

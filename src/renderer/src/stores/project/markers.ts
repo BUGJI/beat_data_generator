@@ -88,7 +88,7 @@ export function addMarkerToStore(
   extra?: Partial<Marker>,
 ): Marker | null {
   const p = useProjectStore();
-  const track = p.tracks.find((tr) => tr.id === trackId);
+  const track = p.tracksById.get(trackId);
   if (!track) return null;
   const marker: Marker = { id: makeId(), trackId, beat, ...extra };
   p.markers.push(marker);
@@ -160,7 +160,7 @@ export function addMarkerImpl(trackId: string, rawBeat: number): Marker | null {
   const beat = clampBeat(snapped(rawBeat));
   if (trackHasBeat(trackId, beat)) return null;
   pushHistory();
-  const track = p.tracks.find((x) => x.id === trackId);
+  const track = p.tracksById.get(trackId);
   const marker = addMarkerToStore(trackId, beat);
   if (!marker) return null;
   if (track?.type && track.type !== "beat") {
@@ -305,8 +305,8 @@ export function changeMarkerTrack(id: string, trackId: string): boolean {
   );
   if (others.some((x) => Math.abs(x.beat - parent.beat) < 1 / 128))
     return false;
-  const oldType = p.tracks.find((t) => t.id === parent.trackId)?.type;
-  const newType = p.tracks.find((t) => t.id === trackId)?.type;
+  const oldType = p.tracksById.get(parent.trackId)?.type;
+  const newType = p.tracksById.get(trackId)?.type;
   pushHistory();
   parent.trackId = trackId;
   if (parent.loop) refreshChildren(parent);

@@ -3,7 +3,13 @@ import { computed, ref } from "vue";
 import { buildGridSegments, type GridSegment } from "../../grid";
 import { DEFAULT_DIV } from "../../metrics";
 import { buildTempoMap, type TempoMap } from "../../tempo";
-import type { BpmPoint, Marker, MarkerTrack, ProjectNote } from "../../types";
+import type {
+  BeatProject,
+  BpmPoint,
+  Marker,
+  MarkerTrack,
+  ProjectNote,
+} from "../../types";
 import { setBaseBpmImpl, setOffsetImpl, updateBpmPointImpl } from "./bpm";
 import { setBpmGridDivImpl, setGridDivImpl } from "./grid";
 import {
@@ -21,23 +27,17 @@ import { updateNoteImpl } from "./notes";
  * edit functions live in sibling modules and are exposed here as Pinia actions.
  */
 
-export interface ProjectState {
-  app: "beat-data-generator";
-  version: 2;
-  name: string;
-  baseBpm: number;
-  offsetMs: number;
-  gridDiv: number;
+/**
+ * The persisted document plus runtime-only editor metadata. Extending
+ * `BeatProject` keeps the in-memory shape and the on-disk wire format from
+ * drifting apart as fields are added.
+ */
+export interface ProjectState extends BeatProject {
+  /** Absolute path of the loaded audio (runtime only). */
   audioPath: string | null;
-  audioName: string | null;
-  audioMd5: string | null;
-  bpmLocked: boolean;
-  tracks: MarkerTrack[];
-  markers: Marker[];
-  bpmPoints: BpmPoint[];
-  notes: ProjectNote[];
   projectPath: string | null;
   dirty: boolean;
+  bpmLocked: boolean;
 }
 
 export const useProjectStore = defineStore("project", () => {
@@ -85,6 +85,17 @@ export const useProjectStore = defineStore("project", () => {
     return map;
   });
 
+  /** O(1) lookups shared by pointer hit tests, selection and plugin views. */
+  const markersById = computed<Map<string, Marker>>(
+    () => new Map(markers.value.map((m) => [m.id, m])),
+  );
+  const bpmPointsById = computed<Map<string, BpmPoint>>(
+    () => new Map(bpmPoints.value.map((p) => [p.id, p])),
+  );
+  const tracksById = computed<Map<string, MarkerTrack>>(
+    () => new Map(tracks.value.map((t) => [t.id, t])),
+  );
+
   return {
     app,
     version,
@@ -105,6 +116,9 @@ export const useProjectStore = defineStore("project", () => {
     tempoMap,
     gridSegments,
     markersByTrack,
+    markersById,
+    bpmPointsById,
+    tracksById,
     // ---- high-frequency mutations exposed as Pinia actions ----
     moveMarker: moveMarkerImpl,
     addMarker: addMarkerImpl,

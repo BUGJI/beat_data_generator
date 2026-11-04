@@ -9,7 +9,7 @@ import { useSettingsStore } from "../../stores/settings";
  * paints with the active `--bdg-*` tokens, so toggling the switches next to it
  * changes the pane immediately.
  */
-const props = defineProps<{ cat: "audio" | "display" }>();
+defineProps<{ cat: "audio" | "display" }>();
 
 const { t } = useI18n();
 const settings = useSettingsStore();

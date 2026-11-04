@@ -19,7 +19,7 @@ export function setGridDivImpl(v: number): void {
 export function setBpmGridDivImpl(id: string, div: number | null): void {
   const p = useProjectStore();
   if (p.bpmLocked) return;
-  const pt = p.bpmPoints.find((x) => x.id === id);
+  const pt = p.bpmPointsById.get(id);
   if (!pt) return;
   if (div === null) {
     if (pt.gridDiv === undefined) return;

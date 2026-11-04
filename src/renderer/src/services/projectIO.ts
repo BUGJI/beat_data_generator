@@ -23,6 +23,7 @@ import {
 } from "./audioIO";
 import { resetHistory } from "./history";
 import { baseName } from "@shared/path";
+import { safeFileBase } from "../utils/fileName";
 import type { BeatProject } from "../types";
 import type { TextFileResult, WelcomeAction } from "@shared/ipc";
 
@@ -188,9 +189,7 @@ export async function openProject(explicitPath?: string): Promise<void> {
 
 function projectFileName(): string {
   const p = useProjectStore();
-  const base = p.name || "untitled";
-  const safe = base.replace(/[\\/:*?"<>|]/g, "_").trim() || "untitled";
-  return p.projectPath ?? `${safe}.bdg`;
+  return p.projectPath ?? `${safeFileBase(p.name)}.bdg`;
 }
 
 export function projectJson(): string {
@@ -276,9 +275,8 @@ export async function exportTimestamps(): Promise<void> {
     toast.info(t("dialogs.exportEmpty"));
     return;
   }
-  const safe = (p.name || "untitled").replace(/[\\/:*?"<>|]/g, "_");
   const res = await window.api.saveProjectFile(
-    `${safe}-timestamps.txt`,
+    `${safeFileBase(p.name)}-timestamps.txt`,
     lines.join("\n"),
   );
   if (!res.canceled) toast.success(t("dialogs.exportOk", { n: lines.length }));
@@ -334,8 +332,7 @@ export async function exportEDL(): Promise<void> {
     toast.info(t("dialogs.exportEmpty"));
     return;
   }
-  const safe = (p.name || "untitled").replace(/[\\/:*?"<>|]/g, "_");
-  const res = await window.api.saveEDLFile(`${safe}.edl`, text);
+  const res = await window.api.saveEDLFile(`${safeFileBase(p.name)}.edl`, text);
   if (!res.canceled) toast.success(t("dialogs.exportEdlOk", { n: count }));
 }
 

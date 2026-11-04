@@ -23,6 +23,16 @@ export type CatKey =
 export type ColOption = { value: string; label: string };
 export type RefLike<T> = { value: T };
 
+/** A searchable setting: a row key plus optional synonyms and group. */
+export type SearchEntry = {
+  cat: CatKey;
+  group?: string;
+  key: string;
+  keywords?: string[];
+  /** Hidden from results while simple mode is on. */
+  expert?: boolean;
+};
+
 export type FieldControl =
   | {
       type: "switch";

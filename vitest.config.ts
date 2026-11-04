@@ -23,6 +23,15 @@ export default defineConfig({
         "src/renderer/src/**/*.worker.ts",
         "src/renderer/src/env.d.ts",
       ],
+      // Baseline measured at 46.22 / 38.05 / 38.36 / 48.66 (stmts / branch /
+      // funcs / lines). Keep a small margin so normal churn does not fail CI
+      // while still catching a real coverage drop.
+      thresholds: {
+        statements: 45,
+        branches: 37,
+        functions: 37,
+        lines: 47,
+      },
     },
   },
 });

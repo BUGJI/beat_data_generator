@@ -12,10 +12,13 @@ export const markersInTrack = (trackId: string): Marker[] =>
   useProjectStore().markersByTrack.get(trackId) ?? EMPTY_MARKERS;
 
 export const findMarker = (id: string): Marker | undefined =>
-  useProjectStore().markers.find((m) => m.id === id);
+  useProjectStore().markersById.get(id);
 
 export const findBpmPoint = (id: string): BpmPoint | undefined =>
-  useProjectStore().bpmPoints.find((p) => p.id === id);
+  useProjectStore().bpmPointsById.get(id);
+
+export const findTrack = (id: string): MarkerTrack | undefined =>
+  useProjectStore().tracksById.get(id);
 
 /** Effective beat-grid subdivision at a beat. */
 export const gridDivAtBeat = (beat: number): number =>

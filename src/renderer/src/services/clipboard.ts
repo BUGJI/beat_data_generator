@@ -88,7 +88,7 @@ export function pasteMarkerGroup(): boolean {
       if (clip.attrs) {
         m.attrs = { ...clip.attrs };
       } else {
-        const clipTrack = p.tracks.find((x) => x.id === clip.trackId);
+        const clipTrack = p.tracksById.get(clip.trackId);
         if (clipTrack?.type && clipTrack.type !== "beat") {
           m.attrs = defaultAttrsFor(clipTrack.type);
         }

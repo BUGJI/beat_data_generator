@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import { useI18n } from "vue-i18n";
-import { useProjectStore, updateMarkerAttrs } from "../../stores/project";
+import { findTrack, updateMarkerAttrs } from "../../stores/project";
 import { useSettingsStore } from "../../stores/settings";
 import {
   defaultForField,
@@ -20,7 +20,6 @@ import UiSwitch from "../ui/UiSwitch.vue";
 const props = defineProps<{ marker: Marker }>();
 
 const { t } = useI18n();
-const project = useProjectStore();
 const settings = useSettingsStore();
 
 const freeInput = computed(() => settings.settings.devFreeInput);
@@ -32,7 +31,7 @@ const typedMarkerInfo = computed<{
   pointLabel: string;
 } | null>(() => {
   const m = props.marker;
-  const tr = project.tracks.find((x) => x.id === m.trackId);
+  const tr = findTrack(m.trackId);
   const typeKey = tr?.type;
   if (!typeKey || typeKey === "beat") return null;
   const def = getTypedef(typeKey);

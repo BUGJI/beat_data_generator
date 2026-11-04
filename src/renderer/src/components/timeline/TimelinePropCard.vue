@@ -1,35 +1,16 @@
 <script setup lang="ts">
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  onMounted,
-  ref,
-  watch,
-} from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { X } from "@lucide/vue";
 import {
-  useProjectStore,
   MAX_LOOP_CHILDREN,
-  changeMarkerTrack,
-  gridDivAtBeat,
-  moveMarker,
-  setBpmGridDiv,
-  updateBpmPoint,
-  updateMarkerLoop,
+  findBpmPoint,
+  findMarker,
+  useProjectStore,
 } from "../../stores/project";
 import { useSelectionStore } from "../../stores/selection";
 import { useSettingsStore } from "../../stores/settings";
-import { parseGridDenominator } from "../../grid";
-import { DEFAULT_DIV, SNAP_DIVISIONS } from "../../metrics";
-import {
-  effectiveBpmFor,
-  formatTime,
-  markerTime as storeMarkerTime,
-  timeOfBeat,
-} from "../../services/timeline";
-import { BPM_MIN } from "../../tempo";
+import { formatTime } from "../../services/timeline";
 import { fmtBar } from "./geometry";
 import TimelineMarkerAttrs from "./TimelineMarkerAttrs.vue";
 import type { BpmMode, BpmPoint, Marker } from "../../types";
@@ -40,6 +21,9 @@ import UiNumberInput from "../ui/UiNumberInput.vue";
 import UiRadioGroup from "../ui/UiRadioGroup.vue";
 import UiSelect from "../ui/UiSelect.vue";
 import UiSwitch from "../ui/UiSwitch.vue";
+import { useBpmCardModel } from "./useBpmCardModel";
+import { useMarkerCardModel } from "./useMarkerCardModel";
+import { usePropCardPosition } from "./usePropCardPosition";
 
 const props = defineProps<{ anchor: { x: number; y: number } }>();
 const emit = defineEmits<{ close: []; delete: [] }>();
@@ -49,394 +33,62 @@ const project = useProjectStore();
 const selection = useSelectionStore();
 const settings = useSettingsStore();
 
-const selMarker = computed<Marker | null>(() =>
-  selection.selected.kind === "marker"
-    ? (project.markers.find((m) => m.id === selection.selected.id) ?? null)
-    : null,
-);
-const selBpm = computed<BpmPoint | null>(() =>
-  selection.selected.kind === "bpm"
-    ? (project.bpmPoints.find((p) => p.id === selection.selected.id) ?? null)
-    : null,
-);
+const selMarker = computed<Marker | null>(() => {
+  const { kind, id } = selection.selected;
+  return kind === "marker" && id ? (findMarker(id) ?? null) : null;
+});
+const selBpm = computed<BpmPoint | null>(() => {
+  const { kind, id } = selection.selected;
+  return kind === "bpm" && id ? (findBpmPoint(id) ?? null) : null;
+});
 const cardVisible = computed(
   () => selection.cardOpen && !!(selMarker.value || selBpm.value),
 );
 const freeInput = computed(() => settings.settings.devFreeInput);
 
-const markerBeat = computed({
-  get: () => selMarker.value?.beat ?? 0,
-  set: (v: number) => {
-    const m = selMarker.value;
-    if (m) moveMarker(m.id, freeInput.value ? v : Math.max(0, v), true);
-  },
-});
-function applyLoopPatch(patch: { interval?: number; count?: number }): void {
-  const m = selMarker.value;
-  if (!m) return;
-  const cur = m.loop;
-  const interval = patch.interval ?? cur?.interval ?? 1;
-  const count = patch.count ?? cur?.count ?? 4;
-  const exclude = cur?.exclude;
-  updateMarkerLoop(m.id, { interval, count, exclude });
-}
-const loopOn = computed({
-  get: () => !!selMarker.value?.loop,
-  set: (v: boolean) => {
-    const m = selMarker.value;
-    if (!m) return;
-    updateMarkerLoop(
-      m.id,
-      v
-        ? {
-            interval: m.loop?.interval ?? 1,
-            count: m.loop?.count ?? 4,
-            exclude: m.loop?.exclude,
-          }
-        : null,
-    );
-  },
-});
-const loopInterval = computed({
-  get: () => selMarker.value?.loop?.interval ?? 1,
-  set: (v: number) => applyLoopPatch({ interval: v }),
-});
-const loopCount = computed({
-  get: () => selMarker.value?.loop?.count ?? 4,
-  set: (v: number) =>
-    applyLoopPatch({
-      count: freeInput.value
-        ? v
-        : Math.min(MAX_LOOP_CHILDREN, Math.max(1, Math.floor(v))),
-    }),
-});
-const LOOP_INT_MIN = 0.0625;
-const LOOP_INT_MAX = 256;
-
-const loopDraft = ref("");
-const loopFocus = ref(false);
-
-function loopDraftBegin(): void {
-  loopFocus.value = true;
-  loopDraft.value = String(loopInterval.value);
-}
-
-function loopDraftCommit(): void {
-  loopFocus.value = false;
-  const raw = loopDraft.value.trim();
-  const v = Number(raw);
-  if (raw === "" || !Number.isFinite(v)) {
-    loopDraft.value = String(loopInterval.value);
-    return;
-  }
-  applyLoopPatch({ interval: clampLoopInterval(v) });
-  loopDraft.value = String(loopInterval.value);
-}
-
-// keep the draft input in sync with the real interval (e.g. when another marker
-// becomes selected) unless the user is actively typing.
-watch(
-  () => [selMarker.value?.id, loopInterval.value],
-  () => {
-    if (!loopFocus.value) loopDraft.value = String(loopInterval.value);
-  },
-);
-
-function loopDraftCancel(): void {
-  loopDraft.value = String(loopInterval.value);
-}
-
-const canHalve = computed(
-  () => freeInput.value || loopInterval.value > LOOP_INT_MIN,
-);
-const canDouble = computed(
-  () => freeInput.value || loopInterval.value < LOOP_INT_MAX,
-);
-
-function clampLoopInterval(v: number): number {
-  if (freeInput.value) return v;
-  const c = Math.min(LOOP_INT_MAX, Math.max(LOOP_INT_MIN, v));
-  return Math.round(c * 1e4) / 1e4;
-}
-
-/** +/- buttons multiply / divide the interval by `factor` (e.g. ×2 or ÷2). */
-function scaleLoopInterval(factor: number): void {
-  applyLoopPatch({ interval: clampLoopInterval(loopInterval.value * factor) });
-  loopDraft.value = String(loopInterval.value);
-}
-
-function onLoopCountWheel(e: WheelEvent): void {
-  e.preventDefault();
-  e.stopPropagation();
-  const next = loopCount.value + (e.deltaY < 0 ? 1 : -1);
-  if (freeInput.value) {
-    loopCount.value = next;
-    return;
-  }
-  const hi = MAX_LOOP_CHILDREN;
-  if (next >= 1 && next <= hi) loopCount.value = next;
-}
-
-const bpmBeat = computed({
-  get: () => selBpm.value?.beat ?? 0,
-  set: (v: number) => {
-    if (selBpm.value)
-      updateBpmPoint(selBpm.value.id, {
-        beat: freeInput.value ? v : Math.max(0, v),
-      });
-  },
-});
-const bpmValue = computed({
-  get: () => selBpm.value?.value ?? 120,
-  set: (v: number) => {
-    if (selBpm.value) updateBpmPoint(selBpm.value.id, { value: v });
-  },
-});
-const bpmMin = computed(() =>
-  freeInput.value
-    ? Number.NEGATIVE_INFINITY
-    : bpmMode.value === "mult"
-      ? 0.01
-      : BPM_MIN,
-);
-const bpmMax = computed(() =>
-  bpmMode.value === "mult" && !freeInput.value ? 100 : Number.POSITIVE_INFINITY,
-);
-const bpmDecimals = computed(() => (bpmMode.value === "mult" ? 3 : 1));
-
-function roundValue(v: number, decimals: number): number {
-  const p = 10 ** decimals;
-  return Math.round(v * p) / p;
-}
-
-/** Format a BPM value for the draft input (no rounding under free input). */
-function formatBpmDraft(v: number): string {
-  return String(freeInput.value ? v : roundValue(v, bpmDecimals.value));
-}
-
-const bpmDraft = ref("");
-
-function bpmDraftBegin(): void {
-  bpmDraft.value = formatBpmDraft(bpmValue.value);
-}
-
-function bpmDraftCommit(): void {
-  const raw = bpmDraft.value.trim();
-  const v = Number(raw);
-  if (raw === "" || !Number.isFinite(v)) {
-    bpmDraft.value = formatBpmDraft(bpmValue.value);
-    return;
-  }
-  bpmValue.value = clampValue(v);
-  bpmDraft.value = formatBpmDraft(bpmValue.value);
-}
-
-function bpmDraftCancel(): void {
-  bpmDraft.value = formatBpmDraft(bpmValue.value);
-}
-
-const canHalveBpm = computed(() => bpmValue.value > bpmMin.value + 1e-9);
-const canDoubleBpm = computed(() => bpmValue.value < bpmMax.value - 1e-9);
-
-function clampValue(v: number): number {
-  if (freeInput.value) return v;
-  const c = Math.min(bpmMax.value, Math.max(bpmMin.value, v));
-  return roundValue(c, bpmDecimals.value);
-}
-
-/** +/- buttons multiply / divide the BPM value (or multiplier) by `factor`. */
-function scaleBpmValue(factor: number): void {
-  bpmValue.value = clampValue(bpmValue.value * factor);
-  bpmDraft.value = formatBpmDraft(bpmValue.value);
-}
-const effBpm = computed(() =>
-  selBpm.value ? effectiveBpmFor(selBpm.value) : 0,
-);
-const markerColor = computed(() => {
-  const m = selMarker.value;
-  if (!m) return "var(--bdg-text-dim)";
-  return (
-    project.tracks.find((tr) => tr.id === m.trackId)?.color ??
-    "var(--bdg-text-dim)"
-  );
-});
-const bpmMode = computed<BpmMode>({
-  get: () => selBpm.value?.mode ?? "abs",
-  set: (m: BpmMode) => {
-    if (selBpm.value) updateBpmPoint(selBpm.value.id, { mode: m });
-  },
-});
-const selectedTrackId = computed<string>({
-  get: () => selMarker.value?.trackId ?? "",
-  set: (id: string) => {
-    if (selMarker.value) changeMarkerTrack(selMarker.value.id, id);
-  },
-});
-const trackOptions = computed(() =>
-  project.tracks.map((tr) => ({ value: tr.id, label: tr.name })),
-);
-const bpmModeOptions = computed<Array<{ value: string; label: string }>>(() => [
-  { value: "abs", label: t("prop.modeAbs") },
-  { value: "mult", label: t("prop.modeMult") },
-]);
-const markerTime = computed(() =>
-  selMarker.value ? storeMarkerTime(selMarker.value) : 0,
-);
-const bpmTime = computed(() =>
-  selBpm.value ? timeOfBeat(selBpm.value.beat) : 0,
-);
-
-// ---- beat-grid override on the selected BPM point ----
-
-const markerStep = computed(() => 1 / gridDivAtBeat(markerBeat.value));
-const bpmStep = computed(() => 1 / gridDivAtBeat(bpmBeat.value));
-const effectiveGridDiv = computed(() =>
-  selBpm.value ? gridDivAtBeat(selBpm.value.beat) : DEFAULT_DIV,
-);
-const gridOverride = computed({
-  get: () => selBpm.value?.gridDiv != null,
-  set: (on: boolean) => {
-    const p = selBpm.value;
-    if (!p) return;
-    setBpmGridDiv(p.id, on ? effectiveGridDiv.value : null);
-  },
-});
-const gridOptions = computed<Array<{ value: string; label: string }>>(() => {
-  const cur = selBpm.value?.gridDiv ?? effectiveGridDiv.value;
-  const list = SNAP_DIVISIONS.map((d) => ({
-    value: String(d),
-    label: `1/${d}`,
-  }));
-  if (!list.some((o) => o.value === String(cur))) {
-    list.push({ value: String(cur), label: `1/${cur}` });
-    list.sort((a, b) => Number(a.value) - Number(b.value));
-  }
-  return list;
-});
-const gridDivModel = computed({
-  get: () => String(selBpm.value?.gridDiv ?? effectiveGridDiv.value),
-  set: (v: string) => {
-    const p = selBpm.value;
-    if (!p) return;
-    const d = parseGridDenominator(v);
-    if (d !== null) setBpmGridDiv(p.id, d);
-  },
-});
-
-// ---- positioning & dragging ----
-
-const CARD_Y_OFFSET = 10;
-const CARD_MARGIN = 8;
 const cardEl = ref<HTMLElement | null>(null);
-const cardPos = ref({ x: 0, y: 0 });
-const anchorPos = ref({ x: 0, y: 0 });
-
-function positionCard(): void {
-  const el = cardEl.value;
-  const root = el?.parentElement;
-  if (!el || !root) return;
-  const vw = root.clientWidth;
-  const vh = root.clientHeight;
-  if (vh <= 0) return;
-  const avail = Math.max(0, vh - CARD_MARGIN * 2);
-  el.style.maxHeight = `${avail}px`;
-  const w = el.offsetWidth;
-  const h = el.offsetHeight;
-  const a = anchorPos.value;
-  const x = Math.max(CARD_MARGIN, Math.min(a.x, vw - w - CARD_MARGIN));
-  let y = a.y + CARD_Y_OFFSET;
-  if (y + h > vh - CARD_MARGIN) {
-    const above = a.y - CARD_Y_OFFSET - h;
-    y =
-      above >= CARD_MARGIN
-        ? above
-        : Math.max(CARD_MARGIN, vh - h - CARD_MARGIN);
-  }
-  cardPos.value = { x, y };
-}
-
-watch(
-  () => [props.anchor.x, props.anchor.y],
-  ([x, y]) => {
-    anchorPos.value = { x, y };
-    cardPos.value = {
-      x: Math.max(CARD_MARGIN, x),
-      y: Math.max(CARD_MARGIN, y + CARD_Y_OFFSET),
-    };
-    void nextTick(positionCard);
-  },
+const { cardPos, startCardDrag, onCardDrag, endCardDrag } = usePropCardPosition(
+  computed(() => props.anchor),
+  cardEl,
 );
 
-let cardRo: ResizeObserver | null = null;
-watch(cardEl, (el) => {
-  cardRo?.disconnect();
-  cardRo = null;
-  if (!el) return;
-  cardRo = new ResizeObserver(() => positionCard());
-  cardRo.observe(el);
-  void nextTick(positionCard);
-});
+const {
+  markerBeat,
+  markerStep,
+  markerTime,
+  markerColor,
+  selectedTrackId,
+  trackOptions,
+  loopOn,
+  loopDraft,
+  loopDraftBegin,
+  loopDraftCommit,
+  loopDraftCancel,
+  canHalve,
+  canDouble,
+  loopCount,
+  scaleLoopInterval,
+  onLoopCountWheel,
+} = useMarkerCardModel(selMarker);
 
-let cardDragging = false;
-let cardDragOffset = { x: 0, y: 0 };
-
-function startCardDrag(e: PointerEvent): void {
-  if (e.button !== 0) return;
-  const el = cardEl.value;
-  const root = el?.parentElement;
-  if (!el || !root) return;
-  if ((e.target as HTMLElement).closest(".pc-x")) return;
-  const rect = root.getBoundingClientRect();
-  cardDragging = true;
-  cardDragOffset = {
-    x: e.clientX - rect.left - cardPos.value.x,
-    y: e.clientY - rect.top - cardPos.value.y,
-  };
-  (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-}
-
-function onCardDrag(e: PointerEvent): void {
-  if (!cardDragging) return;
-  const el = cardEl.value;
-  const root = el?.parentElement;
-  if (!el || !root) return;
-  const rect = root.getBoundingClientRect();
-  const maxX = Math.max(
-    CARD_MARGIN,
-    root.clientWidth - el.offsetWidth - CARD_MARGIN,
-  );
-  const maxY = Math.max(
-    CARD_MARGIN,
-    root.clientHeight - el.offsetHeight - CARD_MARGIN,
-  );
-  const x = Math.min(
-    Math.max(CARD_MARGIN, e.clientX - rect.left - cardDragOffset.x),
-    maxX,
-  );
-  const y = Math.min(
-    Math.max(CARD_MARGIN, e.clientY - rect.top - cardDragOffset.y),
-    maxY,
-  );
-  cardPos.value = { x, y };
-  // keep the anchor in sync so positionCard() (resize/reflow) won't snap back
-  anchorPos.value = { x, y: y - CARD_Y_OFFSET };
-}
-
-function endCardDrag(e: PointerEvent): void {
-  if (!cardDragging) return;
-  cardDragging = false;
-  (e.currentTarget as HTMLElement).releasePointerCapture?.(e.pointerId);
-}
-
-function onResize(): void {
-  positionCard();
-}
-
-onMounted(() => window.addEventListener("resize", onResize));
-onBeforeUnmount(() => {
-  window.removeEventListener("resize", onResize);
-  cardRo?.disconnect();
-});
+const {
+  bpmBeat,
+  bpmStep,
+  bpmTime,
+  bpmMode,
+  bpmModeOptions,
+  bpmDraft,
+  bpmDraftBegin,
+  bpmDraftCommit,
+  bpmDraftCancel,
+  canHalveBpm,
+  canDoubleBpm,
+  scaleBpmValue,
+  effBpm,
+  gridOverride,
+  gridOptions,
+  gridDivModel,
+} = useBpmCardModel(selBpm);
 </script>
 
 <template>

@@ -3,10 +3,13 @@ import { resolve } from "node:path";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import vue from "@vitejs/plugin-vue";
 import tailwindcss from "@tailwindcss/vite";
+import { visualizer } from "rollup-plugin-visualizer";
 
 const pkg = JSON.parse(readFileSync(resolve("package.json"), "utf-8")) as {
   version: string;
 };
+
+const analyze = process.env.ANALYZE === "1";
 
 export default defineConfig({
   main: {
@@ -31,6 +34,16 @@ export default defineConfig({
           index: resolve("src/renderer/index.html"),
           welcome: resolve("src/renderer/welcome.html"),
         },
+        plugins: analyze
+          ? [
+              visualizer({
+                filename: resolve("out/renderer/stats.html"),
+                gzipSize: true,
+                brotliSize: true,
+                template: "treemap",
+              }),
+            ]
+          : [],
       },
     },
     plugins: [vue(), tailwindcss()],

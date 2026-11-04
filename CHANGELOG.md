@@ -4,6 +4,25 @@
 
 版本号遵循语义化版本；`0.x` 阶段仍可能有破坏性改动（如工程文件 schema 升级）。
 
+## [0.3.13] - 2026-11-04 · 代码结构整理与模板校验
+
+工程结构
+
+- 主进程 IPC 按领域拆分为 `ipc/app`、`ipc/files`，`ipc.ts` 只保留注册入口
+- 时间线组件抽出手势、命中测试、滚轮、属性卡定位与卡片模型等 composable；设置页抽出布局与搜索逻辑，组件体积大幅缩小
+- 工程状态改为继承持久化类型 `BeatProject`，避免内存结构与工程文件格式漂移
+- 新增 `id → 对象` 索引，按 id 查询轨道 / 标记 / BPM 点由线性扫描改为常数时间；插件快照与类型拆到 `apiViews.ts`，插件对外接口不变
+- 设置副作用改为声明式映射表；DOM 焦点判断与文件名清理抽为共享工具
+
+工程化
+
+- 新增 ESLint + eslint-plugin-vue，只校验 `.vue` 模板与 `<script setup>`（Biome 继续负责 `.ts`）
+- 新增可选打包体积分析：`npm run analyze`，输出 `out/renderer/stats.html`
+- CI / Release 的测试步骤改用覆盖率模式；补充 DOM、文件名工具与 id 索引单元测试
+- 新增 Tauri 迁移评估文档
+
+- 安装包：`Beat-Data-Generator-0.3.13-setup.exe`
+
 ## [0.3.12] - 2026-10-27 · BPM 分区节拍网格
 
 节拍网格
