@@ -33,7 +33,14 @@
           ]
         }
       ],
-      "artifactName": "Beat-Data-Generator-${version}-setup.${ext}"
+      "artifactName": "Beat-Data-Generator-${version}-setup.${ext}",
+      "signtoolOptions": {
+        "signingHashAlgorithms": [
+          "sha256"
+        ],
+        "rfc3161TimeStampServer": "http://timestamp.digicert.com"
+      },
+      "verifyUpdateCodeSignature": false
     },
     "linux": {
       "icon": "build/icon.png",
@@ -77,6 +84,7 @@
     "analyze": "cross-env ANALYZE=1 electron-vite build",
     "dist:win": "npm run build && electron-builder --win",
     "dist:linux": "npm run build && electron-builder --linux",
+    "dist:win:signed": "pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/build-win-signed.ps1",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",

@@ -73,7 +73,13 @@ jobs:
       - name: Build
         run: npm run build
 
+      # Windows 产物用自签证书签名：私钥以 base64 存在仓库 secret CSC_LINK，
+      # 口令在 CSC_KEY_PASSWORD（见 docs/code-signing.md）。Linux 任务不需要签名，置空。
+      # 两个 secret 缺失时 electron-builder 视为“不签名”，fork 仓库不会因此失败。
       - name: Package
+        env:
+          CSC_LINK: ${{ matrix.os == 'windows-latest' && secrets.CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ matrix.os == 'windows-latest' && secrets.CSC_KEY_PASSWORD || '' }}
         run: npx electron-builder ${{ matrix.args }} --publish ${{ env.PUBLISH }}
 
       - name: Upload artifacts (manual runs)
