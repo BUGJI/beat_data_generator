@@ -406,6 +406,12 @@ export default {
       autoHideGrid: "그리드 선 자동 숨기기",
       autoHideGridDesc:
         "축소했을 때 가는 그리드 선을 숨겨 스크롤을 부드럽게 해요. 표시에만 영향이 있고 스냅과 박자 / 마디 선은 그대로예요.",
+      bpmSegmentColors: "BPM 구간 색상",
+      bpmSegmentColorsDesc:
+        "BPM 레인의 각 구간을 테마 색 두 가지로 번갈아 옅게 칠하고 시작점을 표시해 구간을 쉽게 구분해요. 표시에만 영향이 있어요.",
+      bpmSegmentIntensity: "구간 채우기 강도",
+      bpmSegmentIntensityDesc:
+        "0%는 상단 띠와 경계만 남기고, 100%는 가장 진한 배경이에요. 파형과 그리드에는 영향이 없어요.",
       editor: "편집기 애니메이션",
       editorDesc:
         "타임라인 확대 / 이동을 중단 가능한 0.1초 이즈아웃으로 처리해요",

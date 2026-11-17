@@ -63,9 +63,15 @@ export function buildGridSegments(
   return segs;
 }
 
-/** Effective subdivision at a beat. */
-export function gridDivAt(segments: GridSegment[], beat: number): number {
-  if (!segments.length) return DEFAULT_DIV;
+/** Effective grid subdivision and override state at a beat. */
+export interface GridInfoAt {
+  div: number;
+  override: boolean;
+}
+
+/** Effective grid region at a beat. */
+export function gridInfoAt(segments: GridSegment[], beat: number): GridInfoAt {
+  if (!segments.length) return { div: DEFAULT_DIV, override: false };
   let lo = 0;
   let hi = segments.length - 1;
   while (lo < hi) {
@@ -73,5 +79,11 @@ export function gridDivAt(segments: GridSegment[], beat: number): number {
     if (segments[mid]!.beatStart <= beat) lo = mid;
     else hi = mid - 1;
   }
-  return segments[lo]!.div;
+  const seg = segments[lo]!;
+  return { div: seg.div, override: seg.override };
+}
+
+/** Effective subdivision at a beat. */
+export function gridDivAt(segments: GridSegment[], beat: number): number {
+  return gridInfoAt(segments, beat).div;
 }

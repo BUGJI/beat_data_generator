@@ -380,6 +380,12 @@ export default {
       autoHideGrid: "自动隐藏网格线",
       autoHideGridDesc:
         "缩放过小时自动隐藏细密网格线，让滚动更流畅；只影响显示，不改变吸附与拍/小节线。",
+      bpmSegmentColors: "BPM 分段配色",
+      bpmSegmentColorsDesc:
+        "用主题色交替淡染 BPM 轨的每段，并在段首加结构标记，便于快速区分段落；只影响显示。",
+      bpmSegmentIntensity: "分段填充强度",
+      bpmSegmentIntensityDesc:
+        "0% 仅保留顶条与边界，100% 为最明显的底色；不影响波形与网格的显示。",
       editor: "编辑器动画",
       editorDesc: "缩放、平移时间轴时使用 0.1s 缓出动画（可打断，不阻塞操作）",
       uiMotion: "界面交互动画",

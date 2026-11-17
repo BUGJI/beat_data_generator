@@ -412,6 +412,12 @@ export default {
       autoHideGrid: "Auto-hide grid lines",
       autoHideGridDesc:
         "Hides fine grid lines when zoomed out to keep scrolling smooth. Display only \u2014 snapping and beat/bar lines are unchanged.",
+      bpmSegmentColors: "BPM segment colors",
+      bpmSegmentColorsDesc:
+        "Alternates two theme colors across BPM segments and marks each start, making sections easier to scan. Display only.",
+      bpmSegmentIntensity: "Segment fill strength",
+      bpmSegmentIntensityDesc:
+        "0% keeps only the top bar and boundaries; 100% is the strongest tint. Waveform and grid are unaffected.",
       editor: "Editor animations",
       editorDesc: "Zoom/pan the timeline with an interruptible 0.1s ease-out",
       uiMotion: "Interface motion",

@@ -40,6 +40,8 @@ export interface SettingsRowBindings {
   stretchEngineOptions: RefLike<ColOption[]>;
   stretchEngineHint: () => string;
   gridAutoHide: RefLike<boolean>;
+  bpmSegmentColors: RefLike<boolean>;
+  bpmSegmentIntensity: RefLike<number>;
   animEnabled: RefLike<boolean>;
   uiMotion: RefLike<boolean>;
   devEnabled: RefLike<boolean>;
@@ -88,6 +90,8 @@ export function buildFieldGroups(
     stretchEngineOptions,
     stretchEngineHint,
     gridAutoHide,
+    bpmSegmentColors,
+    bpmSegmentIntensity,
     animEnabled,
     uiMotion,
     devEnabled,
@@ -249,6 +253,16 @@ export function buildFieldGroups(
         key: "grid",
         rows: [
           { kind: "field", key: "autoHideGrid", control: sw(gridAutoHide) },
+          {
+            kind: "field",
+            key: "bpmSegmentColors",
+            control: sw(bpmSegmentColors),
+          },
+          {
+            kind: "field",
+            key: "bpmSegmentIntensity",
+            control: slider(bpmSegmentIntensity, 0, 100, "%"),
+          },
         ],
       },
       {

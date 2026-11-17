@@ -18,7 +18,13 @@ import {
   RULER_H,
   TIME_RULER_H,
 } from "../../metrics";
-import { gridDivAt } from "../../grid";
+import { gridDivAt, gridInfoAt } from "../../grid";
+import {
+  bpmSegmentBar,
+  bpmSegmentBoundary,
+  bpmSegmentFill,
+  bpmSegmentTheme,
+} from "../../bpmSegments";
 import {
   MIN_SUB_PX,
   beatStr,
@@ -80,6 +86,7 @@ export function draw(scene: DrawScene): void {
   drawRulers(ctx, W, t0, t1, X, endMs);
   drawLaneBacks(ctx, W, H);
   drawLaneGlow(ctx, W, H);
+  drawBpmSegmentFills(ctx, W, H, X);
   drawGridLines(ctx, W, H, t0, t1, X, endMs);
   drawBpmLaneContent(ctx, W, H, t0, X);
   drawMarkerLanesContent(ctx, W, H, t0, t1, X);
@@ -205,6 +212,61 @@ function drawLaneGlow(
   }
 }
 
+function drawBpmSegmentFills(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  X: (t: number) => number,
+): void {
+  const settings = useSettingsStore();
+  if (!settings.settings.bpmSegmentColors) return;
+  const project = useProjectStore();
+  if (!project.bpmPoints.length) return;
+  const segs = effectiveSegments(project.baseBpm, project.bpmPoints);
+  if (segs.length <= 1) return;
+  const view = useViewStore();
+  const row = visibleRows(H, view.y, project.tracks.length).find((r) => r.bpm);
+  if (!row) return;
+  const intensity = settings.settings.bpmSegmentIntensity;
+  const theme = bpmSegmentTheme(
+    COLORS.bpmPoint,
+    COLORS.marker,
+    COLORS.background,
+  );
+  const boundary = bpmSegmentBoundary(theme);
+  const y0 = row.y;
+  const laneH = row.h;
+  let lastBoundaryX = -Infinity;
+  for (const s of segs) {
+    const x0 = X(timeOfBeat(s.beatStart));
+    const x1 = s.beatEnd === null ? W + 40 : X(timeOfBeat(s.beatEnd));
+    if (x1 <= 0 || x0 >= W) continue;
+    const info = gridInfoAt(project.gridSegments, s.beatStart);
+    const input = {
+      beatStart: s.beatStart,
+      bpm: s.bpm,
+      baseBpm: project.baseBpm,
+      gridOverride: info.override,
+    };
+    const left = Math.max(0, x0);
+    const right = Math.min(W, x1);
+    const width = right - left;
+    if (width >= 3) {
+      ctx.fillStyle = bpmSegmentFill(input, theme, intensity);
+      ctx.fillRect(left, y0, width, laneH);
+    }
+    if (width >= 2) {
+      ctx.fillStyle = bpmSegmentBar(input, theme, intensity);
+      ctx.fillRect(left, y0, width, 2);
+    }
+    if (s.beatStart > 0 && x0 >= 0 && x0 <= W && x0 - lastBoundaryX >= 3) {
+      ctx.fillStyle = boundary;
+      ctx.fillRect(x0, y0, 1, laneH);
+      lastBoundaryX = x0;
+    }
+  }
+}
+
 function drawGridLines(
   ctx: CanvasRenderingContext2D,
   W: number,
@@ -295,6 +357,7 @@ function drawBpmLaneContent(
   const project = useProjectStore();
   const transport = useTransportStore();
   const selection = useSelectionStore();
+  const settings = useSettingsStore();
   const rows = visibleRows(H, view.y, project.tracks.length);
   const row = rows.find((r) => r.bpm);
   if (!row) return;
@@ -329,22 +392,14 @@ function drawBpmLaneContent(
     ctx.globalAlpha = 1;
   }
 
-  // beat-grid regions: a subtle band per region plus a label at each override
-  // start. Bars/beats stay unchanged; only the subdivision density differs.
+  // beat-grid overrides are indicated by a boundary line and a 1/N label only.
+  // No region fill: a full-lane tint reads as a yellow mask over the waveform
+  // and made adjacent override regions look stacked.
   for (const s of project.gridSegments) {
+    if (!s.override) continue;
     const x0 = X(timeOfBeat(s.beatStart));
     const x1 = s.beatEnd === null ? W + 40 : X(timeOfBeat(s.beatEnd));
     if (x1 < -2 || x0 > W + 2) continue;
-    const left = Math.max(-2, x0);
-    const right = Math.min(W + 2, x1);
-    if (right <= left) continue;
-    ctx.globalAlpha = s.override ? 0.07 : 0.025;
-    ctx.fillStyle = COLORS.bpmPoint;
-    ctx.fillRect(left, y0, right - left, y1 - y0);
-    ctx.globalAlpha = s.override ? 0.65 : 0.2;
-    ctx.fillRect(left, y0 + 1, right - left, 2);
-    ctx.globalAlpha = 1;
-    if (!s.override) continue;
     ctx.fillStyle = COLORS.bpmFaint;
     ctx.fillRect(x0, y0, 1, y1 - y0);
     if (x1 - x0 >= 34) {
@@ -380,12 +435,6 @@ function drawBpmLaneContent(
       const mid = x0 + 8;
       ctx.fillStyle = COLORS.bpmSegmentText;
       ctx.fillText(label, mid, y0 + 13);
-      // subtle tempo shading density strip
-      const density = (s.bpm - 60) / 240;
-      ctx.globalAlpha = 0.12 + density * 0.2;
-      ctx.fillStyle = COLORS.bpmPoint;
-      ctx.fillRect(mid, y1 - 6, Math.max(0, x1 - mid), 3);
-      ctx.globalAlpha = 1;
     }
     void floorBeat;
   }
@@ -398,8 +447,10 @@ function drawBpmLaneContent(
       selection.selected.kind === "bpm" && selection.selected.id === p.id;
     ctx.fillStyle = sel ? COLORS.bpmPointSelected : COLORS.bpmPoint;
     drawDiamond(ctx, x, y0 + 8, sel ? 5 : 3.6);
-    ctx.fillStyle = COLORS.bpmFaint;
-    ctx.fillRect(x - 0.5, y0 + 12, 1, y1 - y0 - 12);
+    if (!settings.settings.bpmSegmentColors) {
+      ctx.fillStyle = COLORS.bpmFaint;
+      ctx.fillRect(x - 0.5, y0 + 12, 1, y1 - y0 - 12);
+    }
   }
 }
 

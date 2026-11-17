@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildGridSegments,
   gridDivAt,
+  gridInfoAt,
   normalizeGridDiv,
   parseGridDenominator,
 } from "./grid";
@@ -74,6 +75,20 @@ describe("gridDivAt", () => {
 
   it("falls back to the default when empty", () => {
     expect(gridDivAt([], 8)).toBe(4);
+  });
+});
+
+describe("gridInfoAt", () => {
+  const segments = buildGridSegments(4, [point(8, 16), point(16, 8)]);
+
+  it("returns the division and override state of the region", () => {
+    expect(gridInfoAt(segments, 0)).toEqual({ div: 4, override: false });
+    expect(gridInfoAt(segments, 8)).toEqual({ div: 16, override: true });
+    expect(gridInfoAt(segments, 20)).toEqual({ div: 8, override: true });
+  });
+
+  it("falls back to the default when empty", () => {
+    expect(gridInfoAt([], 8)).toEqual({ div: 4, override: false });
   });
 });
 

@@ -126,6 +126,10 @@ export const SettingsSchema = z.object({
   surfaceOpacity: intInRange(90, 20, 100),
   /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
   gridAutoHide: bool(true),
+  /** tint each BPM segment with a theme-derived color to distinguish sections. */
+  bpmSegmentColors: bool(true),
+  /** BPM segment tint strength in percent (0 = structure only, 100 = strong). */
+  bpmSegmentIntensity: intInRange(55, 0, 100),
   /** silently check for updates on startup and notify when one is available. */
   checkUpdates: bool(true),
   /** how long the cached plugin-market index stays fresh before a refetch. */

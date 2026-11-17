@@ -132,6 +132,20 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     },
   });
 
+  const bpmSegmentColors = computed({
+    get: () => settings.settings.bpmSegmentColors,
+    set: (v: boolean) => {
+      void patchSettings({ bpmSegmentColors: v });
+    },
+  });
+
+  const bpmSegmentIntensity = computed({
+    get: () => settings.settings.bpmSegmentIntensity,
+    set: (v: number) => {
+      void patchSettings({ bpmSegmentIntensity: v });
+    },
+  });
+
   const uiMotion = computed({
     get: () => settings.settings.uiMotion,
     set: (v: boolean) => {
@@ -296,6 +310,8 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     stretchEngineOptions,
     stretchEngineHint,
     gridAutoHide,
+    bpmSegmentColors,
+    bpmSegmentIntensity,
     animEnabled,
     uiMotion,
     devEnabled,
@@ -398,6 +414,8 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     language,
     animEnabled,
     gridAutoHide,
+    bpmSegmentColors,
+    bpmSegmentIntensity,
     followScroll,
     followPercent,
     rememberWindow,
