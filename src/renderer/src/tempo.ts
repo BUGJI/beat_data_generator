@@ -1,5 +1,5 @@
 import type { BpmPoint, Segment } from "./types";
-import { isFreeInput } from "@shared/limits";
+import { STRICT_NUMBERS, type NumberPolicy } from "@shared/limits";
 
 /** Smallest positive BPM representable at the UI's 1-decimal precision. */
 export const BPM_MIN = 0.1;
@@ -12,9 +12,16 @@ export interface TempoMap {
   beatOfTime: (timeMs: number) => number;
 }
 
-export function clampBpm(v: number): number {
-  if (isFreeInput()) return v;
-  return Math.max(BPM_MIN, v);
+export function clampBpm(
+  v: number,
+  policy: NumberPolicy = STRICT_NUMBERS,
+): number {
+  return policy.free ? v : Math.max(BPM_MIN, v);
+}
+
+/** Milliseconds per beat at a given BPM (the one place this conversion lives). */
+export function msPerBeat(bpm: number): number {
+  return 60_000 / bpm;
 }
 
 /** Build ordered tempo segments from the base BPM (beat 0) and tempo-change points. */
@@ -22,13 +29,14 @@ export function buildTempoMap(
   baseBpm: number,
   offsetMs: number,
   points: BpmPoint[],
+  policy: NumberPolicy = STRICT_NUMBERS,
 ): TempoMap {
   const sorted = [...points]
     .filter((p) => Number.isFinite(p.beat) && p.beat > 0)
     .sort((a, b) => a.beat - b.beat);
 
   const seg: Segment[] = [];
-  let curBpm = clampBpm(baseBpm);
+  let curBpm = clampBpm(baseBpm, policy);
   let curBeat = 0;
   let curTime = offsetMs;
   for (const p of sorted) {
@@ -42,7 +50,10 @@ export function buildTempoMap(
     });
     const durBeats = p.beat - curBeat;
     curTime += (durBeats * 60_000) / curBpm;
-    curBpm = p.mode === "abs" ? clampBpm(p.value) : clampBpm(curBpm * p.value);
+    curBpm =
+      p.mode === "abs"
+        ? clampBpm(p.value, policy)
+        : clampBpm(curBpm * p.value, policy);
     curBeat = p.beat;
   }
   seg.push({
@@ -56,8 +67,6 @@ export function buildTempoMap(
   seg.forEach((s, i) => {
     if (i + 1 < seg.length) s.timeEndMs = seg[i + 1].timeStartMs;
   });
-
-  const msPerBeat = (bpm: number): number => 60_000 / bpm;
 
   function timeOfBeat(beat: number): number {
     if (seg.length === 0) return offsetMs;
@@ -92,7 +101,7 @@ export function buildTempoMap(
   }
 
   function bpmAtBeat(beat: number): number {
-    if (seg.length === 0) return clampBpm(baseBpm);
+    if (seg.length === 0) return clampBpm(baseBpm, policy);
     if (beat <= seg[0].beatStart) return seg[0].bpm;
     for (let i = 0; i < seg.length; i++) {
       const s = seg[i];
@@ -118,14 +127,18 @@ export function makeId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** 32nd-note-agnostic bar/beat display, e.g. beat 17.25 -> bar 5, beat 1.25 */
-export function beatParts(beat: number): { bar: number; inBar: number } {
+/** Bar/beat display, e.g. beat 17.25 at 4/4 -> bar 5, beat 1.25 */
+export function beatParts(
+  beat: number,
+  beatsPerBar = 4,
+): { bar: number; inBar: number } {
   const b = Math.max(0, beat);
-  const barIndex = Math.floor(b / 4);
-  return { bar: barIndex + 1, inBar: b - barIndex * 4 };
+  const perBar = Math.max(1, Math.round(beatsPerBar));
+  const barIndex = Math.floor(b / perBar);
+  return { bar: barIndex + 1, inBar: b - barIndex * perBar };
 }
 
-export function fmtBarBeat(beat: number): string {
-  const { bar, inBar } = beatParts(beat);
+export function fmtBarBeat(beat: number, beatsPerBar = 4): string {
+  const { bar, inBar } = beatParts(beat, beatsPerBar);
   return `${bar}·${inBar.toFixed(2).replace(/\.?0+$/, "")}`;
 }

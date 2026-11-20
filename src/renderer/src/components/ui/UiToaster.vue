@@ -1,9 +1,19 @@
 <script setup lang="ts">
 import { CircleAlert, CircleCheck, Info, TriangleAlert, X } from "@lucide/vue";
 import { useI18n } from "vue-i18n";
-import { dismissToast, toasts, type ToastType } from "../../ui/toast";
+import {
+  dismissToast,
+  toasts,
+  type ToastItem,
+  type ToastType,
+} from "../../ui/toast";
 
 const { t } = useI18n();
+
+function runAction(item: ToastItem): void {
+  dismissToast(item.id);
+  item.action?.run();
+}
 
 const ICONS = {
   success: CircleCheck,
@@ -39,6 +49,13 @@ const COLOR: Record<ToastType, string> = {
           :class="COLOR[item.type]"
         />
         <span>{{ item.message }}</span>
+        <button
+          v-if="item.action"
+          class="ml-1 rounded-[var(--bdg-radius-sm)] px-1.5 py-0.5 font-semibold text-accent hover:bg-accent/15"
+          @click="runAction(item)"
+        >
+          {{ item.action.label }}
+        </button>
         <button
           class="ml-1 text-fg-dim hover:text-fg"
           :title="t('a11y.dismiss')"

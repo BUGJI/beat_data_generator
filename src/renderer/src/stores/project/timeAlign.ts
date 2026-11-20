@@ -1,4 +1,5 @@
 import type { LoopConfig } from "../../types";
+import { msPerBeat } from "../../tempo";
 import { useUiStore } from "../ui";
 import { refreshChildren } from "./markers";
 import { findMarker } from "./queries";
@@ -29,7 +30,7 @@ function captureTimePositions(): () => void {
       const loop = m.loop as LoopConfig;
       return {
         id: m.id,
-        spanMs: loop.interval * (60_000 / before.bpmAtBeat(m.beat)),
+        spanMs: loop.interval * msPerBeat(before.bpmAtBeat(m.beat)),
       };
     });
   return () => {
@@ -43,7 +44,7 @@ function captureTimePositions(): () => void {
       if (m?.loop)
         m.loop.interval = Math.max(
           1e-4,
-          it.spanMs / (60_000 / after.bpmAtBeat(m.beat)),
+          it.spanMs / msPerBeat(after.bpmAtBeat(m.beat)),
         );
     }
     for (const m of useProjectStore().markers.filter(

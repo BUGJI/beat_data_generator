@@ -1,14 +1,25 @@
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
-import { basename } from "node:path";
+import { readFile, stat } from "node:fs/promises";
+import { basename, isAbsolute } from "node:path";
 import type { AudioFileResult, IpcFileFilter } from "../shared/ipc";
 
 /** File filters and helpers shared by the native-dialog IPC handlers. */
 
+/** Extensions the editor can decode as audio (lowercase, no dot). */
+export const AUDIO_EXTENSIONS = [
+  "mp3",
+  "wav",
+  "ogg",
+  "flac",
+  "m4a",
+  "aac",
+  "opus",
+] as const;
+
 export const AUDIO_FILTERS = [
   {
     name: "Audio",
-    extensions: ["mp3", "wav", "ogg", "flac", "m4a", "aac", "opus"],
+    extensions: [...AUDIO_EXTENSIONS],
   },
 ];
 
@@ -29,6 +40,32 @@ export const IMAGE_MIME: Record<string, string> = {
 
 /** Upper bound for a background image read over IPC (~16 MB). */
 export const MAX_IMAGE_BYTES = 16 * 1024 * 1024;
+
+/** True when a renderer-supplied path is a non-empty absolute string. */
+export function isAbsoluteFileArg(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0 && isAbsolute(value);
+}
+
+/**
+ * Check the on-disk size before reading, so an oversized file is refused
+ * instead of being allocated in full first. Missing/unreadable files fail.
+ */
+export async function fileSizeWithin(
+  filePath: string,
+  maxBytes: number,
+): Promise<boolean> {
+  try {
+    const info = await stat(filePath);
+    return info.isFile() && info.size <= maxBytes;
+  } catch {
+    return false;
+  }
+}
+
+/** UTF-8 byte length without allocating a Buffer for the common ASCII case. */
+export function utf8ByteLength(text: string): number {
+  return Buffer.byteLength(text, "utf-8");
+}
 
 export async function bytesToAudioResult(
   filePath: string,

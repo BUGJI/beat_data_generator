@@ -97,6 +97,18 @@ describe("history", () => {
     expect(p.bpmLocked).toBe(true);
   });
 
+  it("restores the meter (beats per bar) on undo and redo", () => {
+    const p = useProjectStore();
+    p.beatsPerBar = 4;
+    pushHistory();
+    p.beatsPerBar = 7;
+
+    undo();
+    expect(p.beatsPerBar).toBe(4);
+    redo();
+    expect(p.beatsPerBar).toBe(7);
+  });
+
   it("commits a transaction that changed the document", () => {
     const p = useProjectStore();
     p.baseBpm = 120;

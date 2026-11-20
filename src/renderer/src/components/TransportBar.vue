@@ -1,18 +1,32 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount } from "vue";
+import { computed, nextTick, onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { Pause, Play, SkipBack, Square } from "@lucide/vue";
+import {
+  AudioLines,
+  Pause,
+  Play,
+  Repeat,
+  SkipBack,
+  Square,
+  Volume2,
+  VolumeX,
+} from "@lucide/vue";
 import {
   stop,
   togglePlay,
   seekTo,
   applySpeed,
+  toggleLoop,
   SPEED_MIN,
 } from "../services/playback";
 import { formatTime, contentEndMs, bpmAtTime } from "../services/timeline";
 import { useTransportStore, setVolume } from "../stores/transport";
 import { useSettingsStore } from "../stores/settings";
+import { patchSettings } from "../services/settingsPersistence";
+import { useUiStore } from "../stores/ui";
+import { parseGoto } from "../utils/goto";
 import { analysis } from "../analysis";
+import UiInput from "./ui/UiInput.vue";
 import UiNumberInput from "./ui/UiNumberInput.vue";
 import UiSlider from "./ui/UiSlider.vue";
 import UiSwitch from "./ui/UiSwitch.vue";
@@ -21,6 +35,7 @@ import UiTooltip from "./ui/UiTooltip.vue";
 const { t } = useI18n();
 const transport = useTransportStore();
 const settings = useSettingsStore();
+const ui = useUiStore();
 
 const playing = computed(() => transport.playing);
 const hasAudio = computed(() => transport.hasAudio);
@@ -52,6 +67,73 @@ const pitchFollow = computed({
     applySpeed(transport.rate, v);
   },
 });
+
+const loopOn = computed(() => transport.loopEnabled);
+const gridClickOn = computed(() => settings.settings.gridMetronome);
+const loopTip = computed(() =>
+  loopOn.value
+    ? t("transport.loopOffTip", {
+        a: formatTime(transport.loopStartMs),
+        b: formatTime(transport.loopEndMs),
+      })
+    : t("transport.loopTip"),
+);
+
+function onToggleLoop(): void {
+  toggleLoop();
+}
+
+function onToggleGridClick(): void {
+  void patchSettings({ gridMetronome: !settings.settings.gridMetronome });
+}
+
+function resetRate(): void {
+  applySpeed(1, transport.pitchFollow);
+}
+
+const muted = computed(() => transport.volume <= 0.0001);
+const lastVolume = ref(transport.volume > 0 ? transport.volume : 0.85);
+function toggleMute(): void {
+  if (muted.value) setVolume(lastVolume.value || 0.85);
+  else {
+    lastVolume.value = transport.volume;
+    setVolume(0);
+  }
+}
+
+const editingPosition = ref(false);
+const positionDraft = ref("");
+const positionEl = ref<InstanceType<typeof UiInput> | null>(null);
+
+async function beginPositionEdit(): Promise<void> {
+  if (!hasAudio.value) return;
+  if (editingPosition.value) return;
+  positionDraft.value = formatTime(transport.positionMs);
+  editingPosition.value = true;
+  await nextTick();
+  const input = positionEl.value?.$el as HTMLInputElement | undefined;
+  input?.focus();
+  input?.select();
+}
+
+function commitPosition(): void {
+  if (!editingPosition.value) return;
+  const ms = parseGoto(positionDraft.value);
+  editingPosition.value = false;
+  if (ms === null) return;
+  seekTo(Math.min(ms, contentEndMs()));
+}
+
+function cancelPosition(): void {
+  editingPosition.value = false;
+}
+
+watch(
+  () => ui.positionFocus,
+  (nonce) => {
+    if (nonce > 0) void beginPositionEdit();
+  },
+);
 
 // ---- rate control: hover + mouse wheel (wheel up faster, down slower) ----
 
@@ -117,6 +199,13 @@ onBeforeUnmount(() => {
         <UiSwitch v-model="pitchFollow" :label="t('transport.pitchFollow')" />
         <span class="rate-label">{{ t("transport.pitchFollow") }}</span>
       </div>
+      <span
+        class="rate-label reset-rate"
+        :title="t('transport.rateResetTip')"
+        @click="resetRate"
+      >
+        {{ t("transport.rateReset") }}
+      </span>
     </div>
 
     <div class="tr-controls">
@@ -155,20 +244,76 @@ onBeforeUnmount(() => {
           <Square class="size-3.5" />
         </button>
       </UiTooltip>
+      <UiTooltip :content="loopTip" side="top">
+        <button
+          class="btn-icon"
+          :class="{ on: loopOn }"
+          :disabled="!hasAudio"
+          :aria-label="t('transport.loop')"
+          :aria-pressed="loopOn"
+          @click="onToggleLoop()"
+        >
+          <Repeat class="size-4" />
+        </button>
+      </UiTooltip>
+      <UiTooltip :content="t('transport.gridClickTip')" side="top">
+        <button
+          class="btn-icon"
+          :class="{ on: gridClickOn }"
+          :disabled="!hasAudio"
+          :aria-label="t('transport.gridClick')"
+          :aria-pressed="gridClickOn"
+          @click="onToggleGridClick()"
+        >
+          <AudioLines class="size-4" />
+        </button>
+      </UiTooltip>
 
       <div class="tr-divider" />
 
-      <span v-if="transport.buffering" class="buffering">{{
+      <span v-if="transport.countingIn" class="buffering">{{
+        t("transport.countIn")
+      }}</span>
+      <span v-else-if="transport.buffering" class="buffering">{{
         t("transport.buffering")
       }}</span>
       <div class="tr-time num">
-        <span class="cur">{{ formatTime(transport.positionMs) }}</span>
+        <UiInput
+          v-if="editingPosition"
+          ref="positionEl"
+          v-model="positionDraft"
+          size="sm"
+          class="position-input"
+          :placeholder="t('transport.positionPlaceholder')"
+          :aria-label="t('transport.position')"
+          @blur="commitPosition"
+          @keydown.enter.prevent="commitPosition"
+          @keydown.esc.prevent="cancelPosition"
+        />
+        <button
+          v-else
+          class="cur position-btn"
+          :title="t('transport.positionTip')"
+          :aria-label="t('transport.position')"
+          @click="beginPositionEdit()"
+        >
+          {{ formatTime(transport.positionMs) }}
+        </button>
         <span class="sep">/</span>
         <span class="total">{{ totalLabel }}</span>
       </div>
     </div>
 
     <div class="tr-right">
+      <button
+        class="btn-icon mute-btn"
+        :aria-label="t('transport.mute')"
+        :title="muted ? t('transport.unmute') : t('transport.mute')"
+        @click="toggleMute()"
+      >
+        <VolumeX v-if="muted" class="size-4" />
+        <Volume2 v-else class="size-4" />
+      </button>
       <span class="vol-label">{{ t("transport.volume") }}</span>
       <UiSlider
         v-model="vol"
@@ -283,6 +428,44 @@ onBeforeUnmount(() => {
 }
 .btn-icon:hover:not(:disabled) {
   background: rgb(var(--bdg-neutral) / 0.14);
+}
+.btn-icon.on:not(:disabled) {
+  color: var(--bdg-accent);
+  background: rgb(var(--bdg-accent-rgb) / 0.16);
+}
+.reset-rate {
+  cursor: pointer;
+  user-select: none;
+  padding: 1px 6px;
+  border: 1px solid var(--bdg-border);
+  border-radius: var(--bdg-radius-sm);
+}
+.reset-rate:hover {
+  color: var(--bdg-text);
+  background: rgb(var(--bdg-neutral) / 0.12);
+}
+.position-btn {
+  border: none;
+  background: transparent;
+  color: var(--bdg-text);
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: 700;
+  letter-spacing: inherit;
+  padding: 0 2px;
+  border-radius: var(--bdg-radius-sm);
+  cursor: text;
+}
+.position-btn:hover {
+  background: rgb(var(--bdg-neutral) / 0.12);
+}
+.position-input {
+  width: 112px;
+}
+.mute-btn {
+  flex: none;
+  width: var(--bdg-ctl-sm);
+  height: var(--bdg-ctl-sm);
 }
 .btn-big {
   width: var(--bdg-ctl-xl);

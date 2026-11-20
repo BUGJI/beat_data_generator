@@ -13,59 +13,28 @@ type RequestMethod = Exclude<
 >;
 
 /**
- * Request/response methods and their channels. Keeping this table exhaustive
- * (`Record<RequestMethod, string>`) means adding an `IpcApi` method fails to
- * compile until its channel is wired here, instead of silently missing in a
- * hand-written method body.
+ * Request/response channels are derived from the shared `IPC` table, whose keys
+ * mirror `IpcApi` method names. Only the push channels and `setDirty` are
+ * excluded, plus the `writeTextFile` alias (it reuses `writeProjectFile`'s
+ * handler, which has the same signature). Adding a method now only needs a
+ * shared entry instead of a third hand-written table here.
  */
-const REQUEST_CHANNELS: Record<RequestMethod, string> = {
-  openAudio: IPC.openAudio,
-  readAudioFile: IPC.readAudioFile,
-  openTextFile: IPC.openTextFile,
-  saveTextFile: IPC.saveTextFile,
-  saveProjectFile: IPC.saveProjectFile,
-  saveEDLFile: IPC.saveEDLFile,
-  getFilePath: IPC.getFilePath,
-  getSettings: IPC.getSettings,
-  updateSettings: IPC.updateSettings,
-  checkForUpdates: IPC.checkForUpdates,
-  toggleDevTools: IPC.toggleDevTools,
-  setZoom: IPC.setZoom,
-  writeProjectFile: IPC.writeProjectFile,
-  readTextFile: IPC.readTextFile,
-  readImageAsDataUrl: IPC.readImageAsDataUrl,
-  computeMd5: IPC.computeMd5,
-  listMetronomes: IPC.listMetronomes,
-  openMetronomeFolder: IPC.openMetronomeFolder,
-  readMetronome: IPC.readMetronome,
-  notifyAppReady: IPC.notifyAppReady,
-  recordRecent: IPC.recordRecent,
-  getRecents: IPC.getRecents,
-  listPlugins: IPC.listPlugins,
-  setPluginEnabled: IPC.setPluginEnabled,
-  reloadPlugins: IPC.reloadPlugins,
-  readPluginRenderer: IPC.readPluginRenderer,
-  openPluginsFolder: IPC.openPluginsFolder,
-  invokePlugin: IPC.invokePlugin,
-  getPluginData: IPC.getPluginData,
-  setPluginData: IPC.setPluginData,
-  getPluginPanelLayout: IPC.getPluginPanelLayout,
-  setPluginPanelLayout: IPC.setPluginPanelLayout,
-  marketList: IPC.marketList,
-  marketRefresh: IPC.marketRefresh,
-  marketInstall: IPC.marketInstall,
-  marketUninstall: IPC.marketUninstall,
-  installPluginZip: IPC.installPluginZip,
-  pingHost: IPC.pingHost,
-  pickFile: IPC.pickFile,
-  saveFileDialog: IPC.saveFileDialog,
-  writeTextFile: IPC.writeTextFile,
-  readBinaryFile: IPC.readBinaryFile,
-  writeBinaryFile: IPC.writeBinaryFile,
-  openWindow: IPC.openWindow,
-  writeClipboard: IPC.writeClipboard,
-  confirmQuit: IPC.confirmQuit,
-};
+const EVENT_CHANNEL_KEYS = new Set<string>([
+  "welcomeAction",
+  "pluginChanged",
+  "marketProgress",
+  "quitRequest",
+]);
+
+const REQUEST_CHANNELS = (() => {
+  const out: Record<string, string> = {};
+  for (const [key, channel] of Object.entries(IPC)) {
+    if (key === "setDirty" || EVENT_CHANNEL_KEYS.has(key)) continue;
+    out[key] = channel;
+  }
+  out.writeTextFile = IPC.writeProjectFile;
+  return out as Record<RequestMethod, string>;
+})();
 
 function onMainAction(cb: (payload: WelcomeAction) => void): () => void {
   const listener = (_e: unknown, payload: WelcomeAction): void => cb(payload);

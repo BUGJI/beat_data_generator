@@ -2,7 +2,7 @@
 import { ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
-import { openDevTools } from "@renderer/stores/settings";
+import { openDevTools } from "@renderer/utils/devTools";
 import { useSettingsRowsStore } from "../useSettingsRows";
 import UiButton from "../../ui/UiButton.vue";
 

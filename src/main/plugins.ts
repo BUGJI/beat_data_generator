@@ -1,22 +1,25 @@
-import { app, BrowserWindow, shell } from "electron";
+import { app, shell } from "electron";
 import {
   existsSync,
   mkdirSync,
   readFileSync,
   readdirSync,
   statSync,
-  writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { readJson, writeJsonAtomic } from "./jsonStore";
 import log from "./logger";
 import { IPC } from "../shared/ipc";
 import {
   PLUGIN_API_VERSION,
   PLUGIN_API_VERSION_FALLBACK,
+  resolveLocalizedText,
   type PluginEngines,
   type PluginEntry,
   type PluginManifest,
 } from "../shared/plugin";
+import { isInside, isSafeId } from "../shared/path";
+import { broadcastToAllWindows } from "./windows";
 import { handle } from "./ipcHandle";
 
 /**
@@ -73,19 +76,13 @@ interface PluginState {
 }
 
 function readState(): PluginState {
-  try {
-    const raw = JSON.parse(readFileSync(statePath(), "utf-8")) as {
-      enabled?: unknown;
+  const raw = readJson<{ enabled?: unknown }>(statePath(), () => ({}));
+  if (Array.isArray(raw.enabled)) {
+    return {
+      enabled: raw.enabled.filter(
+        (x: unknown): x is string => typeof x === "string" && !!x,
+      ),
     };
-    if (Array.isArray(raw.enabled)) {
-      return {
-        enabled: raw.enabled.filter(
-          (x): x is string => typeof x === "string" && !!x,
-        ),
-      };
-    }
-  } catch {
-    /* no state yet */
   }
   return { enabled: [] };
 }
@@ -94,12 +91,7 @@ const loaded = new Map<string, LoadedPlugin>();
 const state = readState();
 
 function persistState(): void {
-  try {
-    mkdirSync(app.getPath("userData"), { recursive: true });
-    writeFileSync(statePath(), JSON.stringify(state, null, 2), "utf-8");
-  } catch (err) {
-    log.error("[plugins] persist state failed", err);
-  }
+  writeJsonAtomic(statePath(), state);
 }
 
 function isEnabled(id: string): boolean {
@@ -112,31 +104,6 @@ export function isPluginEnabled(id: string): boolean {
 }
 
 // ---- manifest helpers ----
-
-function resolveText(v: unknown): {
-  fallback: string;
-  i18n: Record<string, string>;
-} {
-  if (typeof v === "string" && v.trim()) {
-    return { fallback: v.trim(), i18n: {} };
-  }
-  if (v && typeof v === "object") {
-    const i18n: Record<string, string> = {};
-    let fallback = "";
-    for (const [loc, val] of Object.entries(v)) {
-      if (typeof val === "string" && val.trim()) {
-        i18n[loc] = val.trim();
-        if (loc === "en" && !fallback) fallback = i18n[loc] as string;
-      }
-    }
-    if (!fallback) {
-      const zh = i18n.zh;
-      if (zh) fallback = zh;
-    }
-    return { fallback, i18n };
-  }
-  return { fallback: "", i18n: {} };
-}
 
 /** Coerce a manifest `apiVersion` to a positive integer, defaulting to 1. */
 function normalizeApiVersion(v: unknown): number {
@@ -183,11 +150,13 @@ function scanPluginDir(dir: string): PluginEntry | null {
   }
   if (typeof manifest !== "object" || !manifest) return null;
   const id = typeof manifest.id === "string" ? manifest.id.trim() : "";
-  if (!id) return null;
+  // The id becomes a folder name and an IPC key; reject separators / reserved
+  // names instead of letting a manifest address outside its own folder.
+  if (!id || !isSafeId(id)) return null;
   const version =
     typeof manifest.version === "string" ? manifest.version : "0.0.0";
-  const name = resolveText(manifest.name);
-  const description = resolveText(manifest.description);
+  const name = resolveLocalizedText(manifest.name);
+  const description = resolveLocalizedText(manifest.description);
   const main =
     typeof manifest.main === "string" && manifest.main ? manifest.main : null;
   const renderer =
@@ -276,6 +245,11 @@ function makeContext(entry: PluginEntry): PluginContext {
 function loadMain(entry: PluginEntry): void {
   if (!entry.main) return;
   const full = join(entry.dir, entry.main);
+  // A manifest entry (`"main": "../../x.js"`) must not escape its plugin folder.
+  if (!isInside(entry.dir, full)) {
+    entry.error = `main entry escapes the plugin folder: ${entry.main}`;
+    return;
+  }
   try {
     if (!existsSync(full)) {
       entry.error = `main entry missing: ${entry.main}`;
@@ -359,9 +333,7 @@ export function setEnabled(id: string, enabled: boolean): PluginEntry[] {
 }
 
 function broadcastChanged(): void {
-  for (const w of BrowserWindow.getAllWindows()) {
-    if (!w.isDestroyed()) w.webContents.send(IPC.pluginChanged);
-  }
+  broadcastToAllWindows(IPC.pluginChanged);
 }
 
 /** Rescan plugin roots, (re)load enabled ones and notify renderers. */
@@ -393,10 +365,13 @@ export function installPluginManager(): void {
   });
 
   handle("readPluginRenderer", (_e, id: string): string | null => {
-    if (typeof id !== "string") return null;
+    if (typeof id !== "string" || !isSafeId(id)) return null;
     const entry = scanAll().find((e) => e.id === id);
     if (!entry?.renderer || !entry.enabled || !entry.compatible) return null;
     const full = join(entry.dir, entry.renderer);
+    // Renderer source is read from disk and executed in the app page, so it
+    // must stay inside the plugin folder.
+    if (!isInside(entry.dir, full)) return null;
     try {
       return readFileSync(full, "utf-8");
     } catch {
@@ -416,6 +391,10 @@ export function installPluginManager(): void {
       method: string,
       args: unknown[],
     ): Promise<unknown> => {
+      if (typeof id !== "string" || !isSafeId(id))
+        throw new Error("invalid plugin id");
+      if (typeof method !== "string" || !method)
+        throw new Error("invalid plugin method");
       const h = loaded.get(id);
       const fn = h?.handlers.get(method);
       if (!fn) throw new Error(`plugin ${id} has no handler "${method}"`);

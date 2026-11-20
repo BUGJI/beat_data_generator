@@ -22,6 +22,7 @@ export const useViewStore = defineStore("view", () => {
   const vh = ref(100);
   const pxPerSec = ref(90);
   const snapEnabled = ref(true);
+  const magnetEnabled = ref(true);
 
   // ---- high-frequency viewport mutations exposed as Pinia actions ----
   function setScrollImpl(nx: number, ny: number): void {
@@ -57,6 +58,7 @@ export const useViewStore = defineStore("view", () => {
     vh,
     pxPerSec,
     snapEnabled,
+    magnetEnabled,
     setScroll: setScrollImpl,
     setViewport: setViewportImpl,
     zoomBy: zoomByImpl,

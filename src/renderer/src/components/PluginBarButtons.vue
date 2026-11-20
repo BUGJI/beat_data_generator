@@ -1,10 +1,15 @@
 <script setup lang="ts">
+import { computed } from "vue";
 import { barButtons, localeText } from "../plugins/registry";
+import { useSettingsStore } from "../stores/settings";
 
 /**
  * Renders plugin-contributed quick-action buttons into the project bar. Kept
  * visually consistent with UiIconButton; the icon is plugin-authored inline SVG.
  */
+
+const settings = useSettingsStore();
+const showLabels = computed(() => settings.settings.quickBarLabels);
 
 function onClick(b: (typeof barButtons)[number]): void {
   if (b.def.toggle) b.active = !b.active;
@@ -24,7 +29,11 @@ function onClick(b: (typeof barButtons)[number]): void {
     :key="`${b.pluginId}:${b.uid}`"
     type="button"
     class="icon-btn"
-    :class="{ on: b.active, 'has-text': !b.def.icon }"
+    :class="{
+      on: b.active,
+      'has-text': !b.def.icon,
+      'has-label': !!b.def.icon && showLabels,
+    }"
     :title="localeText(b.def.title)"
     :aria-label="localeText(b.def.title)"
     :aria-pressed="b.def.toggle ? b.active : undefined"
@@ -32,6 +41,9 @@ function onClick(b: (typeof barButtons)[number]): void {
   >
     <span v-if="b.def.icon" class="pb-btn-ico" v-html="b.def.icon" />
     <span v-else class="pb-btn-txt">{{ localeText(b.def.title) }}</span>
+    <span v-if="b.def.icon && showLabels" class="pb-btn-txt pb-btn-lbl">{{
+      localeText(b.def.title)
+    }}</span>
   </button>
 </template>
 
@@ -66,6 +78,13 @@ function onClick(b: (typeof barButtons)[number]): void {
   width: auto;
   min-width: var(--bdg-ctl-md);
   padding: 0 8px;
+}
+/* Icon buttons with a visible label grow and keep icon + text on one line. */
+.icon-btn.has-label {
+  width: auto;
+  min-width: var(--bdg-ctl-md);
+  padding: 0 8px;
+  gap: 6px;
 }
 .pb-btn-ico {
   display: inline-flex;

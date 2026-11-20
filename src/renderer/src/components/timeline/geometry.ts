@@ -1,12 +1,6 @@
-import { beatParts, clampBpm, snapBeat } from "../../tempo";
+import { beatParts, snapBeat } from "../../tempo";
 import { BPM_LANE_H, MARKER_LANE_H, RULER_H } from "../../metrics";
-import type {
-  BpmPoint,
-  BpmSegment,
-  LaneKind,
-  Marker,
-  VisibleRow,
-} from "./types";
+import type { BpmPoint, LaneKind, Marker, VisibleRow } from "./types";
 
 /**
  * Pure geometry / formatting helpers for the timeline canvas.
@@ -59,25 +53,6 @@ export function cappedSnapDiv(pps: number, snapDiv: number): number {
   return snapDiv;
 }
 
-/** Tempo segments implied by the BPM points, starting from the base BPM. */
-export function effectiveSegments(
-  baseBpm: number,
-  bpmPoints: BpmPoint[],
-): BpmSegment[] {
-  const pts = [...bpmPoints].sort((a, b) => a.beat - b.beat);
-  const segs: BpmSegment[] = [];
-  let curBpm = baseBpm;
-  let startBeat = 0;
-  for (const p of pts) {
-    if (p.beat <= startBeat) continue;
-    segs.push({ beatStart: startBeat, beatEnd: p.beat, bpm: curBpm });
-    curBpm = p.mode === "abs" ? clampBpm(p.value) : curBpm * p.value;
-    startBeat = p.beat;
-  }
-  segs.push({ beatStart: startBeat, beatEnd: null, bpm: curBpm });
-  return segs;
-}
-
 /** Snap a raw beat if snapping is enabled. */
 export function doSnap(
   raw: number,
@@ -115,8 +90,8 @@ export function beatStr(b: number, snapDiv: number): string {
   return b.toFixed(snapDiv <= 4 ? 2 : 3);
 }
 
-export function fmtBar(b: number): string {
-  const p = beatParts(b);
+export function fmtBar(b: number, beatsPerBar = 4): string {
+  const p = beatParts(b, beatsPerBar);
   const whole = Math.floor(p.inBar) + 1;
   const frac = Math.round((p.inBar % 1) * 1000) / 1000;
   return `${p.bar}.${whole}${frac ? `+${frac.toFixed(3)}` : ""}`;

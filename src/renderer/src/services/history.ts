@@ -1,11 +1,13 @@
-import { useProjectStore } from "../stores/project";
-import { useSelectionStore } from "../stores/selection";
-import type { BpmPoint, Marker, MarkerTrack, ProjectNote } from "../types";
+import type { ProjectState } from "../stores/project/store";
 
 /**
  * Undo / redo via whole-document snapshots. A snapshot only covers the parts of
  * the project that edits can change (tempo, tracks, markers, bpm points, notes);
  * paths / audio metadata / name are intentionally excluded.
+ *
+ * The document store registers its read/write hooks here instead of this module
+ * importing it, which keeps `stores/project/*` from depending on `services/history`
+ * (that used to form an import cycle).
  */
 
 interface Snap {
@@ -17,15 +19,43 @@ interface Snap {
   text: string;
 }
 
-interface SnapState {
-  baseBpm: number;
-  offsetMs: number;
-  gridDiv: number;
-  bpmLocked: boolean;
-  tracks: MarkerTrack[];
-  markers: Marker[];
-  bpmPoints: BpmPoint[];
-  notes: ProjectNote[];
+/**
+ * Editable subset of the project document that a snapshot covers. Deriving it
+ * from `ProjectState` means a newly persisted field is a compile error here
+ * until it is added, instead of silently escaping undo.
+ */
+export type SnapState = Pick<
+  ProjectState,
+  | "baseBpm"
+  | "offsetMs"
+  | "beatsPerBar"
+  | "gridDiv"
+  | "bpmLocked"
+  | "tracks"
+  | "markers"
+  | "bpmPoints"
+  | "notes"
+>;
+
+type ReadState = () => SnapState;
+type WriteState = (state: SnapState) => void;
+
+let readState: ReadState | null = null;
+let writeState: WriteState | null = null;
+let clearSelection: () => void = () => {};
+
+/** Called once by the project store when it is created. */
+export function registerHistoryTarget(
+  read: ReadState,
+  write: WriteState,
+): void {
+  readState = read;
+  writeState = write;
+}
+
+/** Called once by the selection store so applying a snapshot drops selection. */
+export function registerHistorySelectionClearer(fn: () => void): void {
+  clearSelection = fn;
 }
 
 /** Cap history by step count and, for large projects, by total serialized size. */
@@ -39,20 +69,12 @@ let gestureSnapshot: Snap | null = null;
 let transactionSnapshot: Snap | null = null;
 
 function captureState(): string {
-  const p = useProjectStore();
-  return JSON.stringify({
-    baseBpm: p.baseBpm,
-    offsetMs: p.offsetMs,
-    gridDiv: p.gridDiv,
-    bpmLocked: p.bpmLocked,
-    tracks: p.tracks,
-    markers: p.markers,
-    bpmPoints: p.bpmPoints,
-    notes: p.notes,
-  });
+  if (!readState) return "";
+  return JSON.stringify(readState());
 }
 
-function snapshotNow(): Snap {
+function snapshotNow(): Snap | null {
+  if (!readState) return null;
   return { text: captureState() };
 }
 
@@ -77,26 +99,16 @@ function commitSnapshot(snap: Snap): void {
 }
 
 function applySnap(snap: Snap): void {
-  const p = useProjectStore();
+  if (!writeState) return;
   const data = JSON.parse(snap.text) as SnapState;
-  p.baseBpm = data.baseBpm;
-  p.offsetMs = data.offsetMs;
-  p.gridDiv = data.gridDiv;
-  p.bpmLocked = data.bpmLocked;
-  p.tracks = data.tracks;
-  p.markers = data.markers;
-  p.bpmPoints = data.bpmPoints;
-  p.notes = data.notes;
-  const sel = useSelectionStore();
-  sel.selected = { kind: null, id: null };
-  sel.multi = [];
-  sel.cardOpen = false;
-  p.dirty = true;
+  writeState(data);
+  clearSelection();
 }
 
 export function pushHistory(): void {
   if (editingGesture || transactionSnapshot) return;
-  commitSnapshot(snapshotNow());
+  const snap = snapshotNow();
+  if (snap) commitSnapshot(snap);
 }
 
 /**
@@ -122,7 +134,7 @@ export function historyGestureBegin(): void {
   if (editingGesture || transactionSnapshot) return;
   editingGesture = true;
   gestureSnapshot = snapshotNow();
-  commitSnapshot(gestureSnapshot);
+  if (gestureSnapshot) commitSnapshot(gestureSnapshot);
 }
 
 export function historyGestureEnd(): void {
@@ -152,7 +164,8 @@ export function canRedo(): boolean {
 export function undo(): void {
   const prev = undoStack.pop();
   if (!prev) return;
-  redoStack.push(snapshotNow());
+  const now = snapshotNow();
+  if (now) redoStack.push(now);
   applySnap(prev);
   pruneHistory();
 }
@@ -160,7 +173,8 @@ export function undo(): void {
 export function redo(): void {
   const next = redoStack.pop();
   if (!next) return;
-  undoStack.push(snapshotNow());
+  const now = snapshotNow();
+  if (now) undoStack.push(now);
   applySnap(next);
   pruneHistory();
 }

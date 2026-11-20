@@ -11,6 +11,7 @@ export type GestureMode =
   | "brushAdd"
   | "brushErase"
   | "boxSelect"
+  | "loopSelect"
   | "pan";
 
 export type LaneKind = { kind: "bpm" | "marker"; index: number };

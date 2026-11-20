@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   defaultSettings,
   migrateSettings,
+  prepareImportedSettings,
   sanitizeSettings,
   SETTINGS_VERSION,
 } from "./settings";
@@ -13,9 +14,13 @@ describe("defaultSettings", () => {
     expect(s.devEnabled).toBe(false);
     expect(s.logToFile).toBe(false);
     expect(s.stretchEngine).toBe("signalsmith");
+    expect(s.stretchCacheMb).toBe(256);
     expect(s.followPercent).toBe(90);
+    expect(s.beatFx).toEqual({});
     expect(s.autoSave).toBe(true);
     expect(s.autoSaveMinutes).toBe(5);
+    expect(s.countInBars).toBe(0);
+    expect(s.gridMetronome).toBe(false);
     expect(s.alignDecimals).toBe(2);
     expect(s.alignRounding).toBe("round");
     expect(s.uiZoom).toBe(100);
@@ -78,6 +83,8 @@ describe("sanitizeSettings", () => {
     const low = sanitizeSettings({ followPercent: -5, autoSaveMinutes: 0 });
     expect(low.followPercent).toBe(0);
     expect(low.autoSaveMinutes).toBe(1);
+    expect(sanitizeSettings({ countInBars: 99 }).countInBars).toBe(4);
+    expect(sanitizeSettings({ countInBars: -3 }).countInBars).toBe(0);
   });
 
   it("bypasses numeric ranges under free input", () => {
@@ -105,6 +112,18 @@ describe("sanitizeSettings", () => {
     expect(s.alignRounding).toBe("round");
     expect(s.devEnabled).toBe(false);
     expect(s.autoSave).toBe(true);
+  });
+
+  it("keeps only known boolean beat effects", () => {
+    const s = sanitizeSettings({
+      beatFx: {
+        laneGlow: true,
+        markerFlash: "yes",
+        unknownFx: true,
+      },
+    });
+    expect(s.beatFx).toEqual({ laneGlow: true });
+    expect(sanitizeSettings({ beatFx: "nope" }).beatFx).toEqual({});
   });
 
   it("strips unknown keys but keeps known ones", () => {
@@ -135,6 +154,17 @@ describe("sanitizeSettings", () => {
     ).toBe("soundtouch");
     expect(sanitizeSettings({ stretchEngine: "nope" }).stretchEngine).toBe(
       "signalsmith",
+    );
+  });
+
+  it("clamps the stretch cache budget into 32–4096 MB", () => {
+    expect(sanitizeSettings({ stretchCacheMb: 1 }).stretchCacheMb).toBe(32);
+    expect(sanitizeSettings({ stretchCacheMb: 99999 }).stretchCacheMb).toBe(
+      4096,
+    );
+    expect(sanitizeSettings({ stretchCacheMb: 512 }).stretchCacheMb).toBe(512);
+    expect(sanitizeSettings({ stretchCacheMb: "nope" }).stretchCacheMb).toBe(
+      256,
     );
   });
 
@@ -175,6 +205,65 @@ describe("sanitizeSettings", () => {
     ).toBe("https://ghfast.top");
     expect(sanitizeSettings({ githubProxy: true }).githubProxy).toBe(true);
   });
+
+  it("repairs an invalid gh-proxy host to the built-in fallback", () => {
+    expect(
+      sanitizeSettings({ githubProxyHost: "gh fast.top" }).githubProxyHost,
+    ).toBe("ghfast.top");
+    expect(sanitizeSettings({ githubProxyHost: "" }).githubProxyHost).toBe(
+      "ghfast.top",
+    );
+    expect(
+      sanitizeSettings({ githubProxyHost: "mirror.example.com:8080" })
+        .githubProxyHost,
+    ).toBe("mirror.example.com:8080");
+  });
+});
+
+describe("prepareImportedSettings", () => {
+  it("accepts a partial settings file and stamps the current version", () => {
+    const imported = prepareImportedSettings({
+      uiZoom: 120,
+      themePreset: "midnight",
+    });
+    expect(imported?.uiZoom).toBe(120);
+    expect(imported?.themePreset).toBe("midnight");
+    expect(imported?.settingsVersion).toBe(SETTINGS_VERSION);
+    expect(imported?.devEnabled).toBe(false);
+  });
+
+  it("rejects non-objects and files with no known keys", () => {
+    expect(prepareImportedSettings(null)).toBeNull();
+    expect(prepareImportedSettings("x")).toBeNull();
+    expect(prepareImportedSettings([])).toBeNull();
+    expect(prepareImportedSettings({})).toBeNull();
+    expect(prepareImportedSettings({ hacker: true })).toBeNull();
+  });
+
+  it("drops dev flags so numbers cannot bypass their ranges", () => {
+    const imported = prepareImportedSettings({
+      devEnabled: true,
+      devFreeInput: true,
+      uiZoom: 10_000,
+      alignDecimals: 99,
+      followPercent: -5,
+    });
+    expect(imported?.devEnabled).toBe(false);
+    expect(imported?.devFreeInput).toBe(false);
+    expect(imported?.uiZoom).toBe(150);
+    expect(imported?.alignDecimals).toBe(6);
+    expect(imported?.followPercent).toBe(0);
+  });
+
+  it("runs the v1 audio migration on imported files", () => {
+    const imported = prepareImportedSettings({
+      settingsVersion: 1,
+      audioAutoBpm: true,
+      audioPanel: true,
+    });
+    expect(imported?.audioAutoBpm).toBe(false);
+    expect(imported?.audioPanel).toBe(false);
+  });
 });
 
 describe("migrateSettings", () => {
@@ -182,14 +271,16 @@ describe("migrateSettings", () => {
     const { data, changed } = migrateSettings({
       settingsVersion: 1,
       audioAutoBeats: true,
-      audioAutoBpm: false,
+      audioAutoBpm: true,
       audioLoopDetect: true,
+      audioPanel: true,
     });
     expect(changed).toBe(true);
     expect(data.settingsVersion).toBe(SETTINGS_VERSION);
-    expect(data.audioAutoBpm).toBe(true);
+    expect(data.audioAutoBpm).toBe(false);
     expect(data.audioAutoBeats).toBe(false);
     expect(data.audioLoopDetect).toBe(false);
+    expect(data.audioPanel).toBe(false);
   });
 
   it("reports no change when already at the current version", () => {

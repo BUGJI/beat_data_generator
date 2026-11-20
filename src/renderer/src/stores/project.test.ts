@@ -8,15 +8,17 @@ import {
   findMarker,
   findTrack,
   moveMarker,
+  moveMarkers,
   removeSelectedMarkers,
   setBpmGridDiv,
   setBpmLocked,
+  setBeatsPerBar,
   setGridDiv,
   setTrackLocked,
   useProjectStore,
 } from "./project";
 import { selectSingleMarker } from "./selection";
-import { canUndo, resetHistory } from "../services/history";
+import { canUndo, resetHistory, undo } from "../services/history";
 
 beforeEach(() => {
   setActivePinia(createPinia());
@@ -84,11 +86,83 @@ describe("moveMarker", () => {
   });
 });
 
+describe("moveMarkers", () => {
+  it("moves every selected marker and records one undo step", () => {
+    const track = addTrack("T", false);
+    const a = addMarker(track.id, 1)!;
+    const b = addMarker(track.id, 3)!;
+    resetHistory();
+
+    expect(
+      moveMarkers([
+        { id: a.id, beat: 2 },
+        { id: b.id, beat: 4 },
+      ]),
+    ).toBe(true);
+    expect(a.beat).toBe(2);
+    expect(b.beat).toBe(4);
+    expect(canUndo()).toBe(true);
+  });
+
+  it("rejects the whole move when one target collides", () => {
+    const track = addTrack("T", false);
+    const a = addMarker(track.id, 1)!;
+    const b = addMarker(track.id, 3)!;
+    addMarker(track.id, 4);
+    resetHistory();
+
+    expect(
+      moveMarkers([
+        { id: a.id, beat: 2 },
+        { id: b.id, beat: 4 },
+      ]),
+    ).toBe(false);
+    expect(a.beat).toBe(1);
+    expect(b.beat).toBe(3);
+    expect(canUndo()).toBe(false);
+  });
+});
+
 describe("setTrackLocked", () => {
   it("does not record an undo step when the value is unchanged", () => {
     const track = addTrack("T", false);
     setTrackLocked(track.id, false);
     expect(canUndo()).toBe(false);
+  });
+});
+
+describe("setBeatsPerBar", () => {
+  it("records a meter change that undo restores", () => {
+    const p = useProjectStore();
+    expect(p.beatsPerBar).toBe(4);
+
+    setBeatsPerBar(6);
+    expect(p.beatsPerBar).toBe(6);
+    expect(canUndo()).toBe(true);
+
+    undo();
+    expect(p.beatsPerBar).toBe(4);
+  });
+
+  it("ignores non-finite input instead of writing NaN", () => {
+    const p = useProjectStore();
+    const before = p.beatsPerBar;
+
+    setBeatsPerBar(Number.NaN);
+
+    expect(p.beatsPerBar).toBe(before);
+    expect(Number.isNaN(p.beatsPerBar)).toBe(false);
+    expect(canUndo()).toBe(false);
+  });
+
+  it("clamps and rounds out-of-range values", () => {
+    const p = useProjectStore();
+
+    setBeatsPerBar(99);
+    expect(p.beatsPerBar).toBe(16);
+
+    setBeatsPerBar(2.6);
+    expect(p.beatsPerBar).toBe(3);
   });
 });
 

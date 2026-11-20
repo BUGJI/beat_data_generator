@@ -38,6 +38,27 @@ function envProxyRules(): string {
   return parts.join(";");
 }
 
+/**
+ * Run `consume` with a `net.fetch` response under a single abort deadline that
+ * also covers reading the body. Used by the registry and artifact download so
+ * they share one controller/timer pattern.
+ */
+export async function withFetchTimeout<T>(
+  target: string,
+  init: RequestInit,
+  timeoutMs: number,
+  consume: (res: Response) => Promise<T>,
+): Promise<T> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await net.fetch(target, { ...init, signal: controller.signal });
+    return await consume(res);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Apply the configured proxy mode. Safe to call repeatedly. */
 export async function applyProxyMode(mode: ProxyMode): Promise<void> {
   try {

@@ -1,7 +1,14 @@
+import {
+  BEAT_FX_DURATION_MS,
+  BEAT_FX_IDS,
+  type BeatFxId,
+} from "@shared/beatFx";
 import { engine } from "../engine";
 import { visibleMarkers } from "../stores/project";
+import { useSettingsStore } from "../stores/settings";
 import { useTransportStore } from "../stores/transport";
 import { useUiStore } from "../stores/ui";
+import { lowerBound } from "../utils/search";
 import { timeOfBeat } from "./timeline";
 
 // ---- beat indicators: fire once per distinct marker time crossed while
@@ -11,7 +18,10 @@ import { timeOfBeat } from "./timeline";
 interface FlashEvent {
   t: number;
   n: number;
-  ids: string[];
+  /** distinct tracks that have a marker at this instant. */
+  trackIds: string[];
+  /** every marker id at this instant (for per-marker effects). */
+  markerIds: string[];
 }
 
 let flashEvents: FlashEvent[] = [];
@@ -25,35 +35,54 @@ let lastPosMs = 0;
 // overlapping metronome clicks (which clips / pops).
 const SUSPEND_GAP_MS = 500;
 
+/**
+ * Per-effect target selector: which entity keys an effect animates for one
+ * crossed beat. Adding a new playback effect supplies one entry here, its id in
+ * shared/beatFx.ts, a render consumer and an i18n label.
+ */
+const FX_TARGETS: Record<BeatFxId, (ev: FlashEvent) => string[]> = {
+  laneGlow: (ev) => ev.trackIds,
+  markerFlash: (ev) => ev.markerIds,
+};
+
 function firstEventAtOrAfter(arr: FlashEvent[], pos: number): number {
-  let lo = 0;
-  let hi = arr.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if ((arr[mid] as FlashEvent).t < pos) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
+  return lowerBound(arr, (ev) => ev.t, pos);
 }
 
 export function refreshBeatFlash(posMs: number): void {
   // refreshed on play/seek/stop events (not per-frame), so recompute freely
+  const ui = useUiStore();
+  for (const id of BEAT_FX_IDS) {
+    ui.fxPulses[id] = {};
+    ui.fxUntil[id] = 0;
+  }
   const groups = new Map<
     string,
-    { beat: number; count: number; ids: string[] }
+    { beat: number; count: number; trackIds: string[]; markerIds: string[] }
   >();
   for (const m of visibleMarkers()) {
     const key = `${Math.round(m.beat * 1e6)}`;
     const g = groups.get(key);
     if (g) {
       g.count++;
-      if (!g.ids.includes(m.trackId)) g.ids.push(m.trackId);
+      g.markerIds.push(m.id);
+      if (!g.trackIds.includes(m.trackId)) g.trackIds.push(m.trackId);
     } else {
-      groups.set(key, { beat: m.beat, count: 1, ids: [m.trackId] });
+      groups.set(key, {
+        beat: m.beat,
+        count: 1,
+        trackIds: [m.trackId],
+        markerIds: [m.id],
+      });
     }
   }
   flashEvents = [...groups.values()]
-    .map((g) => ({ t: timeOfBeat(g.beat), n: g.count, ids: g.ids }))
+    .map((g) => ({
+      t: timeOfBeat(g.beat),
+      n: g.count,
+      trackIds: g.trackIds,
+      markerIds: g.markerIds,
+    }))
     .sort((a, b) => a.t - b.t);
   flashIdx = firstEventAtOrAfter(flashEvents, posMs);
   flashReady = flashIdx < flashEvents.length;
@@ -64,6 +93,7 @@ export function tickBeatFlash(): void {
   const t = useTransportStore();
   if (!t.playing || !flashReady) return;
   const ui = useUiStore();
+  const enabled = useSettingsStore().settings.beatFx;
   const pos = t.positionMs;
   // Drop the events we jumped past after a stall rather than firing them all
   // together (that is what produced the overlapping-click burst / clipping).
@@ -82,10 +112,14 @@ export function tickBeatFlash(): void {
       ui.overlapPulse++;
       ui.overlapCount = ev.n;
     }
-    if (ui.glowEnabled) {
-      for (const id of ev.ids) {
-        ui.glowSeqs[id] = (ui.glowSeqs[id] ?? 0) + 1;
+    const now = performance.now();
+    for (const id of BEAT_FX_IDS) {
+      if (!ui.fxMasterOn || !enabled[id]) continue;
+      const pulses = ui.fxPulses[id];
+      for (const key of FX_TARGETS[id](ev)) {
+        pulses[key] = { seq: (pulses[key]?.seq ?? 0) + 1, at: now };
       }
+      ui.fxUntil[id] = Math.max(ui.fxUntil[id], now + BEAT_FX_DURATION_MS[id]);
     }
   }
   if (flashIdx >= flashEvents.length) flashReady = false;

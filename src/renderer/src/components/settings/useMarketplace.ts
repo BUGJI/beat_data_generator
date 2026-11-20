@@ -1,7 +1,8 @@
 import { computed, ref, watch } from "vue";
 import { defineStore } from "pinia";
 import { i18n } from "../../i18n";
-import { patchSettings, useSettingsStore } from "../../stores/settings";
+import { useSettingsStore } from "../../stores/settings";
+import { patchSettings } from "../../services/settingsPersistence";
 import { toast } from "../../ui/toast";
 import {
   MARKET_CATEGORIES,
@@ -19,6 +20,13 @@ import type { MarketCacheTtl } from "@shared/settings";
 const t = i18n.global.t.bind(i18n.global);
 
 export type MarketAction = "install" | "update" | "installed" | "incompatible";
+
+/**
+ * The progress listener outlives individual store instances (it must report
+ * installs while the panel is unmounted). Replace the previous subscription
+ * when the store is recreated so HMR/tests can't stack handlers.
+ */
+let unsubscribeProgress: (() => void) | null = null;
 
 export const useMarketplaceStore = defineStore("marketplace", () => {
   const settings = useSettingsStore();
@@ -204,8 +212,10 @@ export const useMarketplaceStore = defineStore("marketplace", () => {
     }
   }
 
-  // Registered once for the app lifetime so progress survives panel unmounts.
-  window.api.onMarketProgress((p) => {
+  // Kept for the app lifetime so progress survives panel unmounts; a recreated
+  // store takes over the single subscription instead of adding another.
+  unsubscribeProgress?.();
+  unsubscribeProgress = window.api.onMarketProgress((p) => {
     progress.value = { ...progress.value, [p.id]: p };
     if (p.phase === "error" && p.error) {
       error.value = t("settings.plugins.installFail", { error: p.error });

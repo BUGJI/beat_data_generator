@@ -8,19 +8,20 @@ import {
   setScroll,
   useViewStore,
 } from "../../stores/view";
+import { startPointerDrag } from "../../utils/pointerDrag";
 
 const view = useViewStore();
 
-// Bottom inset reserved by the status bar (22px) + horizontal bar (10px), and
-// the width reserved by the vertical bar. Kept in sync with the CSS below so
-// the thumb geometry is derived from the bar it actually lives in.
+// Bottom inset reserved by the status bar (22px) + horizontal bar (10px). The
+// horizontal bar now spans the full width so its track is not shortened by the
+// vertical bar (the two bars never overlap vertically). Kept in sync with the
+// CSS below so the thumb geometry is derived from the bar it actually lives in.
 const V_BAR_INSET = 32;
-const V_BAR_W = 10;
 
 /** Track height of the vertical bar = editor height minus ruler minus inset. */
 const vTrackH = computed(() => Math.max(0, view.vh - V_BAR_INSET));
-/** Track width of the horizontal bar = editor width minus the vertical bar. */
-const hTrackW = computed(() => Math.max(0, view.vw - V_BAR_W));
+/** Track width of the horizontal bar = full editor width. */
+const hTrackW = computed(() => Math.max(0, view.vw));
 
 /** Vertical thumb geometry, or null when the content fits the viewport. */
 const vThumb = computed(() => {
@@ -77,14 +78,9 @@ function dragScroll(vertical: boolean, e: PointerEvent): void {
     else setScroll(ratio * maxX(), view.y);
   };
   apply(vertical ? e.clientY : e.clientX);
-  const move = (ev: PointerEvent): void =>
-    apply(vertical ? ev.clientY : ev.clientX);
-  const up = (): void => {
-    window.removeEventListener("pointermove", move);
-    window.removeEventListener("pointerup", up);
-  };
-  window.addEventListener("pointermove", move);
-  window.addEventListener("pointerup", up);
+  startPointerDrag({
+    onMove: (ev) => apply(vertical ? ev.clientY : ev.clientX),
+  });
 }
 
 function onVBarDown(e: PointerEvent): void {
@@ -112,7 +108,7 @@ function onHBarDown(e: PointerEvent): void {
   right: 0;
   bottom: 32px;
   width: 10px;
-  background: rgb(var(--bdg-neutral) / 0.08);
+  background: var(--bdg-bg-panel);
   border-left: 1px solid var(--bdg-border);
   touch-action: none;
 }
@@ -126,10 +122,10 @@ function onHBarDown(e: PointerEvent): void {
 .hbar {
   position: absolute;
   left: 0;
-  right: 10px;
+  right: 0;
   bottom: 0;
   height: 10px;
-  background: rgb(var(--bdg-neutral) / 0.08);
+  background: var(--bdg-bg-panel);
   border-top: 1px solid var(--bdg-border);
   touch-action: none;
 }

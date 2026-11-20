@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { engine } from "../engine";
-import { patchSettings } from "./settings";
+import { patchSettings } from "../services/settingsPersistence";
 import { useProjectStore } from "./project";
 import type { WaveData } from "../types";
 
@@ -23,6 +23,10 @@ export const useTransportStore = defineStore("transport", () => {
   const followManual = ref(false);
   const followActive = ref(false);
   const followLocked = ref(false);
+  const countingIn = ref(false);
+  const loopEnabled = ref(false);
+  const loopStartMs = ref(0);
+  const loopEndMs = ref(0);
 
   // Content length shown by the timeline / readouts: audio duration or the last
   // tempo point, whichever is longer, plus a small tail. A store getter (rather
@@ -62,6 +66,10 @@ export const useTransportStore = defineStore("transport", () => {
     followManual,
     followActive,
     followLocked,
+    countingIn,
+    loopEnabled,
+    loopStartMs,
+    loopEndMs,
     contentEndMs,
   };
 });
@@ -69,6 +77,14 @@ export const useTransportStore = defineStore("transport", () => {
 export function setVolume(v: number): void {
   useTransportStore().volume = v;
   engine.setVolume(v);
+}
+
+export function resetLoopState(): void {
+  const t = useTransportStore();
+  t.loopEnabled = false;
+  t.loopStartMs = 0;
+  t.loopEndMs = 0;
+  engine.setLoop(false, 0, 0);
 }
 
 export function disableFollowOnScrub(): void {

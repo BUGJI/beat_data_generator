@@ -3,16 +3,16 @@ import { computed, ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import { Check, RotateCcw } from "@lucide/vue";
+import { useSettingsStore } from "../../stores/settings";
 import {
   exportThemeCode,
   importThemeCode,
-  patchSettings,
   previewThemeToken,
   resetThemeTokens,
   setThemePreset,
   setThemeToken,
-  useSettingsStore,
-} from "../../stores/settings";
+} from "../../services/theme";
+import { patchSettings } from "../../services/settingsPersistence";
 import { toast } from "../../ui/toast";
 import {
   THEME_PRESETS,

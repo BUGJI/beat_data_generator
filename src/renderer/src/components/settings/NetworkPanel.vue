@@ -1,11 +1,15 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
-import { storeToRefs } from "pinia";
+import { computed, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { patchSettings, useSettingsStore } from "../../stores/settings";
-import { GH_PROXY_PRESETS, type PingResult } from "@shared/network";
+import { useSettingsStore } from "../../stores/settings";
+import { patchSettings } from "../../services/settingsPersistence";
+import {
+  GH_PROXY_DEFAULT_HOST,
+  GH_PROXY_PRESETS,
+  normalizeProxyHost,
+  type PingResult,
+} from "@shared/network";
 import type { ProxyMode } from "@shared/settings";
-import { useSettingsRowsStore } from "./useSettingsRows";
 import UiButton from "../ui/UiButton.vue";
 import UiInput from "../ui/UiInput.vue";
 import UiRadioGroup from "../ui/UiRadioGroup.vue";
@@ -13,7 +17,6 @@ import UiSwitch from "../ui/UiSwitch.vue";
 
 const { t } = useI18n();
 const settings = useSettingsStore();
-const { simpleMode } = storeToRefs(useSettingsRowsStore());
 
 const proxyOptions = computed(() => [
   { value: "system", label: t("settings.network.proxySystem") },
@@ -57,8 +60,30 @@ const isCustomProxy = computed(
     ),
 );
 
+// The free-form host is edited as a draft and only persisted when valid, so a
+// half-typed value never replaces a working mirror.
+const customHostDraft = ref(settings.settings.githubProxyHost);
+watch(
+  () => settings.settings.githubProxyHost,
+  (host) => {
+    customHostDraft.value = host;
+  },
+);
+const customHostValid = computed(
+  () => normalizeProxyHost(customHostDraft.value) !== null,
+);
+
 function useCustomProxy(): void {
-  if (!isCustomProxy.value) onGithubProxyHost("");
+  if (isCustomProxy.value) return;
+  customHostDraft.value = GH_PROXY_DEFAULT_HOST;
+  onGithubProxyHost(GH_PROXY_DEFAULT_HOST);
+}
+
+function commitCustomHost(): void {
+  const host = normalizeProxyHost(customHostDraft.value);
+  if (!host) return;
+  customHostDraft.value = host;
+  if (host !== settings.settings.githubProxyHost) onGithubProxyHost(host);
 }
 
 async function testProxies(): Promise<void> {
@@ -89,26 +114,24 @@ async function testProxies(): Promise<void> {
   <section>
     <h3>{{ t("settings.cats.network") }}</h3>
 
-    <template v-if="!simpleMode">
-      <div class="field-row col">
-        <div class="field-info">
-          <span class="field-name">{{ t("settings.network.proxy") }}</span>
-          <span class="field-desc">{{ t("settings.network.proxyDesc") }}</span>
-        </div>
-        <UiRadioGroup
-          :model-value="settings.settings.proxyMode"
-          :options="proxyOptions"
-          :aria-label="t('settings.network.proxy')"
-          @update:model-value="onProxyMode"
-        />
+    <div class="field-row col">
+      <div class="field-info">
+        <span class="field-name">{{ t("settings.network.proxy") }}</span>
+        <span class="field-desc">{{ t("settings.network.proxyDesc") }}</span>
       </div>
-      <p
-        v-if="settings.settings.proxyMode === 'env'"
-        class="field-desc network-note"
-      >
-        {{ t("settings.network.proxyEnvHint") }}
-      </p>
-    </template>
+      <UiRadioGroup
+        :model-value="settings.settings.proxyMode"
+        :options="proxyOptions"
+        :aria-label="t('settings.network.proxy')"
+        @update:model-value="onProxyMode"
+      />
+    </div>
+    <p
+      v-if="settings.settings.proxyMode === 'env'"
+      class="field-desc network-note"
+    >
+      {{ t("settings.network.proxyEnvHint") }}
+    </p>
 
     <div class="field-row">
       <div class="field-info">
@@ -152,10 +175,15 @@ async function testProxies(): Promise<void> {
         </button>
         <UiInput
           v-if="isCustomProxy"
-          :model-value="settings.settings.githubProxyHost"
+          v-model="customHostDraft"
           size="sm"
-          @update:model-value="onGithubProxyHost"
+          :placeholder="GH_PROXY_DEFAULT_HOST"
+          @keydown.enter="commitCustomHost()"
+          @blur="commitCustomHost()"
         />
+        <p v-if="isCustomProxy && !customHostValid" class="network-error">
+          {{ t("settings.network.ghProxyHostInvalid") }}
+        </p>
         <UiButton
           size="sm"
           variant="soft"
@@ -184,7 +212,7 @@ async function testProxies(): Promise<void> {
   gap: 12px;
   padding: 5px 10px;
   border: 1px solid var(--bdg-border);
-  border-radius: var(--bdg-radius-ui, 6px);
+  border-radius: var(--bdg-radius, 6px);
   background: transparent;
   color: var(--bdg-text);
   font-family: inherit;
@@ -216,5 +244,10 @@ async function testProxies(): Promise<void> {
 }
 .network-note {
   margin: -6px 0 6px;
+}
+.network-error {
+  margin: -2px 0 2px;
+  color: var(--bdg-danger);
+  font-size: var(--bdg-fs-11);
 }
 </style>

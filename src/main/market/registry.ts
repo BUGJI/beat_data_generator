@@ -1,13 +1,19 @@
-import { app, net } from "electron";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { app } from "electron";
 import { join } from "node:path";
 import type {
   MarketIndex,
   MarketPlugin,
   MarketVersionInfo,
 } from "../../shared/market";
+import {
+  GH_PROXY_DEFAULT_HOST,
+  normalizeProxyHost,
+} from "../../shared/network";
+import { isSafeId } from "../../shared/path";
 import { MARKET_TTL_MS, type MarketCacheTtl } from "../../shared/settings";
+import { readJson, writeJsonAtomic } from "../jsonStore";
 import log from "../logger";
+import { withFetchTimeout } from "../network";
 
 /**
  * Registry index fetch + on-disk/memory cache, and the settings-driven network
@@ -54,7 +60,7 @@ function ttlMs(): number {
 
 function proxyBase(): string {
   const host =
-    settingsRef().githubProxyHost.trim().replace(/\/+$/, "") || "ghfast.top";
+    normalizeProxyHost(settingsRef().githubProxyHost) ?? GH_PROXY_DEFAULT_HOST;
   return /^https?:\/\//i.test(host) ? host : `https://${host}`;
 }
 
@@ -94,30 +100,19 @@ function cachePath(): string {
 }
 
 function readCache(): RegistryCache | null {
-  try {
-    const raw = JSON.parse(
-      readFileSync(cachePath(), "utf-8"),
-    ) as Partial<RegistryCache>;
-    if (raw && typeof raw.index === "object") {
-      return {
-        etag: typeof raw.etag === "string" ? raw.etag : undefined,
-        fetchedAt: typeof raw.fetchedAt === "string" ? raw.fetchedAt : "",
-        index: raw.index as MarketIndex,
-      };
-    }
-  } catch {
-    /* no cache yet */
+  const raw = readJson<Partial<RegistryCache>>(cachePath(), () => ({}));
+  if (raw && typeof raw.index === "object") {
+    return {
+      etag: typeof raw.etag === "string" ? raw.etag : undefined,
+      fetchedAt: typeof raw.fetchedAt === "string" ? raw.fetchedAt : "",
+      index: raw.index as MarketIndex,
+    };
   }
   return null;
 }
 
 function writeCache(cache: RegistryCache): void {
-  try {
-    mkdirSync(app.getPath("userData"), { recursive: true });
-    writeFileSync(cachePath(), JSON.stringify(cache), "utf-8");
-  } catch (err) {
-    log.error("[market] persist registry cache failed", err);
-  }
+  writeJsonAtomic(cachePath(), cache, undefined);
 }
 
 function asStringArray(v: unknown): string[] {
@@ -137,9 +132,7 @@ function asCategoryArray(v: unknown): string[] {
 }
 
 /** A plugin/folder id safe to use as a path segment. */
-export function isSafeId(id: string): boolean {
-  return /^[A-Za-z0-9._-]+$/.test(id) && id !== "." && id !== "..";
-}
+export { isSafeId };
 
 function sanitizeVersion(v: unknown): MarketVersionInfo | null {
   if (!v || typeof v !== "object") return null;
@@ -226,33 +219,34 @@ export async function getIndex(force: boolean): Promise<MarketIndex> {
   // 3. expired (or forced): revalidate over the network
   const headers: Record<string, string> = { accept: "application/json" };
   if (!force && cache?.etag) headers["if-none-match"] = cache.etag;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
   try {
-    const res = await net.fetch(proxify(registryUrl()), {
-      headers,
-      signal: controller.signal,
-    });
-    if (res.status === 304 && cache) {
-      memoryIndex = cache.index;
-      memoryFetchedAt = now;
-      writeCache({
-        etag: cache.etag,
-        fetchedAt: new Date(now).toISOString(),
-        index: cache.index,
-      });
-      return memoryIndex;
-    }
-    if (!res.ok) throw new Error(`registry HTTP ${res.status}`);
-    const index = sanitizeIndex(await res.json());
-    memoryIndex = index;
-    memoryFetchedAt = now;
-    writeCache({
-      etag: res.headers.get("etag") ?? undefined,
-      fetchedAt: new Date(now).toISOString(),
-      index,
-    });
-    return index;
+    return await withFetchTimeout(
+      proxify(registryUrl()),
+      { headers },
+      DOWNLOAD_TIMEOUT_MS,
+      async (res) => {
+        if (res.status === 304 && cache) {
+          memoryIndex = cache.index;
+          memoryFetchedAt = now;
+          writeCache({
+            etag: cache.etag,
+            fetchedAt: new Date(now).toISOString(),
+            index: cache.index,
+          });
+          return memoryIndex;
+        }
+        if (!res.ok) throw new Error(`registry HTTP ${res.status}`);
+        const index = sanitizeIndex(await res.json());
+        memoryIndex = index;
+        memoryFetchedAt = now;
+        writeCache({
+          etag: res.headers.get("etag") ?? undefined,
+          fetchedAt: new Date(now).toISOString(),
+          index,
+        });
+        return index;
+      },
+    );
   } catch (err) {
     // Network failed but we have something cached: serve it rather than break.
     if (cache) {
@@ -262,7 +256,5 @@ export async function getIndex(force: boolean): Promise<MarketIndex> {
       return cache.index;
     }
     throw err;
-  } finally {
-    clearTimeout(timer);
   }
 }

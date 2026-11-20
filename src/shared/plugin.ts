@@ -14,6 +14,33 @@
 /** A single locale -> text map or a plain string. */
 export type LocaText = string | { [locale: string]: string };
 
+/** Normalized localized text: a fallback plus the per-locale map. */
+export interface LocalizedText {
+  fallback: string;
+  i18n: Record<string, string>;
+}
+
+/**
+ * Normalize a manifest/market `LocaText` value. Prefers `en`, then `zh`, then
+ * the first locale that had text. Used by both plugin discovery and the market
+ * inventory so a plugin is named the same way everywhere.
+ */
+export function resolveLocalizedText(v: unknown): LocalizedText {
+  if (typeof v === "string" && v.trim()) {
+    return { fallback: v.trim(), i18n: {} };
+  }
+  if (v && typeof v === "object" && !Array.isArray(v)) {
+    const i18n: Record<string, string> = {};
+    for (const [locale, value] of Object.entries(v)) {
+      if (typeof value === "string" && value.trim())
+        i18n[locale] = value.trim();
+    }
+    const fallback = i18n.en ?? i18n.zh ?? Object.values(i18n)[0] ?? "";
+    return { fallback, i18n };
+  }
+  return { fallback: "", i18n: {} };
+}
+
 /**
  * Highest plugin API version this host understands. Plugins declare the version
  * they were written against in their manifest (`apiVersion`); the host refuses to

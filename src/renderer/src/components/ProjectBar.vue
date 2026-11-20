@@ -1,41 +1,43 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { openAudioDialog, relinkAudio } from "../services/audioIO";
-import {
-  contentEndMs,
-  formatTime,
-  tempoMap,
-  timeOfBeat,
-} from "../services/timeline";
 import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
 import { parseGridDenominator } from "../grid";
 import { BPM_MIN } from "../tempo";
-import { hexToRgb, resolveTheme, type ThemeOverrides } from "../theme";
+import { resetTapTempo, tapTempo, tapTempoState } from "../services/tapTempo";
+import { resolveTheme, type ThemeOverrides } from "../theme";
 import {
   AlignJustify,
   ArrowRight,
+  Check,
   Clock,
   Grid2x2,
   ListChecks,
+  Magnet,
   Sparkles,
 } from "@lucide/vue";
+import { BEAT_FX_IDS, type BeatFxId } from "@shared/beatFx";
 import {
   useProjectStore,
   setBaseBpm,
+  setBeatsPerBar,
   setOffset,
-  markerCount,
-  visibleMarkers,
   alignMarkersToStep,
   setGridDiv,
 } from "../stores/project";
 import { useTransportStore, clickFollow } from "../stores/transport";
 import { useSettingsStore } from "../stores/settings";
+import { beatFxSelected, toggleBeatFxSelected } from "../stores/beatFx";
 import { useViewStore } from "../stores/view";
 import { useUiStore, toggleTimeAlign } from "../stores/ui";
+import { useBeatFlash } from "./project/useBeatFlash";
+import { useProjectStats } from "./project/useProjectStats";
 import UiButton from "./ui/UiButton.vue";
 import UiCombobox from "./ui/UiCombobox.vue";
+import UiDropdownItem from "./ui/UiDropdownItem.vue";
+import UiDropdownMenu from "./ui/UiDropdownMenu.vue";
 import UiIconButton from "./ui/UiIconButton.vue";
 import UiNumberInput from "./ui/UiNumberInput.vue";
 import PluginBarButtons from "./PluginBarButtons.vue";
@@ -59,72 +61,61 @@ const { t } = useI18n();
 // left: lights on every marker passed; right: lights when >=2 markers coincide,
 // colour mapping to how many markers share the instant. Both fade in 0.1s and
 // can be re-triggered (interrupted) by the next event.
+const { beatStyle, overlapStyle } = useBeatFlash(themeSpec);
 
-const FLASH_MS = 100;
+const FX_LABEL_KEY: Record<BeatFxId, string> = {
+  laneGlow: "follow.fxLaneGlow",
+  markerFlash: "follow.fxMarkerFlash",
+};
+const fxMenuOpen = ref(false);
+const fxSelectedAny = computed(() => BEAT_FX_IDS.some(beatFxSelected));
+const fxActive = computed(() => ui.fxMasterOn && fxSelectedAny.value);
+const fxTitle = computed(() => t("follow.fxQuickTip"));
 
-function flashStyle(
-  k: number,
-  color: string,
-): { background: string; borderColor: string; boxShadow: string } {
-  const c = hexToRgb(color);
-  const rgb = `${c.r},${c.g},${c.b}`;
-  return {
-    background: `rgba(${rgb},${(0.08 + 0.92 * k).toFixed(3)})`,
-    borderColor: `rgba(${rgb},${(0.35 + 0.65 * k).toFixed(3)})`,
-    boxShadow: k > 0 ? `0 0 14px rgba(${rgb},${(0.9 * k).toFixed(3)})` : "none",
-  };
+/** Show short text labels beside the quick-action icons (settings toggle). */
+const quickLabels = computed(() => settings.settings.quickBarLabels);
+const quickLabel = (key: string): string | undefined =>
+  quickLabels.value ? t(key) : undefined;
+
+function onFxSelect(value: string): void {
+  // Checking only fixes the set; the left-click master switch turns it on/off.
+  toggleBeatFxSelected(value as BeatFxId);
 }
 
-function makeFlash(source: () => number) {
-  const intensity = ref(0);
-  let start = 0;
-  let raf = 0;
-  watch(source, () => {
-    start = performance.now();
-    cancelAnimationFrame(raf);
-    const step = (): void => {
-      const k = Math.max(0, 1 - (performance.now() - start) / FLASH_MS);
-      intensity.value = k;
-      if (k > 0) raf = requestAnimationFrame(step);
-    };
-    raf = requestAnimationFrame(step);
-  });
-  const stop = (): void => cancelAnimationFrame(raf);
-  return { intensity, stop };
+/** Left-click master switch for every checked effect. */
+function toggleMasterFx(): void {
+  if (fxMenuOpen.value) {
+    fxMenuOpen.value = false;
+    return;
+  }
+  // Nothing checked yet: open the list instead of toggling a dead switch.
+  if (!fxSelectedAny.value) {
+    fxMenuOpen.value = true;
+    return;
+  }
+  ui.fxMasterOn = !ui.fxMasterOn;
 }
 
-const beat = makeFlash(() => ui.beatPulse);
-const overlap = makeFlash(() => ui.overlapPulse);
+/**
+ * Left-click toggles every checked effect; right-click opens the checkbox
+ * list. reka-ui's trigger listens for `onClick`, so the toggle is handled in
+ * the capture phase and stopped before the trigger can open the menu.
+ * Enter/Space are handled directly for the same reason; ArrowDown still opens
+ * the menu.
+ */
+function onFxClick(e: MouseEvent): void {
+  if (e.button !== 0) return;
+  e.stopPropagation();
+  toggleMasterFx();
+}
 
-onBeforeUnmount(() => {
-  beat.stop();
-  overlap.stop();
-});
+function onFxKeydown(e: KeyboardEvent): void {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  e.stopPropagation();
+  e.preventDefault();
+  toggleMasterFx();
+}
 
-const overlapColor = computed(() => {
-  const n = ui.overlapCount;
-  const s = themeSpec.value;
-  if (n >= 4) return s.danger;
-  if (n === 3) return s.bpm;
-  return s.amber;
-});
-
-const beatStyle = computed(() =>
-  flashStyle(beat.intensity.value, themeSpec.value.accent),
-);
-const overlapStyle = computed(() =>
-  flashStyle(overlap.intensity.value, overlapColor.value),
-);
-
-const hasAudio = computed(() => transport.hasAudio);
-const followOn = computed(() =>
-  transport.playing ? transport.followActive : transport.followManual,
-);
-const followTip = computed(() => {
-  if (transport.playing)
-    return transport.followActive ? t("follow.onTip") : t("follow.offPlayTip");
-  return t("follow.stopTip");
-});
 const audioName = computed(() => {
   const n = project.audioName;
   if (!n) return "";
@@ -136,6 +127,11 @@ const baseBpm = computed({
     setBaseBpm(v ?? 120);
   },
 });
+const beatsPerBar = computed({
+  get: () => project.beatsPerBar,
+  set: (v: number) => setBeatsPerBar(v),
+});
+
 const offset = computed({
   get: () => project.offsetMs,
   set: (v: number | undefined) => {
@@ -143,25 +139,18 @@ const offset = computed({
   },
 });
 
-const durationLabel = computed(() =>
-  hasAudio.value ? formatTime(contentEndMs()) : "--:--.---",
-);
-const sampleRateLabel = computed(() =>
-  transport.wave ? `${(transport.wave.sampleRate / 1000).toFixed(1)} kHz` : "-",
-);
-const barMsLabel = computed(() => {
-  const m = tempoMap();
-  return `${(m.timeOfBeat(1) - m.timeOfBeat(0)).toFixed(1)} ms/${m.bpmAtBeat(0).toFixed(1)} BPM`;
-});
-const lastBeatLabel = computed(() => {
-  const markers = visibleMarkers();
-  if (markers.length === 0) return "--:--.---";
-  const last = Math.max(...markers.map((m) => timeOfBeat(m.beat)));
-  return formatTime(last);
-});
-const markersLabel = computed(() => String(markerCount()));
-const zoomLabel = computed(() => `${view.pxPerSec.toFixed(1)} px/s`);
-const followPctLabel = computed(() => `${settings.settings.followPercent}%`);
+const {
+  hasAudio,
+  followOn,
+  followTip,
+  durationLabel,
+  sampleRateLabel,
+  barMsLabel,
+  lastBeatLabel,
+  markersLabel,
+  zoomLabel,
+  followPctLabel,
+} = useProjectStats();
 
 function wheelOffset(e: WheelEvent): void {
   const step = Math.sign(e.deltaY) * 5;
@@ -176,6 +165,11 @@ function toggleSnap(): void {
 
 function onAlignMarkers(): void {
   alignMarkersToStep();
+}
+
+function onTapTempo(e: MouseEvent): void {
+  if (e.shiftKey) resetTapTempo();
+  else tapTempo();
 }
 
 // dev "free input" toggle relaxes numeric bounds/precision while typing
@@ -276,6 +270,17 @@ async function onDetectBpm(): Promise<void> {
             >
               {{ t("sidebar.detectBpm") }}
             </UiButton>
+            <UiButton
+              size="sm"
+              class="tap-btn"
+              :title="t('sidebar.tapTempoTip')"
+              @click="onTapTempo"
+            >
+              {{ t("sidebar.tapTempo") }}
+              <span v-if="tapTempoState.count > 1" class="tap-count num">
+                {{ tapTempoState.count }}
+              </span>
+            </UiButton>
           </div>
         </label>
         <label class="field">
@@ -290,19 +295,40 @@ async function onDetectBpm(): Promise<void> {
         </label>
       </div>
 
-      <div class="snap-row">
-        <span class="snap-label" :title="t('sidebar.snapDivTip')">{{
-          t("sidebar.snapToGrid")
-        }}</span>
-        <UiCombobox
-          v-model="snapDivModel"
-          size="sm"
-          class="snap-select"
-          creatable
-          :label="t('sidebar.snapToGrid')"
-          :options="snapSelectOptions"
-        />
-        <span class="snap-unit">{{ t("sidebar.snapUnit") }}</span>
+      <div class="snap-grid">
+        <label class="field">
+          <span class="field-label" :title="t('sidebar.snapDivTip')">
+            {{ t("sidebar.snapToGrid") }}
+          </span>
+          <div class="snap-ctl">
+            <UiCombobox
+              v-model="snapDivModel"
+              size="sm"
+              class="snap-select"
+              creatable
+              :label="t('sidebar.snapToGrid')"
+              :options="snapSelectOptions"
+            />
+            <span class="snap-unit">{{ t("sidebar.snapUnit") }}</span>
+          </div>
+        </label>
+        <label class="field">
+          <span class="field-label" :title="t('sidebar.beatsPerBarTip')">
+            {{ t("sidebar.beatsPerBar") }}
+          </span>
+          <div class="snap-ctl">
+            <UiNumberInput
+              v-model="beatsPerBar"
+              :min="freeInput ? undefined : 1"
+              :max="freeInput ? undefined : 16"
+              :step="1"
+              :precision="0"
+              class="beats-input"
+              :label="t('sidebar.beatsPerBar')"
+            />
+            <span class="snap-unit">{{ t("sidebar.beatUnit") }}</span>
+          </div>
+        </label>
       </div>
 
       <div
@@ -356,7 +382,7 @@ async function onDetectBpm(): Promise<void> {
         </div>
       </div>
 
-      <div class="pb-quick">
+      <div class="pb-quick" :class="{ 'with-labels': quickLabels }">
         <span
           class="beat-ind"
           :style="beatStyle"
@@ -367,18 +393,41 @@ async function onDetectBpm(): Promise<void> {
           :style="overlapStyle"
           :title="t('follow.overlapTip')"
         />
-        <UiIconButton
-          :title="t('follow.glowTip')"
-          :active="ui.glowEnabled"
-          :pressed="ui.glowEnabled"
-          @click="ui.glowEnabled = !ui.glowEnabled"
+        <span
+          class="fx-quick"
+          @click.capture="onFxClick"
+          @keydown.capture="onFxKeydown"
+          @contextmenu.prevent="fxMenuOpen = true"
         >
-          <Sparkles :size="15" />
-        </UiIconButton>
+          <UiDropdownMenu v-model:open="fxMenuOpen" @select="onFxSelect">
+            <template #trigger>
+              <UiIconButton
+                :title="fxTitle"
+                :active="fxActive"
+                :pressed="fxActive"
+                :label="quickLabel('follow.lblFx')"
+              >
+                <Sparkles :size="15" />
+              </UiIconButton>
+            </template>
+            <UiDropdownItem
+              v-for="fx in BEAT_FX_IDS"
+              :key="fx"
+              :value="fx"
+              keep-open
+              :title="t('follow.fxTip')"
+            >
+              <Check v-if="beatFxSelected(fx)" :size="14" />
+              <span v-else class="w-[14px]" />
+              <span>{{ t(FX_LABEL_KEY[fx]) }}</span>
+            </UiDropdownItem>
+          </UiDropdownMenu>
+        </span>
         <UiIconButton
           :title="followTip"
           :active="followOn"
           :pressed="followOn"
+          :label="quickLabel('follow.lblFollow')"
           @click="clickFollow()"
         >
           <ArrowRight :size="15" />
@@ -388,15 +437,27 @@ async function onDetectBpm(): Promise<void> {
           :title="t('sidebar.snapToGrid')"
           :active="view.snapEnabled"
           :pressed="view.snapEnabled"
+          :label="quickLabel('follow.lblSnap')"
           @click="toggleSnap()"
         >
           <Grid2x2 :size="15" />
+        </UiIconButton>
+        <UiIconButton
+          :title="t('follow.magnetTip')"
+          :active="view.magnetEnabled"
+          :pressed="view.magnetEnabled"
+          :disabled="!view.snapEnabled"
+          :label="quickLabel('follow.lblMagnet')"
+          @click="view.magnetEnabled = !view.magnetEnabled"
+        >
+          <Magnet :size="15" />
         </UiIconButton>
         <span class="quick-divider" />
         <UiIconButton
           :title="t('follow.quickTip')"
           :active="ui.quickPlace"
           :pressed="ui.quickPlace"
+          :label="quickLabel('follow.lblPlace')"
           @click="ui.quickPlace = !ui.quickPlace"
         >
           <ListChecks :size="15" />
@@ -405,11 +466,16 @@ async function onDetectBpm(): Promise<void> {
           :title="t('follow.timeAlignTip')"
           :active="ui.timeAlign"
           :pressed="ui.timeAlign"
+          :label="quickLabel('follow.lblTimeAlign')"
           @click="toggleTimeAlign()"
         >
           <Clock :size="15" />
         </UiIconButton>
-        <UiIconButton :title="t('follow.alignTip')" @click="onAlignMarkers">
+        <UiIconButton
+          :title="t('follow.alignTip')"
+          :label="quickLabel('follow.lblAlign')"
+          @click="onAlignMarkers"
+        >
           <AlignJustify :size="15" />
         </UiIconButton>
         <PluginBarButtons />
@@ -436,13 +502,6 @@ async function onDetectBpm(): Promise<void> {
   flex-direction: column;
   gap: 7px;
 }
-.pb-title {
-  font-size: var(--bdg-fs-11);
-  font-weight: 600;
-  color: var(--bdg-text-dim);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-}
 .song-row {
   display: flex;
   align-items: center;
@@ -463,13 +522,9 @@ async function onDetectBpm(): Promise<void> {
   color: var(--bdg-text-dim);
   font-weight: 400;
 }
-.song-sub {
-  font-size: var(--bdg-fs-10);
-  color: var(--bdg-text-dim);
-}
 .param-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
   gap: 8px;
 }
 .field {
@@ -480,6 +535,9 @@ async function onDetectBpm(): Promise<void> {
 .field-label {
   font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .bpm-row {
   display: flex;
@@ -493,28 +551,37 @@ async function onDetectBpm(): Promise<void> {
 .detect-btn {
   flex: none;
 }
-.snap-row {
+.tap-btn {
+  flex: none;
+  gap: 3px;
+}
+.tap-count {
+  font-size: var(--bdg-fs-10);
+  color: var(--bdg-text-dim);
+}
+.snap-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+.snap-ctl {
   display: flex;
   align-items: center;
-  gap: 7px;
-}
-.snap-label {
-  font-size: var(--bdg-fs-12);
-  color: var(--bdg-text);
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  gap: 6px;
 }
 .snap-select {
-  width: 92px;
+  flex: 1;
+  min-width: 0;
+}
+.beats-input {
+  width: 60px;
   flex: none;
 }
 .snap-unit {
   flex: none;
   font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
+  white-space: nowrap;
 }
 .warn {
   font-size: var(--bdg-fs-12);
@@ -545,9 +612,10 @@ async function onDetectBpm(): Promise<void> {
   padding-top: 6px;
   border-top: 1px solid var(--bdg-border);
 }
-.quick-label {
-  font-size: var(--bdg-fs-12);
-  color: var(--bdg-text);
+/* Labels widen every button, so let the row wrap instead of overflowing. */
+.pb-quick.with-labels {
+  flex-wrap: wrap;
+  row-gap: 4px;
 }
 .beat-ind {
   flex: none;
@@ -566,19 +634,6 @@ async function onDetectBpm(): Promise<void> {
   background: var(--bdg-border);
   margin: 0 2px;
   flex: none;
-}
-.chip-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, var(--bdg-accent), var(--bdg-accent-2));
-  box-shadow: 0 0 6px rgb(var(--bdg-accent-rgb) / 0.55);
-  flex: none;
-}
-.quick-sub {
-  font-size: var(--bdg-fs-11);
-  color: var(--bdg-text-dim);
-  margin-left: auto;
 }
 .chip {
   display: flex;

@@ -23,6 +23,8 @@ export interface SettingsRowBindings {
   followScroll: RefLike<boolean>;
   followPercent: RefLike<number>;
   ctrlSpeedPlay: RefLike<boolean>;
+  countInBars: RefLike<number>;
+  gridMetronome: RefLike<boolean>;
   alignDecimals: RefLike<number>;
   alignRounding: RefLike<string>;
   alignRoundingOptions: RefLike<ColOption[]>;
@@ -39,9 +41,11 @@ export interface SettingsRowBindings {
   stretchEngine: RefLike<string>;
   stretchEngineOptions: RefLike<ColOption[]>;
   stretchEngineHint: () => string;
+  stretchCacheMb: RefLike<number>;
   gridAutoHide: RefLike<boolean>;
   bpmSegmentColors: RefLike<boolean>;
   bpmSegmentIntensity: RefLike<number>;
+  quickBarLabels: RefLike<boolean>;
   animEnabled: RefLike<boolean>;
   uiMotion: RefLike<boolean>;
   devEnabled: RefLike<boolean>;
@@ -73,6 +77,8 @@ export function buildFieldGroups(
     followScroll,
     followPercent,
     ctrlSpeedPlay,
+    countInBars,
+    gridMetronome,
     alignDecimals,
     alignRounding,
     alignRoundingOptions,
@@ -89,9 +95,11 @@ export function buildFieldGroups(
     stretchEngine,
     stretchEngineOptions,
     stretchEngineHint,
+    stretchCacheMb,
     gridAutoHide,
     bpmSegmentColors,
     bpmSegmentIntensity,
+    quickBarLabels,
     animEnabled,
     uiMotion,
     devEnabled,
@@ -151,9 +159,28 @@ export function buildFieldGroups(
       },
       {
         key: "playback",
-        expert: true,
         rows: [
-          { kind: "field", key: "ctrlSpeedPlay", control: sw(ctrlSpeedPlay) },
+          {
+            kind: "field",
+            key: "countInBars",
+            control: num(countInBars, {
+              min: freeMin(0),
+              max: freeMax(4),
+              step: 1,
+              unitKey: "countInBarsUnit",
+            }),
+          },
+          {
+            kind: "field",
+            key: "gridMetronome",
+            control: sw(gridMetronome),
+          },
+          {
+            kind: "field",
+            key: "ctrlSpeedPlay",
+            expert: true,
+            control: sw(ctrlSpeedPlay),
+          },
         ],
       },
       {
@@ -245,6 +272,16 @@ export function buildFieldGroups(
               stretchEngineHint,
             ),
           },
+          {
+            kind: "field",
+            key: "stretchCacheMb",
+            control: num(stretchCacheMb, {
+              min: freeMin(32),
+              max: freeMax(4096),
+              step: 32,
+              unitKey: "stretchCacheMbUnit",
+            }),
+          },
         ],
       },
     ],
@@ -262,6 +299,11 @@ export function buildFieldGroups(
             kind: "field",
             key: "bpmSegmentIntensity",
             control: slider(bpmSegmentIntensity, 0, 100, "%"),
+          },
+          {
+            kind: "field",
+            key: "quickBarLabels",
+            control: sw(quickBarLabels),
           },
         ],
       },

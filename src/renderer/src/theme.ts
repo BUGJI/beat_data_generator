@@ -455,6 +455,8 @@ export function buildCanvasColors(spec: ThemeSpec): CanvasColors {
     barText: rgba(spec.accent2, 0.9),
     rowLine: rgba(spec.neutral, 0.08),
     laneLockedBg: rgba(spec.neutral, 0.1),
+    loopFill: rgba(spec.amber, 0.09),
+    loopEdge: rgba(spec.amber, 0.7),
   };
 }
 

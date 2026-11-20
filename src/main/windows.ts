@@ -1,6 +1,8 @@
 import { app, BrowserWindow, dialog } from "electron";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { IPC, type WelcomeAction } from "../shared/ipc";
+import { isAllowedAppNavigation } from "../shared/navigation";
 import { PROJECT_FILTERS } from "./files";
 import { mt } from "./i18n";
 import { lastDirDefault, rememberDir } from "./lastDirs";
@@ -27,6 +29,29 @@ const pendingWelcome: WelcomeAction[] = [];
 
 export function getMainWindow(): BrowserWindow | null {
   return mainWindow;
+}
+
+/** Send a push-channel payload to every live window (never throws). */
+export function broadcastToAllWindows(
+  channel: string,
+  payload?: unknown,
+): void {
+  for (const w of BrowserWindow.getAllWindows()) {
+    if (!w.isDestroyed()) w.webContents.send(channel, payload);
+  }
+}
+
+/**
+ * Absolute URL of a renderer page, matching how it is actually loaded: the dev
+ * server when `ELECTRON_RENDERER_URL` is set, otherwise the packaged file.
+ */
+function rendererPageUrl(page: string): string {
+  const dev = process.env.ELECTRON_RENDERER_URL;
+  if (dev) {
+    const base = dev.endsWith("/") ? dev : `${dev}/`;
+    return new URL(page, base).href;
+  }
+  return pathToFileURL(join(__dirname, `../renderer/${page}`)).href;
 }
 
 export function isQuitAllowed(): boolean {
@@ -255,7 +280,7 @@ function createWelcomeWindow(): void {
     welcomeWindow = null;
   });
   if (process.env.ELECTRON_RENDERER_URL) {
-    welcomeWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}/welcome.html`);
+    welcomeWindow.loadURL(rendererPageUrl("welcome.html"));
   } else {
     welcomeWindow.loadFile(join(__dirname, "../renderer/welcome.html"));
   }
@@ -305,6 +330,19 @@ export function createWindow(): void {
 
   mainWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
+  // The preload bridge is attached to this window for its whole lifetime, so a
+  // page-initiated navigation to any other document would hand the full IpcApi
+  // to foreign content. Only the exact page the window was loaded with is
+  // admitted; in-page hash changes do not emit `will-navigate` and still work.
+  const devUrl = process.env.ELECTRON_RENDERER_URL;
+  const appPageUrl =
+    devUrl ?? pathToFileURL(join(__dirname, "../renderer/index.html")).href;
+  mainWindow.webContents.on("will-navigate", (event, url) => {
+    if (isAllowedAppNavigation(url, [appPageUrl])) return;
+    event.preventDefault();
+    log.warn(`blocked renderer navigation: ${url}`);
+  });
+
   mainWindow.webContents.on(
     "render-process-gone",
     (_e, details: { reason: string; exitCode: number }) => {
@@ -337,8 +375,8 @@ export function createWindow(): void {
     else if (!app.isPackaged) log.info(text);
   }) as (event: unknown, level: number, message: string) => void);
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+  if (devUrl) {
+    mainWindow.loadURL(devUrl);
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }

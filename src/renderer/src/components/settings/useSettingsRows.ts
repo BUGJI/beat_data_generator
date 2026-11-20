@@ -1,14 +1,11 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
-import {
-  applyAppName,
-  patchSettings,
-  useSettingsStore,
-} from "../../stores/settings";
+import { useSettingsStore } from "../../stores/settings";
+import { applyAppName } from "../../services/settingsEffects";
+import { patchSettings } from "../../services/settingsPersistence";
 import { i18n, isLocale, LOCALES, setLocale } from "../../i18n";
 import { THEME_PRESETS, THEME_TOKEN_ORDER } from "../../theme";
-import type { CloseMode } from "@shared/ipc";
-import type { AlignRounding, StretchEngine } from "@shared/settings";
+import type { SettingsData } from "@shared/settings";
 import type { CatKey, GroupDef, RowDef, SearchEntry } from "./types";
 import { EXTRA_SEARCH, SEARCH_KEYWORDS } from "./searchKeywords";
 import { buildFieldGroups } from "./rowDefinitions";
@@ -29,47 +26,52 @@ const t = i18n.global.t.bind(i18n.global);
 export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const settings = useSettingsStore();
 
-  const closeMode = computed<CloseMode>({
-    get: () => settings.settings.closeMode,
-    set: (v: CloseMode) => {
-      void patchSettings({ closeMode: v });
-    },
-  });
+  /**
+   * Two-way binding for one settings field. Every plain field used to have its
+   * own identical `computed({ get, set: patchSettings })` block; this helper is
+   * type-safe on the key and keeps the store's setup short.
+   */
+  function settingModel<K extends keyof SettingsData>(key: K) {
+    return computed<SettingsData[K]>({
+      get: () => settings.settings[key],
+      set: (value) => {
+        void patchSettings({ [key]: value } as Partial<SettingsData>);
+      },
+    });
+  }
 
-  const simpleMode = computed<boolean>({
-    get: () => settings.settings.simpleMode,
-    set: (v: boolean) => {
-      void patchSettings({ simpleMode: v });
-    },
-  });
-
-  const devEnabled = computed({
-    get: () => settings.settings.devEnabled,
-    set: (v: boolean) => {
-      void patchSettings({ devEnabled: v });
-    },
-  });
-
-  const devFreeInput = computed({
-    get: () => settings.settings.devFreeInput,
-    set: (v: boolean) => {
-      void patchSettings({ devFreeInput: v });
-    },
-  });
-
-  const logToFile = computed({
-    get: () => settings.settings.logToFile,
-    set: (v: boolean) => {
-      void patchSettings({ logToFile: v });
-    },
-  });
-
-  const stretchEngine = computed<string>({
-    get: () => settings.settings.stretchEngine,
-    set: (v: string) => {
-      void patchSettings({ stretchEngine: v as StretchEngine });
-    },
-  });
+  const simpleMode = settingModel("simpleMode");
+  const devEnabled = settingModel("devEnabled");
+  const devFreeInput = settingModel("devFreeInput");
+  const logToFile = settingModel("logToFile");
+  const stretchEngine = settingModel("stretchEngine");
+  const stretchCacheMb = settingModel("stretchCacheMb");
+  const closeMode = settingModel("closeMode");
+  const animEnabled = settingModel("animEnabled");
+  const gridAutoHide = settingModel("gridAutoHide");
+  const bpmSegmentColors = settingModel("bpmSegmentColors");
+  const bpmSegmentIntensity = settingModel("bpmSegmentIntensity");
+  const quickBarLabels = settingModel("quickBarLabels");
+  const uiMotion = settingModel("uiMotion");
+  const followScroll = settingModel("followScroll");
+  const followPercent = settingModel("followPercent");
+  const rememberWindow = settingModel("rememberWindow");
+  const showWelcome = settingModel("showWelcome");
+  const autoSave = settingModel("autoSave");
+  const checkUpdates = settingModel("checkUpdates");
+  const autoSaveMinutes = settingModel("autoSaveMinutes");
+  const ctrlSpeedPlay = settingModel("ctrlSpeedPlay");
+  const countInBars = settingModel("countInBars");
+  const gridMetronome = settingModel("gridMetronome");
+  const alignDecimals = settingModel("alignDecimals");
+  const alignRounding = settingModel("alignRounding");
+  const audioAutoBpm = settingModel("audioAutoBpm");
+  const audioAutoBeats = settingModel("audioAutoBeats");
+  const audioLoopDetect = settingModel("audioLoopDetect");
+  const audioLiveBpm = settingModel("audioLiveBpm");
+  const audioSpectrum = settingModel("audioSpectrum");
+  const audioPanel = settingModel("audioPanel");
+  const analysisWindowMinutes = settingModel("analysisWindowMinutes");
 
   const stretchEngineOptions = computed<
     Array<{ value: string; label: string }>
@@ -118,105 +120,6 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
           : "settings.general.modeAskHint",
     );
 
-  const animEnabled = computed({
-    get: () => settings.settings.animEnabled,
-    set: (v: boolean) => {
-      void patchSettings({ animEnabled: v });
-    },
-  });
-
-  const gridAutoHide = computed({
-    get: () => settings.settings.gridAutoHide,
-    set: (v: boolean) => {
-      void patchSettings({ gridAutoHide: v });
-    },
-  });
-
-  const bpmSegmentColors = computed({
-    get: () => settings.settings.bpmSegmentColors,
-    set: (v: boolean) => {
-      void patchSettings({ bpmSegmentColors: v });
-    },
-  });
-
-  const bpmSegmentIntensity = computed({
-    get: () => settings.settings.bpmSegmentIntensity,
-    set: (v: number) => {
-      void patchSettings({ bpmSegmentIntensity: v });
-    },
-  });
-
-  const uiMotion = computed({
-    get: () => settings.settings.uiMotion,
-    set: (v: boolean) => {
-      void patchSettings({ uiMotion: v });
-    },
-  });
-
-  const followScroll = computed({
-    get: () => settings.settings.followScroll,
-    set: (v: boolean) => {
-      void patchSettings({ followScroll: v });
-    },
-  });
-  const followPercent = computed({
-    get: () => settings.settings.followPercent,
-    set: (v: number) => {
-      void patchSettings({ followPercent: v });
-    },
-  });
-  const rememberWindow = computed({
-    get: () => settings.settings.rememberWindow,
-    set: (v: boolean) => {
-      void patchSettings({ rememberWindow: v });
-    },
-  });
-  const showWelcome = computed({
-    get: () => settings.settings.showWelcome,
-    set: (v: boolean) => {
-      void patchSettings({ showWelcome: v });
-    },
-  });
-  const autoSave = computed({
-    get: () => settings.settings.autoSave,
-    set: (v: boolean) => {
-      void patchSettings({ autoSave: v });
-    },
-  });
-  const checkUpdates = computed({
-    get: () => settings.settings.checkUpdates,
-    set: (v: boolean) => {
-      void patchSettings({ checkUpdates: v });
-    },
-  });
-  const autoSaveMinutes = computed({
-    get: () => settings.settings.autoSaveMinutes,
-    set: (v: number) => {
-      void patchSettings({ autoSaveMinutes: v });
-    },
-  });
-
-  const ctrlSpeedPlay = computed({
-    get: () => settings.settings.ctrlSpeedPlay,
-    set: (v: boolean) => {
-      void patchSettings({ ctrlSpeedPlay: v });
-    },
-  });
-
-  const alignDecimals = computed({
-    get: () => settings.settings.alignDecimals,
-    set: (v: number) => {
-      void patchSettings({ alignDecimals: v });
-    },
-  });
-
-  const alignRounding = computed<string>({
-    get: () => settings.settings.alignRounding,
-    set: (v: string) => {
-      void patchSettings({ alignRounding: v as AlignRounding });
-    },
-  });
-
   const alignRoundingOptions = computed<
     Array<{ value: string; label: string }>
   >(() => [
@@ -244,35 +147,6 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     });
   };
 
-  const audioAutoBpm = computed({
-    get: () => settings.settings.audioAutoBpm,
-    set: (v: boolean) => void patchSettings({ audioAutoBpm: v }),
-  });
-  const audioAutoBeats = computed({
-    get: () => settings.settings.audioAutoBeats,
-    set: (v: boolean) => void patchSettings({ audioAutoBeats: v }),
-  });
-  const audioLoopDetect = computed({
-    get: () => settings.settings.audioLoopDetect,
-    set: (v: boolean) => void patchSettings({ audioLoopDetect: v }),
-  });
-  const audioLiveBpm = computed({
-    get: () => settings.settings.audioLiveBpm,
-    set: (v: boolean) => void patchSettings({ audioLiveBpm: v }),
-  });
-  const audioSpectrum = computed({
-    get: () => settings.settings.audioSpectrum,
-    set: (v: boolean) => void patchSettings({ audioSpectrum: v }),
-  });
-  const audioPanel = computed({
-    get: () => settings.settings.audioPanel,
-    set: (v: boolean) => void patchSettings({ audioPanel: v }),
-  });
-  const analysisWindowMinutes = computed({
-    get: () => settings.settings.analysisWindowMinutes,
-    set: (v: number) => void patchSettings({ analysisWindowMinutes: v }),
-  });
-
   /** Dev options gate: fields that only make sense when dev mode is on. */
   const devOnly = (): boolean => !devEnabled.value;
   const freeMin = (min: number) => (): number | undefined =>
@@ -293,6 +167,8 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     followScroll,
     followPercent,
     ctrlSpeedPlay,
+    countInBars,
+    gridMetronome,
     alignDecimals,
     alignRounding,
     alignRoundingOptions,
@@ -309,9 +185,11 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     stretchEngine,
     stretchEngineOptions,
     stretchEngineHint,
+    stretchCacheMb,
     gridAutoHide,
     bpmSegmentColors,
     bpmSegmentIntensity,
+    quickBarLabels,
     animEnabled,
     uiMotion,
     devEnabled,
@@ -411,6 +289,7 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     devFreeInput,
     logToFile,
     stretchEngine,
+    stretchCacheMb,
     language,
     animEnabled,
     gridAutoHide,
@@ -424,6 +303,8 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     autoSaveMinutes,
     checkUpdates,
     ctrlSpeedPlay,
+    countInBars,
+    gridMetronome,
     alignDecimals,
     alignRounding,
     audioAutoBpm,

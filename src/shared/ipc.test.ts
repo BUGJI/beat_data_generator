@@ -15,11 +15,14 @@ const EXPECTED_KEYS = [
   "saveEDLFile",
   "readTextFile",
   "writeProjectFile",
-  "writeTextFile",
+  "writeRecovery",
+  "readRecovery",
+  "clearRecovery",
   "readBinaryFile",
   "writeBinaryFile",
   "getFilePath",
   "getSettings",
+  "getSettingsNotice",
   "updateSettings",
   "checkForUpdates",
   "toggleDevTools",
@@ -72,14 +75,15 @@ describe("IPC channel table", () => {
     }
   });
 
-  it("keeps channel values unique, except the documented write alias", () => {
+  it("keeps channel values unique", () => {
     const values = Object.values(IPC);
-    expect(new Set(values).size).toBe(values.length - 1);
-    expect(IPC.writeTextFile).toBe(IPC.writeProjectFile);
+    expect(new Set(values).size).toBe(values.length);
+    expect(IPC.writeProjectFile).toBe("text:write");
   });
 
   it("pins the channel strings the two processes agree on", () => {
     expect(IPC.getSettings).toBe("settings:get");
+    expect(IPC.getSettingsNotice).toBe("settings:notice");
     expect(IPC.updateSettings).toBe("settings:update");
     expect(IPC.marketInstall).toBe("plugins:market:install");
     expect(IPC.invokePlugin).toBe("plugins:invoke");

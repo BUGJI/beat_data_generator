@@ -56,3 +56,46 @@ export function relativeToDir(dir: string, fp: string): string | null {
   if (!tail) return null;
   return ups > 0 ? `${new Array(ups).fill("..").join("/")}/${tail}` : tail;
 }
+
+/** Lexically resolve `.` / `..` segments into a stable slash form. */
+function collapseSegments(p: string): string {
+  const out: string[] = [];
+  for (const part of normalizeSlashes(p).split("/")) {
+    if (part === "" || part === ".") continue;
+    if (part === "..") {
+      out.pop();
+      continue;
+    }
+    out.push(part);
+  }
+  return out.join("/");
+}
+
+/**
+ * True when `target` is `root` or a descendant of it after lexical `..`
+ * collapsing. Drives are compared case-insensitively (Windows), and a
+ * different drive can never be inside. This is a path-shape check, not a
+ * filesystem/symlink check.
+ */
+export function isInside(root: string, target: string): boolean {
+  const r = collapseSegments(root);
+  const t = collapseSegments(target);
+  if (!r || !t) return false;
+  const lowerDrive = (p: string): string =>
+    p.replace(/^([A-Za-z]):/, (m) => m.toLowerCase());
+  const rr = lowerDrive(r);
+  const tt = lowerDrive(t);
+  return tt === rr || tt.startsWith(`${rr}/`);
+}
+
+/** Safe plugin/registry identifier: no separators, reserved names or dots. */
+export function isSafeId(id: string): boolean {
+  return /^[A-Za-z0-9._-]+$/.test(id) && id !== "." && id !== "..";
+}
+
+/** File name without directory or extension (`a/b/c.tar.gz` -> `c.tar`). */
+export function stripExtension(p: string): string {
+  const base = baseName(p);
+  const dot = base.lastIndexOf(".");
+  return dot > 0 ? base.slice(0, dot) : base;
+}

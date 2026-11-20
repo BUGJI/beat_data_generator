@@ -2,13 +2,18 @@ import { computed, ref, type Ref } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   gridDivAtBeat,
+  setBpmBeatsPerBar,
   setBpmGridDiv,
   updateBpmPoint,
 } from "../../stores/project";
 import { useSettingsStore } from "../../stores/settings";
 import { parseGridDenominator } from "../../grid";
 import { DEFAULT_DIV, SNAP_DIVISIONS } from "../../metrics";
-import { effectiveBpmFor, timeOfBeat } from "../../services/timeline";
+import {
+  beatsPerBarAtBeat,
+  effectiveBpmFor,
+  timeOfBeat,
+} from "../../services/timeline";
 import { BPM_MIN } from "../../tempo";
 import type { BpmMode, BpmPoint } from "../../types";
 
@@ -151,6 +156,28 @@ export function useBpmCardModel(selBpm: Ref<BpmPoint | null>) {
     },
   });
 
+  // ---- beats-per-bar (meter) override on the selected BPM point ----
+
+  const effectiveBeatsPerBar = computed(() =>
+    selBpm.value ? beatsPerBarAtBeat(selBpm.value.beat) : 4,
+  );
+  const meterOverride = computed({
+    get: () => selBpm.value?.beatsPerBar != null,
+    set: (on: boolean) => {
+      const p = selBpm.value;
+      if (!p) return;
+      setBpmBeatsPerBar(p.id, on ? effectiveBeatsPerBar.value : null);
+    },
+  });
+  const meterValue = computed({
+    get: () => selBpm.value?.beatsPerBar ?? effectiveBeatsPerBar.value,
+    set: (v: number | undefined) => {
+      const p = selBpm.value;
+      if (!p || v == null) return;
+      setBpmBeatsPerBar(p.id, v);
+    },
+  });
+
   return {
     bpmBeat,
     bpmStep,
@@ -168,5 +195,7 @@ export function useBpmCardModel(selBpm: Ref<BpmPoint | null>) {
     gridOverride,
     gridOptions,
     gridDivModel,
+    meterOverride,
+    meterValue,
   };
 }

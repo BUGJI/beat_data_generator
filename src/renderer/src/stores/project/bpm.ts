@@ -1,6 +1,7 @@
-import { isFreeInput } from "@shared/limits";
+import { currentNumberPolicy } from "../../utils/numberPolicy";
 import { pushHistory } from "../../services/history";
 import { bpmAtBeat, effectiveBpmFor } from "../../services/timeline";
+import { normalizeBeatsPerBar } from "../../meter";
 import { clampBpm, makeId } from "../../tempo";
 import type { BpmMode, BpmPoint } from "../../types";
 import { clearSelectionIfMissing, select } from "../selection";
@@ -38,7 +39,7 @@ export function addBpmPoint(
   // A tempo change at beat 0 is just the base BPM: the tempo map and the saved
   // schema both ignore non-positive beats, so never create one (it would be
   // silently dropped on reload). Free-input mode stays unrestricted.
-  if (!isFreeInput() && beat <= 0) return null;
+  if (!currentNumberPolicy().free && beat <= 0) return null;
   const existing = p.bpmPoints.find((pt) => Math.abs(pt.beat - beat) < 1e-6);
   if (isBpmLocked()) {
     if (existing) {
@@ -57,7 +58,7 @@ export function addBpmPoint(
     id: makeId(),
     beat,
     mode,
-    value: value ?? clampBpm(inheritBpm),
+    value: value ?? clampBpm(inheritBpm, currentNumberPolicy()),
   };
   withTimeAlign(() => {
     p.bpmPoints.push(point);
@@ -76,7 +77,7 @@ export function updateBpmPointImpl(
   if (!pt || isBpmLocked()) return;
   const beat =
     patch.beat !== undefined ? clampBeat(snapped(patch.beat)) : undefined;
-  if (beat !== undefined && !isFreeInput() && beat <= 0) return;
+  if (beat !== undefined && !currentNumberPolicy().free && beat <= 0) return;
   if (beat !== undefined && pointHasBeat(beat, id)) return;
   const beatChanges = beat !== undefined && beat !== pt.beat;
   const modeChanges = patch.mode !== undefined && patch.mode !== pt.mode;
@@ -93,16 +94,16 @@ export function updateBpmPointImpl(
         pt.value = prev > 0 ? round(eff / prev) : 1;
       } else {
         pt.mode = "abs";
-        pt.value = clampBpm(eff);
+        pt.value = clampBpm(eff, currentNumberPolicy());
       }
     }
     if (patch.value !== undefined) {
       const v = Number(patch.value) || 0;
-      pt.value = isFreeInput()
+      pt.value = currentNumberPolicy().free
         ? v
         : pt.mode === "mult"
           ? Math.min(100, Math.max(0.01, v))
-          : clampBpm(v);
+          : clampBpm(v, currentNumberPolicy());
     }
   });
   p.dirty = true;
@@ -114,25 +115,25 @@ export function setBpmMode(id: string, mode: BpmMode): void {
   updateBpmPoint(id, { mode });
 }
 
-export function removeBpmPoint(id: string): void {
-  if (isBpmLocked()) return;
+export function removeBpmPoint(id: string): boolean {
+  if (isBpmLocked()) return false;
   const p = useProjectStore();
   const i = p.bpmPoints.findIndex((pt) => pt.id === id);
-  if (i >= 0) {
-    pushHistory();
-    withTimeAlign(() => {
-      p.bpmPoints.splice(i, 1);
-    });
-    p.dirty = true;
-    clearSelectionIfMissing();
-  }
+  if (i < 0) return false;
+  pushHistory();
+  withTimeAlign(() => {
+    p.bpmPoints.splice(i, 1);
+  });
+  p.dirty = true;
+  clearSelectionIfMissing();
+  return true;
 }
 
 // ---------- base bpm / offset recorded edits ----------
 
 export function setBaseBpmImpl(v: number): void {
   const p = useProjectStore();
-  const next = clampBpm(v);
+  const next = clampBpm(v, currentNumberPolicy());
   if (next === p.baseBpm) return;
   pushHistory();
   withTimeAlign(() => {
@@ -141,9 +142,39 @@ export function setBaseBpmImpl(v: number): void {
   p.dirty = true;
 }
 
+export function setBeatsPerBarImpl(v: number): void {
+  const p = useProjectStore();
+  const next = normalizeBeatsPerBar(v, Number.NaN);
+  if (!Number.isFinite(next)) return;
+  if (next === p.beatsPerBar) return;
+  pushHistory();
+  p.beatsPerBar = next;
+  p.dirty = true;
+}
+
+/** Set (or clear with null) a BPM point's beats-per-bar override. */
+export function setBpmBeatsPerBarImpl(id: string, v: number | null): void {
+  const p = useProjectStore();
+  if (p.bpmLocked) return;
+  const pt = p.bpmPointsById.get(id);
+  if (!pt) return;
+  if (v === null) {
+    if (pt.beatsPerBar === undefined) return;
+    pushHistory();
+    delete pt.beatsPerBar;
+    p.dirty = true;
+    return;
+  }
+  const next = normalizeBeatsPerBar(v, Number.NaN);
+  if (!Number.isFinite(next) || pt.beatsPerBar === next) return;
+  pushHistory();
+  pt.beatsPerBar = next;
+  p.dirty = true;
+}
+
 export function setOffsetImpl(v: number): void {
   const p = useProjectStore();
-  const next = isFreeInput() ? v : Math.round(v);
+  const next = currentNumberPolicy().free ? v : Math.round(v);
   if (next === p.offsetMs) return;
   pushHistory();
   withTimeAlign(() => {
@@ -163,6 +194,14 @@ export function updateBpmPoint(
 
 export function setBaseBpm(v: number): void {
   useProjectStore().setBaseBpm(v);
+}
+
+export function setBeatsPerBar(v: number): void {
+  useProjectStore().setBeatsPerBar(v);
+}
+
+export function setBpmBeatsPerBar(id: string, v: number | null): void {
+  useProjectStore().setBpmBeatsPerBar(id, v);
 }
 
 export function setOffset(v: number): void {

@@ -2,9 +2,11 @@ import { ref, type Ref } from "vue";
 import {
   addBpmPoint,
   addMarker,
+  changeMarkerTrack,
+  findMarker,
   gridDivAtBeat,
   markersInTrack,
-  moveMarker,
+  moveMarkers,
   removeBpmPoint,
   removeMarker,
   resolveMainMarker,
@@ -14,6 +16,7 @@ import {
 import {
   boxSelectMarkers,
   closeCard,
+  markerSelectionIds,
   select,
   selectSingleMarker,
   toggleMarkerSelect,
@@ -35,8 +38,15 @@ import {
   contentEndMs,
   markerTime as storeMarkerTime,
 } from "../../services/timeline";
-import { seekTo } from "../../services/playback";
-import { historyGestureBegin, historyGestureEnd } from "../../services/history";
+import { clearLoop, seekTo, setLoopRange } from "../../services/playback";
+import { holdFollow } from "../../services/follow";
+import {
+  historyGestureBegin,
+  historyGestureEnd,
+  undo,
+} from "../../services/history";
+import { toast } from "../../ui/toast";
+import { t } from "../../utils/text";
 import { BPM_LANE_H, MARKER_LANE_H, RULER_H } from "../../metrics";
 import {
   bpmOccupy,
@@ -46,6 +56,7 @@ import {
   visibleRows,
 } from "./geometry";
 import { useTimelineHitTest } from "./useTimelineHitTest";
+import { magnetBeat } from "./magnet";
 import type { GhostState } from "./types";
 import type { Marker, MarkerTrack } from "../../types";
 
@@ -59,6 +70,7 @@ type Mode =
   | "brushAdd"
   | "brushErase"
   | "boxSelect"
+  | "loopSelect"
   | "pan";
 
 type BoxRect = { x0: number; y0: number; x1: number; y1: number };
@@ -87,10 +99,9 @@ export function useTimelineGestures(opts: {
   let downY = 0;
   let moved = false;
   let dragId: string | null = null;
-  let dragTrackId: string | null = null;
-  let dragGroupIds = new Set<string>();
+  let dragIds: string[] = [];
+  let dragStartBeats = new Map<string, number>();
   let grabStartBeat = 0;
-  let mainStartBeat = 0;
   let panStartX = 0;
   let panStartY = 0;
   let panStartViewX = 0;
@@ -110,12 +121,6 @@ export function useTimelineGestures(opts: {
     return target instanceof Element && !!target.closest(".note");
   }
 
-  function loopGroupIds(mainId: string): Set<string> {
-    const s = new Set<string>([mainId]);
-    for (const c of project.markers) if (c.parentId === mainId) s.add(c.id);
-    return s;
-  }
-
   /** Reflect what the pointer is over / doing in the cursor shape. */
   function updateCursor(x: number, y: number): void {
     if (mode === "pan") {
@@ -126,7 +131,8 @@ export function useTimelineGestures(opts: {
       mode === "dragMarker" ||
       mode === "dragBpm" ||
       mode === "scrub" ||
-      mode === "boxSelect"
+      mode === "boxSelect" ||
+      mode === "loopSelect"
     ) {
       cursor.value = "ew-resize";
       return;
@@ -180,6 +186,14 @@ export function useTimelineGestures(opts: {
     }
   }
 
+  function dragExcludeIds(): Set<string> {
+    const out = new Set(dragIds);
+    for (const marker of project.markers) {
+      if (marker.parentId && out.has(marker.parentId)) out.add(marker.id);
+    }
+    return out;
+  }
+
   function setBox(x: number, y: number): void {
     boxRect.value = {
       x0: Math.min(downX, x),
@@ -218,14 +232,24 @@ export function useTimelineGestures(opts: {
     if (y < RULER_H) return;
     const mk = hitMarkerAt(x, y);
     if (mk) {
-      removeMarker(mk.id);
+      const before = project.markers.length;
+      if (removeMarker(mk.id)) {
+        toast.undo(
+          t("dialogs.deletedMarkers", {
+            n: before - project.markers.length,
+          }),
+          undo,
+        );
+      }
       closeCard();
       ghostState.value = null;
       return;
     }
     const bp = hitBpmAt(x, y);
     if (bp) {
-      removeBpmPoint(bp.id);
+      if (removeBpmPoint(bp.id)) {
+        toast.undo(t("dialogs.deletedBpm"), undo);
+      }
       closeCard();
       ghostState.value = null;
     }
@@ -235,6 +259,7 @@ export function useTimelineGestures(opts: {
     // middle-button drag pans the timeline (same as Shift+wheel horizontal scroll)
     if (e.button === 1) {
       selection.cardOpen = false;
+      holdFollow();
       const rect = opts.rootEl.value!.getBoundingClientRect();
       panStartX = e.clientX - rect.left;
       panStartY = e.clientY - rect.top;
@@ -246,20 +271,20 @@ export function useTimelineGestures(opts: {
       return;
     }
     if (e.button !== 0 && !(ui.quickPlace && e.button === 2)) return;
-    // A left press outside an open property card only dismisses it. Without this
-    // the click falls through to marker placement and leaves a stray marker when
-    // the user just meant to click away and close the popup. closeCard() also
-    // drops the selection so the marker stops being highlighted on exit.
-    if (selection.cardOpen && e.button === 0) {
-      closeCard();
-      ghostState.value = null;
-      return;
-    }
-    // a fresh press dismisses the card; it reopens only on a clean click/release
-    selection.cardOpen = false;
     const rect = opts.rootEl.value!.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
+    // A left press outside an open property card dismisses it. Hitting another
+    // marker / BPM point falls through so the card moves straight to it.
+    if (selection.cardOpen && e.button === 0) {
+      if (!hitMarkerAt(x, y) && !hitBpmAt(x, y)) {
+        closeCard();
+        ghostState.value = null;
+        return;
+      }
+    }
+    // a fresh press dismisses the card; it reopens only on a clean click/release
+    selection.cardOpen = false;
     downX = x;
     downY = y;
     boxRect.value = null;
@@ -282,6 +307,10 @@ export function useTimelineGestures(opts: {
     }
 
     if (y < RULER_H) {
+      if (e.shiftKey) {
+        mode = "loopSelect";
+        return;
+      }
       mode = "scrub";
       if (transport.playing) disableFollowOnScrub();
       return;
@@ -311,17 +340,21 @@ export function useTimelineGestures(opts: {
       }
       mode = "dragMarker";
       dragId = main.id;
-      dragTrackId = main.trackId;
-      dragGroupIds = loopGroupIds(main.id);
-      // remember the clicked point (may be a child) and the main beat so the
-      // grabbed point stays under the mouse while the main translates by the same delta.
+      ui.activeTrackId = main.trackId;
+      const selected = markerSelectionIds();
+      const inSelection = selected.includes(main.id);
+      if (!inSelection) selectSingleMarker(main.id);
+      dragIds = inSelection ? selected : [main.id];
+      dragStartBeats = new Map(
+        dragIds.map((id) => [id, findMarker(id)?.beat ?? 0]),
+      );
+      // remember the clicked point (may be a child) so the grabbed point stays
+      // under the mouse while every selected marker translates by the same delta.
       grabStartBeat = doSnap(
         mkHit.beat,
         view.snapEnabled,
         gridDivAtBeat(mkHit.beat),
       );
-      mainStartBeat = main.beat;
-      selectSingleMarker(main.id);
       return;
     }
     if (ui.quickPlace) {
@@ -364,6 +397,7 @@ export function useTimelineGestures(opts: {
     if (Math.abs(x - downX) > 3 || Math.abs(y - downY) > 3) moved = true;
 
     if (mode === "pan") {
+      holdFollow();
       setScroll(
         panStartViewX - (x - panStartX),
         panStartViewY - (y - panStartY),
@@ -371,6 +405,14 @@ export function useTimelineGestures(opts: {
       return;
     }
     const lane = laneKindAt(y, view.y);
+    if (mode === "loopSelect") {
+      if (moved) {
+        const a = screenToTime(downX);
+        const b = screenToTime(x);
+        setLoopRange(Math.min(a, b), Math.max(a, b), true);
+      }
+      return;
+    }
     if (mode === "scrub") {
       seekPlayhead(screenToTime(x));
       return;
@@ -381,25 +423,31 @@ export function useTimelineGestures(opts: {
     }
     if (mode === "dragBpm" && dragId) {
       const rawBeat = Math.max(0, beatOfTime(screenToTime(x)));
-      const raw = doSnap(rawBeat, view.snapEnabled, gridDivAtBeat(rawBeat));
+      const raw = e.altKey
+        ? rawBeat
+        : (magnetBeat(x) ??
+          doSnap(rawBeat, view.snapEnabled, gridDivAtBeat(rawBeat)));
       if (!e.altKey && !bpmOccupy(project.bpmPoints, raw))
         updateBpmPoint(dragId, { beat: raw });
-    } else if (mode === "dragMarker" && dragId && dragTrackId) {
+    } else if (mode === "dragMarker" && dragId && dragIds.length) {
       // holding Alt temporarily disables snap (free, un-gridded drag)
       const rawBeat = Math.max(0, beatOfTime(screenToTime(x)));
       const raw = e.altKey
         ? rawBeat
-        : doSnap(rawBeat, view.snapEnabled, gridDivAtBeat(rawBeat));
-      // children are regenerated with fresh ids on every parent move, so refresh
-      // the exception set each frame or the parent gets blocked by its own children.
-      dragGroupIds = loopGroupIds(dragId);
-      // translate the whole group by the grabbed point's delta so the point under
-      // the cursor stays grabbed; the main moves by the same offset.
-      const mainBeat = mainStartBeat + (raw - grabStartBeat);
-      const ok = !e.altKey
-        ? !markerOccupy(markersInTrack(dragTrackId), mainBeat, dragGroupIds)
-        : true;
-      if (ok) moveMarker(dragId, mainBeat, true);
+        : (magnetBeat(x, dragExcludeIds()) ??
+          doSnap(rawBeat, view.snapEnabled, gridDivAtBeat(rawBeat)));
+      let delta = raw - grabStartBeat;
+      let minStart = Number.POSITIVE_INFINITY;
+      for (const id of dragIds) {
+        minStart = Math.min(minStart, dragStartBeats.get(id) ?? 0);
+      }
+      if (delta < -minStart) delta = -minStart;
+      moveMarkers(
+        dragIds.map((id) => ({
+          id,
+          beat: (dragStartBeats.get(id) ?? 0) + delta,
+        })),
+      );
     } else if (mode === "brushAdd" || mode === "brushErase") {
       brushStep(x, y);
     } else if (mode === "placeMarker" && moved) {
@@ -421,13 +469,15 @@ export function useTimelineGestures(opts: {
     const y = e.clientY - rect.top;
 
     if (mode === "boxSelect") applyBoxSelection();
+    if (mode === "loopSelect" && !moved) clearLoop();
 
     if (!moved) {
       if (mode === "scrub") {
         seekPlayhead();
       } else if (mode === "placeBpm") {
         const raw = Math.max(0, beatOfTime(screenToTime(x)));
-        const beat = doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
+        const beat =
+          magnetBeat(x) ?? doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
         const pt = addBpmPoint(beat);
         if (pt) opts.openCard(x, y);
       } else if (mode === "placeMarker") {
@@ -435,7 +485,8 @@ export function useTimelineGestures(opts: {
         const track = lane.kind === "marker" ? trackAt(lane.index) : undefined;
         if (track) {
           const raw = Math.max(0, beatOfTime(screenToTime(x)));
-          const beat = doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
+          const beat =
+            magnetBeat(x) ?? doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
           addMarker(track.id, beat);
           // no popup on placement; click the marker again to open its card
         }
@@ -445,16 +496,24 @@ export function useTimelineGestures(opts: {
         opts.openCard(x, y);
       }
     }
+    if (moved && mode === "dragMarker" && dragId && dragIds.length === 1) {
+      const lane = laneKindAt(y, view.y);
+      const target = lane.kind === "marker" ? trackAt(lane.index) : undefined;
+      const marker = findMarker(dragId);
+      if (target && marker && marker.trackId !== target.id) {
+        changeMarkerTrack(dragId, target.id);
+        ui.activeTrackId = target.id;
+      }
+    }
     if (gestureOn) {
       historyGestureEnd();
       gestureOn = false;
     }
     mode = "idle";
     dragId = null;
-    dragTrackId = null;
-    dragGroupIds = new Set<string>();
+    dragIds = [];
+    dragStartBeats = new Map();
     grabStartBeat = 0;
-    mainStartBeat = 0;
     brushLastKey = "";
     activePointer = -1;
     boxRect.value = null;
@@ -469,10 +528,9 @@ export function useTimelineGestures(opts: {
     }
     mode = "idle";
     dragId = null;
-    dragTrackId = null;
-    dragGroupIds = new Set<string>();
+    dragIds = [];
+    dragStartBeats = new Map();
     grabStartBeat = 0;
-    mainStartBeat = 0;
     brushLastKey = "";
     activePointer = -1;
     boxRect.value = null;
@@ -489,7 +547,8 @@ export function useTimelineGestures(opts: {
     ).find((r) => (lane.kind === "bpm" ? r.bpm : !r.bpm && r.i === lane.index));
     if (!laneRow) return;
     const raw = Math.max(0, beatOfTime(screenToTime(hover.x)));
-    const beat = doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
+    const beat =
+      magnetBeat(hover.x) ?? doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
     const ok =
       lane.kind === "bpm"
         ? !bpmOccupy(project.bpmPoints, beat)

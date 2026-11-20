@@ -1,5 +1,6 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
+import type { BeatFxId, BeatFxPulse } from "@shared/beatFx";
 
 /**
  * Session-only editor UI flags and transient pulse counters.
@@ -13,14 +14,45 @@ export const useUiStore = defineStore("ui", () => {
   const beatPulse = ref(0);
   const overlapPulse = ref(0);
   const overlapCount = ref(0);
-  /** master switch for per-track lane/header glow on marker pass. */
-  const glowEnabled = ref(false);
-  /** per-track pulse sequence used to re-trigger 0.1s glow effects. */
-  const glowSeqs = ref<Record<string, number>>({});
+  /**
+   * Per-effect pulses. Each effect owns a namespace keyed by the entity it
+   * animates (track id for lane glow, marker id for marker flash). `at` is the
+   * wall-clock instant playback crossed the marker, so a renderer can tell how
+   * much of the effect is left even if the entity was off-screen when it fired.
+   * The selected effects live in persisted settings (`beatFx`), not here.
+   */
+  const fxPulses = ref<Record<BeatFxId, Record<string, BeatFxPulse>>>({
+    laneGlow: {},
+    markerFlash: {},
+  });
+  /** Latest pulse deadline per effect; keeps the frame loop check O(1). */
+  const fxUntil = ref<Record<BeatFxId, number>>({
+    laneGlow: 0,
+    markerFlash: 0,
+  });
+  /**
+   * Session master switch for the checked effects. Left-clicking the toolbar
+   * icon toggles this without changing which effects are checked.
+   */
+  const fxMasterOn = ref(true);
   /** quick draw/erase mode: press-drag places/deletes markers under the cursor. */
   const quickPlace = ref(false);
   /** session-only: pin markers to absolute time so BPM/offset edits don't move them. */
   const timeAlign = ref(false);
+  /** session-only: track that keyboard placement and new notes target. */
+  const activeTrackId = ref<string | null>(null);
+  const exportOpen = ref(false);
+  const exportKind = ref<"timestamps" | "edl">("timestamps");
+  const positionFocus = ref(0);
+
+  function openExportImpl(kind: "timestamps" | "edl"): void {
+    exportKind.value = kind;
+    exportOpen.value = true;
+  }
+
+  function requestPositionFocus(): void {
+    positionFocus.value++;
+  }
 
   return {
     analysisOpen,
@@ -28,10 +60,17 @@ export const useUiStore = defineStore("ui", () => {
     beatPulse,
     overlapPulse,
     overlapCount,
-    glowEnabled,
-    glowSeqs,
+    fxPulses,
+    fxUntil,
+    fxMasterOn,
     quickPlace,
     timeAlign,
+    activeTrackId,
+    exportOpen,
+    exportKind,
+    openExport: openExportImpl,
+    positionFocus,
+    requestPositionFocus,
   };
 });
 

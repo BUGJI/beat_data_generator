@@ -1,5 +1,7 @@
 import { z } from "zod";
-import { isFreeInput, setFreeInput } from "./limits";
+import { BEAT_FX_IDS } from "./beatFx";
+import { FREE_NUMBERS, STRICT_NUMBERS, type NumberPolicy } from "./limits";
+import { GH_PROXY_DEFAULT_HOST, normalizeProxyHost } from "./network";
 
 /**
  * Persisted settings contract.
@@ -16,17 +18,32 @@ import { isFreeInput, setFreeInput } from "./limits";
 /** Bump to force migration of persisted settings defaults. */
 export const SETTINGS_VERSION = 3;
 
+/**
+ * What happened when the persisted settings file could not be read. The main
+ * process stores it once per launch; the renderer shows a single toast.
+ */
+export interface SettingsRecoveryNotice {
+  kind: "backup-restored" | "defaults-restored";
+  /** Where the unreadable file was moved, when it could be preserved. */
+  backupPath?: string;
+}
+
 /** Boolean that repairs to `def` for any non-boolean input. */
 const bool = (def: boolean) => z.boolean().catch(def).default(def);
 
 /** Integer clamped into [min, max] with a safe fallback (bypassed by free input). */
-const intInRange = (def: number, min: number, max: number) =>
+const intInRange = (
+  policy: NumberPolicy,
+  def: number,
+  min: number,
+  max: number,
+) =>
   z.coerce
     .number()
     .catch(def)
     .default(def)
     .transform((v) =>
-      isFreeInput() ? v : Math.min(max, Math.max(min, Math.round(v))),
+      policy.free ? v : Math.min(max, Math.max(min, Math.round(v))),
     );
 
 export const CloseModeSchema = z.enum(["ask", "minimize", "close"]);
@@ -77,138 +94,190 @@ export const StretchEngineSchema = z
   .default("signalsmith");
 export type StretchEngine = z.infer<typeof StretchEngineSchema>;
 
-export const SettingsSchema = z.object({
-  closeMode: CloseModeSchema.catch("ask").default("ask"),
-  /** UI language: a concrete locale, or "auto" to follow the OS/browser. */
-  locale: LocalePrefSchema,
-  /** Hide advanced categories/rows for a simpler first-run experience. */
-  simpleMode: bool(true),
-  /** custom application name; empty string uses the built-in default. */
-  appName: z
-    .string()
-    .catch("")
-    .default("")
-    .transform((s) => s.slice(0, 48)),
-  devEnabled: bool(false),
-  devFreeInput: bool(false),
-  /** write runtime logs to <userData>/logs/main.log (off by default). */
-  logToFile: bool(false),
-  /** time-stretch backend used when playing off-speed with pitch preserved. */
-  stretchEngine: StretchEngineSchema,
-  animEnabled: bool(true),
-  /** animate UI surfaces (settings drawer/overlay, toasts, etc.). */
-  uiMotion: bool(true),
-  /** overall UI zoom in percent (75–150); applied via Electron page zoom. */
-  uiZoom: intInRange(100, 75, 150),
-  /** text scale in percent (85–150); multiplies every UI font size. */
-  uiFontScale: intInRange(100, 85, 150),
-  /** global backdrop blur; off removes every blur effect in the UI. */
-  uiBlur: bool(true),
-  /** backdrop blur radius in px (0–24) when uiBlur is on. */
-  uiBlurAmount: intInRange(3, 0, 24),
-  /** global corner radius in px (0–20) applied to controls and surfaces. */
-  uiRadius: intInRange(6, 0, 20),
-  /** shadow strength in percent (0–100); 0 = flat, 100 = heavy. */
-  uiShadow: intInRange(50, 0, 100),
-  /** Absolute path to a user-picked background image ("" = none). */
-  backgroundImage: z
-    .string()
-    .catch("")
-    .default("")
-    .transform((s) => s.trim().slice(0, 1024)),
-  /** How the background image fills the window. */
-  backgroundFit: BackgroundFitSchema,
-  /** Darkening overlay between the background image and the UI, in percent. */
-  backgroundDim: intInRange(0, 0, 100),
-  /** Gaussian blur applied to the background image, in px (0–40). */
-  backgroundBlur: intInRange(0, 0, 40),
-  /** Opacity of the main panel surfaces in percent (20–100); 100 = solid. */
-  surfaceOpacity: intInRange(90, 20, 100),
-  /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
-  gridAutoHide: bool(true),
-  /** tint each BPM segment with a theme-derived color to distinguish sections. */
-  bpmSegmentColors: bool(true),
-  /** BPM segment tint strength in percent (0 = structure only, 100 = strong). */
-  bpmSegmentIntensity: intInRange(55, 0, 100),
-  /** silently check for updates on startup and notify when one is available. */
-  checkUpdates: bool(true),
-  /** how long the cached plugin-market index stays fresh before a refetch. */
-  marketCacheTtl: MarketCacheTtlSchema,
-  /** proxy source for marketplace / update network requests. */
-  proxyMode: ProxyModeSchema,
-  /** rewrite GitHub download URLs through a gh-proxy mirror to speed up downloads. */
-  githubProxy: bool(false),
-  /** gh-proxy host or base URL, e.g. "ghfast.top" or "https://ghfast.top". */
-  githubProxyHost: z
-    .string()
-    .catch("ghfast.top")
-    .default("ghfast.top")
-    .transform((s) => s.trim().replace(/\/+$/, "").slice(0, 120)),
-  followScroll: bool(true),
-  followPercent: intInRange(90, 0, 100),
-  followPreset: bool(false),
-  /** Settings panel layout: docked right drawer or full-screen overlay. */
-  settingsLayout: z.enum(["drawer", "full"]).catch("drawer").default("drawer"),
-  /** Drawer width in px; 0 = auto (40% of the window). Clamped to 90vw at runtime. */
-  settingsDrawerWidth: intInRange(0, 0, 4000),
-  rememberWindow: bool(true),
-  /** show the standalone welcome window at startup. */
-  showWelcome: bool(true),
-  autoSave: bool(true),
-  autoSaveMinutes: intInRange(5, 1, 60),
-  /** hold Ctrl when pressing Space to play at the current rate; plain Space plays at 1x. */
-  ctrlSpeedPlay: bool(false),
-  /** decimal places kept by the "align markers" action (0–6). */
-  alignDecimals: intInRange(2, 0, 6),
-  /** how "align markers" rounds each beat: nearest / toward zero / away. */
-  alignRounding: AlignRoundingSchema.catch("round").default("round"),
-  /** optional audio file played once each time a beat marker is passed (empty = disabled). */
-  metronomePath: z.string().catch("").default(""),
-  /** when true the metronome tracks the master volume; when false it uses metronomeVolume. */
-  metronomeFollowMaster: bool(true),
-  /** independent metronome volume in percent (0–100). */
-  metronomeVolume: intInRange(85, 0, 100),
-  settingsVersion: z.coerce.number().catch(0).default(0),
-  /** On audio load, auto-detect BPM and apply to baseBpm (only when not locked). */
-  audioAutoBpm: bool(false),
-  /** On audio load, place markers at detected beats on a dedicated "auto beat" track. */
-  audioAutoBeats: bool(false),
-  /** On audio load, run loop detection and keep the best loop segment as a hint. */
-  audioLoopDetect: bool(false),
-  /** While playing, periodically refresh a live BPM readout (never modifies the project). */
-  audioLiveBpm: bool(false),
-  /** Compute and show a spectrum / mel spectrogram in the audio analysis panel. */
-  audioSpectrum: bool(false),
-  /** Show the audio analysis panel button in the top bar. */
-  audioPanel: bool(false),
-  /** Longest span (minutes) analysed from the start of the audio. Whole-file DSP
-   *  allocates a full STFT (~O(minutes)); capping it keeps long files (DJ sets)
-   *  from exhausting memory. Only the analysis window is limited; playback /
-   *  waveform still use the whole track. */
-  analysisWindowMinutes: intInRange(3, 1, 60),
-  /** Active theme preset id (see renderer src/theme.ts). */
-  themePreset: z
-    .string()
-    .catch("default")
-    .default("default")
-    .transform((s) => s || "default"),
-  /** Per-token color overrides on top of the preset (token name -> hex). */
-  themeOverrides: z
-    .record(z.string(), z.unknown())
-    .catch({})
-    .default({})
-    .transform((o) => {
-      const out: Record<string, string> = {};
-      for (const [k, v] of Object.entries(o)) {
-        // Keep only plausible color literals. Tokens are resolved by name, so
-        // unknown keys are inert but would otherwise pile up in settings.json.
-        if (typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v)) out[k] = v;
-      }
-      return out;
-    }),
-});
+const createSettingsSchema = (policy: NumberPolicy) =>
+  z.object({
+    closeMode: CloseModeSchema.catch("ask").default("ask"),
+    /** UI language: a concrete locale, or "auto" to follow the OS/browser. */
+    locale: LocalePrefSchema,
+    /** Hide advanced categories/rows for a simpler first-run experience. */
+    simpleMode: bool(true),
+    /** custom application name; empty string uses the built-in default. */
+    appName: z
+      .string()
+      .catch("")
+      .default("")
+      .transform((s) => s.slice(0, 48)),
+    devEnabled: bool(false),
+    devFreeInput: bool(false),
+    /** write runtime logs to <userData>/logs/main.log (off by default). */
+    logToFile: bool(false),
+    /** time-stretch backend used when playing off-speed with pitch preserved. */
+    stretchEngine: StretchEngineSchema,
+    /** Retained budget (MB) for cached pitch-preserving stretch buffers. */
+    stretchCacheMb: intInRange(policy, 256, 32, 4096),
+    animEnabled: bool(true),
+    /** animate UI surfaces (settings drawer/overlay, toasts, etc.). */
+    uiMotion: bool(true),
+    /** overall UI zoom in percent (75–150); applied via Electron page zoom. */
+    uiZoom: intInRange(policy, 100, 75, 150),
+    /** text scale in percent (85–150); multiplies every UI font size. */
+    uiFontScale: intInRange(policy, 100, 85, 150),
+    /** global backdrop blur; off removes every blur effect in the UI. */
+    uiBlur: bool(true),
+    /** backdrop blur radius in px (0–24) when uiBlur is on. */
+    uiBlurAmount: intInRange(policy, 3, 0, 24),
+    /** global corner radius in px (0–20) applied to controls and surfaces. */
+    uiRadius: intInRange(policy, 6, 0, 20),
+    /** shadow strength in percent (0–100); 0 = flat, 100 = heavy. */
+    uiShadow: intInRange(policy, 50, 0, 100),
+    /** Absolute path to a user-picked background image ("" = none). */
+    backgroundImage: z
+      .string()
+      .catch("")
+      .default("")
+      .transform((s) => s.trim().slice(0, 1024)),
+    /** How the background image fills the window. */
+    backgroundFit: BackgroundFitSchema,
+    /** Darkening overlay between the background image and the UI, in percent. */
+    backgroundDim: intInRange(policy, 0, 0, 100),
+    /** Gaussian blur applied to the background image, in px (0–40). */
+    backgroundBlur: intInRange(policy, 0, 0, 40),
+    /** Opacity of the main panel surfaces in percent (20–100); 100 = solid. */
+    surfaceOpacity: intInRange(policy, 90, 20, 100),
+    /** auto-hide dense beat grid lines when zoomed out to avoid slow rendering. */
+    gridAutoHide: bool(true),
+    /** tint each BPM segment with a theme-derived color to distinguish sections. */
+    bpmSegmentColors: bool(true),
+    /** BPM segment tint strength in percent (0 = structure only, 100 = strong). */
+    bpmSegmentIntensity: intInRange(policy, 55, 0, 100),
+    /** show a text label beside each project-bar quick-action icon. */
+    quickBarLabels: bool(false),
+    /** silently check for updates on startup and notify when one is available. */
+    checkUpdates: bool(true),
+    /** how long the cached plugin-market index stays fresh before a refetch. */
+    marketCacheTtl: MarketCacheTtlSchema,
+    /** proxy source for marketplace / update network requests. */
+    proxyMode: ProxyModeSchema,
+    /** rewrite GitHub download URLs through a gh-proxy mirror to speed up downloads. */
+    githubProxy: bool(false),
+    /** gh-proxy host or base URL, e.g. "ghfast.top" or "https://ghfast.top". */
+    githubProxyHost: z
+      .string()
+      .catch(GH_PROXY_DEFAULT_HOST)
+      .default(GH_PROXY_DEFAULT_HOST)
+      .transform(
+        (s) => normalizeProxyHost(s.slice(0, 120)) ?? GH_PROXY_DEFAULT_HOST,
+      ),
+    followScroll: bool(true),
+    followPercent: intInRange(policy, 90, 0, 100),
+    followPreset: bool(false),
+    /**
+     * Checked playback visual effects (see shared/beatFx.ts); absent = not
+     * checked. The session master switch decides whether they render.
+     */
+    beatFx: z
+      .record(z.string(), z.unknown())
+      .catch({})
+      .default({})
+      .transform((o) => {
+        const out: Record<string, boolean> = {};
+        for (const id of BEAT_FX_IDS) {
+          if (typeof o[id] === "boolean") out[id] = o[id];
+        }
+        return out;
+      }),
+    /** Settings panel layout: docked right drawer or full-screen overlay. */
+    settingsLayout: z
+      .enum(["drawer", "full"])
+      .catch("drawer")
+      .default("drawer"),
+    /** Drawer width in px; 0 = auto (40% of the window). Clamped to 90vw at runtime. */
+    settingsDrawerWidth: intInRange(policy, 0, 0, 4000),
+    rememberWindow: bool(true),
+    /** show the standalone welcome window at startup. */
+    showWelcome: bool(true),
+    autoSave: bool(true),
+    autoSaveMinutes: intInRange(policy, 5, 1, 60),
+    /** hold Ctrl when pressing Space to play at the current rate; plain Space plays at 1x. */
+    ctrlSpeedPlay: bool(false),
+    /** bars of metronome count-in before playback starts (0 = disabled). */
+    countInBars: intInRange(policy, 0, 0, 4),
+    /** click every beat while playing, independent of marker clicks. */
+    gridMetronome: bool(false),
+    /** user key bindings by action id; absent = built-in default. */
+    shortcuts: z
+      .record(z.string(), z.string())
+      .catch({})
+      .default({})
+      .transform((o) => {
+        const out: Record<string, string> = {};
+        for (const [key, value] of Object.entries(o)) {
+          if (
+            typeof value === "string" &&
+            key.length <= 48 &&
+            value.trim().length > 0 &&
+            value.length <= 48
+          ) {
+            out[key] = value.trim();
+          }
+        }
+        return out;
+      }),
+    /** decimal places kept by the "align markers" action (0–6). */
+    alignDecimals: intInRange(policy, 2, 0, 6),
+    /** how "align markers" rounds each beat: nearest / toward zero / away. */
+    alignRounding: AlignRoundingSchema.catch("round").default("round"),
+    /** optional audio file played once each time a beat marker is passed (empty = disabled). */
+    metronomePath: z.string().catch("").default(""),
+    /** when true the metronome tracks the master volume; when false it uses metronomeVolume. */
+    metronomeFollowMaster: bool(true),
+    /** independent metronome volume in percent (0–100). */
+    metronomeVolume: intInRange(policy, 85, 0, 100),
+    settingsVersion: z.coerce.number().catch(0).default(0),
+    /** On audio load, auto-detect BPM and apply to baseBpm (only when not locked). */
+    audioAutoBpm: bool(false),
+    /** On audio load, place markers at detected beats on a dedicated "auto beat" track. */
+    audioAutoBeats: bool(false),
+    /** On audio load, run loop detection and keep the best loop segment as a hint. */
+    audioLoopDetect: bool(false),
+    /** While playing, periodically refresh a live BPM readout (never modifies the project). */
+    audioLiveBpm: bool(false),
+    /** Compute and show a spectrum / mel spectrogram in the audio analysis panel. */
+    audioSpectrum: bool(false),
+    /** Show the audio analysis panel button in the top bar. */
+    audioPanel: bool(false),
+    /** Longest span (minutes) analysed from the start of the audio. Whole-file DSP
+     *  allocates a full STFT (~O(minutes)); capping it keeps long files (DJ sets)
+     *  from exhausting memory. Only the analysis window is limited; playback /
+     *  waveform still use the whole track. */
+    analysisWindowMinutes: intInRange(policy, 3, 1, 60),
+    /** Active theme preset id (see renderer src/theme.ts). */
+    themePreset: z
+      .string()
+      .catch("default")
+      .default("default")
+      .transform((s) => s || "default"),
+    /** Per-token color overrides on top of the preset (token name -> hex). */
+    themeOverrides: z
+      .record(z.string(), z.unknown())
+      .catch({})
+      .default({})
+      .transform((o) => {
+        const out: Record<string, string> = {};
+        for (const [k, v] of Object.entries(o)) {
+          // Keep only plausible color literals. Tokens are resolved by name, so
+          // unknown keys are inert but would otherwise pile up in settings.json.
+          if (typeof v === "string" && /^#[0-9a-fA-F]{3,8}$/.test(v))
+            out[k] = v;
+        }
+        return out;
+      }),
+  });
 
-export type SettingsData = z.infer<typeof SettingsSchema>;
+export const SettingsSchema = createSettingsSchema(STRICT_NUMBERS);
+export type SettingsData = z.infer<ReturnType<typeof createSettingsSchema>>;
+
+const FREE_SETTINGS_SCHEMA = createSettingsSchema(FREE_NUMBERS);
 
 /** Fresh defaults (settingsVersion 0; callers may stamp SETTINGS_VERSION). */
 export function defaultSettings(): SettingsData {
@@ -219,15 +288,13 @@ export function defaultSettings(): SettingsData {
 export function sanitizeSettings(raw: unknown): SettingsData {
   const input =
     raw && typeof raw === "object" && !Array.isArray(raw) ? raw : {};
-  // free-input intentionally disables the other numeric clamps, so it must be
-  // in effect while the rest of the object is parsed.
-  const prev = isFreeInput();
-  setFreeInput((input as Record<string, unknown>).devFreeInput === true);
-  try {
-    return SettingsSchema.parse(input);
-  } finally {
-    setFreeInput(prev);
-  }
+  // free-input intentionally disables the other numeric clamps for this parse.
+  // Selecting a pre-built schema avoids mutating shared state mid-parse.
+  const schema =
+    (input as Record<string, unknown>).devFreeInput === true
+      ? FREE_SETTINGS_SCHEMA
+      : SettingsSchema;
+  return schema.parse(input);
 }
 
 /**
@@ -247,16 +314,17 @@ export function migrateSettings(raw: unknown): {
   let changed = false;
   const fromVersion = Number(input.settingsVersion ?? 0);
 
-  // v1 shipped with the auto audio-analysis toggles defaulting on. Reset them so
-  // residual enabled values from those early builds stop auto-running on load.
-  // Only v1 (< 2) needs this; later versions must not be reset again.
+  // v1 shipped with the auto audio-analysis toggles defaulting on. Turn every
+  // one of them off so residual enabled values from those early builds stop
+  // auto-running on load; this matches the newer "off by default" product
+  // decision. Only v1 (< 2) needs this; later versions keep the user's choice.
   if (fromVersion < 2) {
-    input.audioAutoBpm = true;
+    input.audioAutoBpm = false;
     input.audioAutoBeats = false;
     input.audioLoopDetect = false;
     input.audioLiveBpm = false;
     input.audioSpectrum = false;
-    input.audioPanel = true;
+    input.audioPanel = false;
     changed = true;
   }
   if (fromVersion < SETTINGS_VERSION) {
@@ -264,4 +332,27 @@ export function migrateSettings(raw: unknown): {
     changed = true;
   }
   return { data: sanitizeSettings(input), changed };
+}
+
+/**
+ * Validate a settings JSON payload for import. Rejects non-objects and files
+ * with no recognized keys, drops dev flags, and parses numbers with free input
+ * disabled so an import cannot bypass the normal ranges.
+ */
+export function prepareImportedSettings(raw: unknown): SettingsData | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const known = new Set(Object.keys(defaultSettings()));
+  if (!Object.keys(raw).some((key) => known.has(key))) return null;
+  const prepared = {
+    ...(raw as Record<string, unknown>),
+    devEnabled: false,
+    devFreeInput: false,
+  };
+  const { data } = migrateSettings(prepared);
+  return {
+    ...data,
+    settingsVersion: SETTINGS_VERSION,
+    devEnabled: false,
+    devFreeInput: false,
+  };
 }

@@ -4,7 +4,6 @@ import {
   bpmOccupy,
   cappedSnapDiv,
   doSnap,
-  effectiveSegments,
   fmtBar,
   fmtTick,
   laneKindAt,
@@ -59,16 +58,6 @@ describe("visibleRows", () => {
     const rows = visibleRows(1000, 0, 2);
     expect(rows[0]).toMatchObject({ i: -1, bpm: true });
     expect(rows.filter((r) => !r.bpm).map((r) => r.i)).toEqual([0, 1]);
-  });
-});
-
-describe("effectiveSegments", () => {
-  it("starts at the base bpm and applies absolute points", () => {
-    const points: BpmPoint[] = [{ id: "p", beat: 4, mode: "abs", value: 150 }];
-    const segs = effectiveSegments(120, points);
-    expect(segs).toHaveLength(2);
-    expect(segs[0]).toMatchObject({ beatStart: 0, beatEnd: 4, bpm: 120 });
-    expect(segs[1]).toMatchObject({ beatStart: 4, beatEnd: null, bpm: 150 });
   });
 });
 

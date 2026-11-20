@@ -1,3 +1,4 @@
+import { StretchCancelledError } from "./errors";
 import type { StretchRequest, StretchResponse } from "./soundtouch.worker";
 
 /**
@@ -18,7 +19,7 @@ function cancelActive(): void {
   worker.onmessage = null;
   worker.onerror = null;
   worker.terminate();
-  reject(new Error("stretch superseded"));
+  reject(new StretchCancelledError());
 }
 
 /**

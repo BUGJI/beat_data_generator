@@ -6,6 +6,7 @@ import {
   resolveMainMarker,
   useProjectStore,
 } from "./project";
+import { registerHistorySelectionClearer } from "../services/history";
 
 export interface Selection {
   kind: "marker" | "bpm" | null;
@@ -23,6 +24,12 @@ export const useSelectionStore = defineStore("selection", () => {
   const selected = ref<Selection>({ kind: null, id: null });
   const multi = ref<string[]>([]);
   const cardOpen = ref(false);
+
+  registerHistorySelectionClearer(() => {
+    selected.value = { kind: null, id: null };
+    multi.value = [];
+    cardOpen.value = false;
+  });
 
   function selectImpl(kind: "marker" | "bpm" | null, id: string | null): void {
     selected.value = { kind, id };

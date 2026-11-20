@@ -20,10 +20,16 @@ const BEATS = [12, 24, 36, 48, 60, 72, 84];
 /** Fixed mel-spectrum bar heights (%). */
 const SPECTRUM = [30, 55, 82, 46, 70, 92, 58, 38, 74, 86, 52, 34];
 
-/** Follow-scroll trigger line position, clamped to stay on-screen. */
-const followLeft = computed(
-  () => `${Math.min(92, Math.max(4, s.value.followPercent))}%`,
-);
+/** Follow-scroll safe zone, clamped to stay on-screen. */
+const followZone = computed(() => {
+  const f = Math.min(1, Math.max(0, s.value.followPercent / 100));
+  const right = Math.min(92, Math.max(4, f * 100));
+  const left = Math.min(right, Math.max(4, Math.min(f, 1 - f) * 100));
+  return {
+    band: { left: `${left}%`, width: `${right - left}%` },
+    line: { left: `${right}%` },
+  };
+});
 
 // Restart the pan/zoom animation on demand (editor motion demo).
 const replayKey = ref(0);
@@ -72,8 +78,13 @@ function replay(): void {
             <span class="vp-lane half" style="top: 60%" />
             <span
               v-if="s.followScroll"
+              class="vp-follow-band"
+              :style="followZone.band"
+            />
+            <span
+              v-if="s.followScroll"
               class="vp-follow"
-              :style="{ left: followLeft }"
+              :style="followZone.line"
             />
           </template>
         </div>
@@ -231,6 +242,14 @@ function replay(): void {
   width: 1.5px;
   background: var(--bdg-danger);
   opacity: 0.85;
+  transform: translateX(-50%);
+}
+.vp-follow-band {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--bdg-danger);
+  opacity: 0.1;
 }
 
 .vp-bottom {

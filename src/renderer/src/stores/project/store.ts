@@ -2,7 +2,10 @@ import { defineStore } from "pinia";
 import { computed, ref } from "vue";
 import { buildGridSegments, type GridSegment } from "../../grid";
 import { DEFAULT_DIV } from "../../metrics";
+import { buildMeterSegments, type MeterSegment } from "../../meter";
 import { buildTempoMap, type TempoMap } from "../../tempo";
+import { currentNumberPolicy } from "../../utils/numberPolicy";
+import { registerHistoryTarget } from "../../services/history";
 import type {
   BeatProject,
   BpmPoint,
@@ -10,11 +13,18 @@ import type {
   MarkerTrack,
   ProjectNote,
 } from "../../types";
-import { setBaseBpmImpl, setOffsetImpl, updateBpmPointImpl } from "./bpm";
+import {
+  setBaseBpmImpl,
+  setBeatsPerBarImpl,
+  setBpmBeatsPerBarImpl,
+  setOffsetImpl,
+  updateBpmPointImpl,
+} from "./bpm";
 import { setBpmGridDivImpl, setGridDivImpl } from "./grid";
 import {
   addMarkerImpl,
   moveMarkerImpl,
+  moveMarkersImpl,
   removeMarkerAtImpl,
   updateMarkerAttrsImpl,
   updateMarkerLoopImpl,
@@ -46,6 +56,7 @@ export const useProjectStore = defineStore("project", () => {
   const name = ref("");
   const baseBpm = ref(120);
   const offsetMs = ref(0);
+  const beatsPerBar = ref(4);
   const gridDiv = ref(DEFAULT_DIV);
   const audioPath = ref<string | null>(null);
   const audioName = ref<string | null>(null);
@@ -64,12 +75,22 @@ export const useProjectStore = defineStore("project", () => {
 
   /** Tempo map derived from base BPM / offset / tempo points. */
   const tempoMap = computed<TempoMap>(() =>
-    buildTempoMap(baseBpm.value, offsetMs.value, bpmPoints.value),
+    buildTempoMap(
+      baseBpm.value,
+      offsetMs.value,
+      bpmPoints.value,
+      currentNumberPolicy(),
+    ),
   );
 
   /** Effective beat-grid regions: global subdivision plus BPM-point overrides. */
   const gridSegments = computed<GridSegment[]>(() =>
     buildGridSegments(gridDiv.value, bpmPoints.value),
+  );
+
+  /** Effective meter regions: global beats-per-bar plus BPM-point overrides. */
+  const meterSegments = computed<MeterSegment[]>(() =>
+    buildMeterSegments(beatsPerBar.value, bpmPoints.value),
   );
 
   /** Markers grouped and sorted per track. Rebuilt only when a marker's track
@@ -96,12 +117,41 @@ export const useProjectStore = defineStore("project", () => {
     () => new Map(tracks.value.map((t) => [t.id, t])),
   );
 
+  // Undo/redo reads and writes the editable document through these hooks, so
+  // `services/history` never imports this store (which used to form a cycle).
+  registerHistoryTarget(
+    () => ({
+      baseBpm: baseBpm.value,
+      offsetMs: offsetMs.value,
+      beatsPerBar: beatsPerBar.value,
+      gridDiv: gridDiv.value,
+      bpmLocked: bpmLocked.value,
+      tracks: tracks.value,
+      markers: markers.value,
+      bpmPoints: bpmPoints.value,
+      notes: notes.value,
+    }),
+    (state) => {
+      baseBpm.value = state.baseBpm;
+      offsetMs.value = state.offsetMs;
+      beatsPerBar.value = state.beatsPerBar;
+      gridDiv.value = state.gridDiv;
+      bpmLocked.value = state.bpmLocked;
+      tracks.value = state.tracks;
+      markers.value = state.markers;
+      bpmPoints.value = state.bpmPoints;
+      notes.value = state.notes;
+      dirty.value = true;
+    },
+  );
+
   return {
     app,
     version,
     name,
     baseBpm,
     offsetMs,
+    beatsPerBar,
     gridDiv,
     audioPath,
     audioName,
@@ -115,12 +165,14 @@ export const useProjectStore = defineStore("project", () => {
     dirty,
     tempoMap,
     gridSegments,
+    meterSegments,
     markersByTrack,
     markersById,
     bpmPointsById,
     tracksById,
     // ---- high-frequency mutations exposed as Pinia actions ----
     moveMarker: moveMarkerImpl,
+    moveMarkers: moveMarkersImpl,
     addMarker: addMarkerImpl,
     removeMarkerAt: removeMarkerAtImpl,
     updateMarkerLoop: updateMarkerLoopImpl,
@@ -128,8 +180,10 @@ export const useProjectStore = defineStore("project", () => {
     updateBpmPoint: updateBpmPointImpl,
     updateNote: updateNoteImpl,
     setBaseBpm: setBaseBpmImpl,
+    setBeatsPerBar: setBeatsPerBarImpl,
     setOffset: setOffsetImpl,
     setGridDiv: setGridDivImpl,
     setBpmGridDiv: setBpmGridDivImpl,
+    setBpmBeatsPerBar: setBpmBeatsPerBarImpl,
   };
 });

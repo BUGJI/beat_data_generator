@@ -13,6 +13,7 @@ import {
 import { useTransportStore } from "../stores/transport";
 import { useSettingsStore } from "../stores/settings";
 import { useUiStore } from "../stores/ui";
+import { play, setLoopFromDetection } from "../services/playback";
 import UiButton from "./ui/UiButton.vue";
 
 const { t } = useI18n();
@@ -182,6 +183,11 @@ function onApplyBpm(): void {
   applyDetectedBpm();
 }
 
+function onUseLoop(): void {
+  setLoopFromDetection(analysis.loopStart, analysis.loopEnd);
+  if (!transport.playing) play();
+}
+
 function close(): void {
   ui.analysisOpen = false;
 }
@@ -263,6 +269,15 @@ onBeforeUnmount(() => {
           <div class="ana-row">
             <span class="ana-label">{{ t("settings.audio.loopTitle") }}</span>
             <span class="ana-value num">{{ loopText }}</span>
+            <UiButton
+              size="sm"
+              :disabled="
+                analysis.loopStart === null || analysis.loopEnd === null
+              "
+              @click="onUseLoop"
+            >
+              {{ t("settings.audio.useLoop") }}
+            </UiButton>
           </div>
 
           <div class="ana-actions">

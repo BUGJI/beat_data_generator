@@ -15,6 +15,12 @@ plugins/*
 # local debug / temp artefacts
 errs.txt
 *.tsbuildinfo
+.acl-recovery/
+Trace-*.json
+lic_scan.txt
+_refactor.mjs
+_plugin_smoke.mjs
+_settings_loop.html
 
 # Windows reserved device name: a real file called "nul" gets created by
 # stray `> nul` style redirections (e.g. from agent/script runs).

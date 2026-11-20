@@ -2,20 +2,14 @@ import { app } from "electron";
 import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { MetronomeFile } from "../shared/ipc";
+import { stripExtension } from "../shared/path";
+import { AUDIO_EXTENSIONS } from "./files";
 import log from "./logger";
 
 /** The user's metronome-sounds folder and its bundled preset seeding. */
 
-const METRONOME_EXTS = new Set([
-  "mp3",
-  "wav",
-  "ogg",
-  "flac",
-  "m4a",
-  "aac",
-  "opus",
-  "webm",
-]);
+/** Editor audio formats plus `webm` (metronome packs ship webm clicks). */
+const METRONOME_EXTS = new Set<string>([...AUDIO_EXTENSIONS, "webm"]);
 
 export const metronomeDir = (): string =>
   join(app.getPath("userData"), "metronomes");
@@ -29,7 +23,7 @@ export function listMetronomeFiles(): MetronomeFile[] {
       const dot = e.name.lastIndexOf(".");
       if (dot <= 0) continue;
       if (!METRONOME_EXTS.has(e.name.slice(dot + 1).toLowerCase())) continue;
-      out.push({ name: e.name.slice(0, dot), file: e.name });
+      out.push({ name: stripExtension(e.name), file: e.name });
     }
     out.sort((a, b) => a.name.localeCompare(b.name));
     return out;

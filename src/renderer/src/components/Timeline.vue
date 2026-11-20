@@ -30,6 +30,8 @@ import TimelineNotes from "./timeline/TimelineNotes.vue";
 import PluginTimelineOverlays from "./timeline/PluginTimelineOverlays.vue";
 import TimelineScrollbars from "./timeline/TimelineScrollbars.vue";
 import TimelinePropCard from "./timeline/TimelinePropCard.vue";
+import { undo } from "../services/history";
+import { toast } from "../ui/toast";
 
 const { t } = useI18n();
 const project = useProjectStore();
@@ -98,8 +100,21 @@ function onCardKey(e: KeyboardEvent): void {
 
 function deleteSelected(): void {
   const sel = selection.selected;
-  if (sel.kind === "marker" && sel.id) removeMarker(sel.id);
-  else if (sel.kind === "bpm" && sel.id) removeBpmPoint(sel.id);
+  if (sel.kind === "marker" && sel.id) {
+    const before = project.markers.length;
+    if (removeMarker(sel.id)) {
+      toast.undo(
+        t("dialogs.deletedMarkers", {
+          n: before - project.markers.length,
+        }),
+        undo,
+      );
+    }
+  } else if (sel.kind === "bpm" && sel.id) {
+    if (removeBpmPoint(sel.id)) {
+      toast.undo(t("dialogs.deletedBpm"), undo);
+    }
+  }
   closeCard();
   ghostState.value = null;
 }
@@ -260,7 +275,7 @@ const selectionAnnounce = computed(() => {
   padding: 0 10px;
   font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
-  background: rgb(var(--bdg-bg-rgb) / 0.88);
+  background: var(--bdg-bg-panel);
   border-top: 1px solid var(--bdg-border);
   pointer-events: none;
   white-space: nowrap;

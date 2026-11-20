@@ -1,0 +1,75 @@
+/*
+ * Shared prop-card field styles.
+ *
+ * These classes are rendered by both TimelinePropCard.vue and its child
+ * TimelineMarkerAttrs.vue. Scoped styles only cover a component's own template
+ * (plus a child's root node), so the attribute fields inside
+ * TimelineMarkerAttrs could never be styled from the parent's scoped block.
+ * They live here, unprefixed by an SFC scope, so both components share one
+ * definition. Class names keep the `pc-` prefix to stay out of the way.
+ */
+
+.pc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--bdg-fs-11);
+  color: var(--bdg-text-dim);
+}
+
+.pc-enum {
+  width: 100%;
+}
+
+.pc-attrs {
+  border-top: 1px solid var(--bdg-border);
+  padding-top: 8px;
+  margin-top: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.pc-attrs-title {
+  font-size: var(--bdg-fs-11);
+  font-weight: 700;
+  color: var(--bdg-text);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pc-missing-tag {
+  font-size: var(--bdg-fs-9);
+  color: var(--bdg-amber);
+  background: rgb(var(--bdg-amber-rgb) / 0.14);
+  padding: 1px 6px;
+  border-radius: var(--bdg-radius-sm);
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 600;
+}
+
+.pc-missing {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--bdg-text-dim);
+  font-size: var(--bdg-fs-11);
+}
+
+.pc-raw {
+  margin: 0;
+  padding: 6px;
+  background: rgb(var(--bdg-neutral) / 0.06);
+  border: 1px solid var(--bdg-border);
+  border-radius: var(--bdg-radius, 6px);
+  max-height: 120px;
+  overflow: auto;
+  font-size: var(--bdg-fs-10);
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--bdg-text);
+}

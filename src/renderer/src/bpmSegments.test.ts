@@ -16,6 +16,7 @@ import {
 
 const input = (over: Partial<BpmSegmentInput> = {}): BpmSegmentInput => ({
   beatStart: 0,
+  index: 0,
   bpm: 120,
   baseBpm: 120,
   gridOverride: false,
@@ -43,6 +44,15 @@ describe("bpmSegmentTheme", () => {
     expect(dark.primary.s).toBeLessThanOrEqual(72);
     expect(dark.secondary.s).toBeLessThanOrEqual(72);
   });
+
+  it("separates warm same-hue anchors by lightness", () => {
+    const warm = bpmSegmentTheme("#f59e0b", "#fb923c", "#14100b");
+    expect(Math.abs(warm.primary.h - warm.secondary.h)).toBeLessThan(24);
+    expect(warm.secondary.l - warm.primary.l).toBeGreaterThanOrEqual(14);
+    expect(bpmSegmentHsl(input({ index: 0 }), warm).l).not.toBe(
+      bpmSegmentHsl(input({ index: 1 }), warm).l,
+    );
+  });
 });
 
 describe("bpmSegmentHsl", () => {
@@ -50,19 +60,33 @@ describe("bpmSegmentHsl", () => {
     expect(bpmSegmentHsl(input(), dark)).toEqual(bpmSegmentHsl(input(), dark));
   });
 
-  it("alternates between the two theme anchors by stable start hash", () => {
-    const hues = new Set(
-      [0, 1, 2, 3].map((beatStart) =>
-        bpmSegmentHsl(input({ beatStart }), dark).h.toFixed(1),
-      ),
+  it("alternates between the two theme anchors by segment order", () => {
+    const hues = [0, 1, 2, 3].map((index) =>
+      bpmSegmentHsl(input({ index }), dark).h.toFixed(1),
     );
-    expect(hues.size).toBe(2);
+    expect(hues[0]).not.toBe(hues[1]);
+    expect(hues[1]).not.toBe(hues[2]);
+    expect(hues[2]).not.toBe(hues[3]);
+    expect(hues[0]).toBe(hues[2]);
+    expect(hues[1]).toBe(hues[3]);
   });
 
-  it("keeps a segment's color stable when later segments are inserted", () => {
-    const before = bpmSegmentFill(input({ beatStart: 8 }), dark, 55);
-    const after = bpmSegmentFill(input({ beatStart: 8 }), dark, 55);
-    expect(after).toBe(before);
+  it("alternates even when the segment starts used to hash the same way", () => {
+    const hues = [0, 16, 24, 32].map((beatStart, index) =>
+      bpmSegmentHsl(input({ beatStart, index }), dark).h.toFixed(1),
+    );
+    expect(hues[1]).not.toBe(hues[2]);
+    expect(hues[2]).not.toBe(hues[3]);
+  });
+
+  it("keeps earlier colors when a later segment is appended", () => {
+    const before = [0, 1, 2].map((index) =>
+      bpmSegmentFill(input({ index }), dark, 55),
+    );
+    const after = [0, 1, 2, 3].map((index) =>
+      bpmSegmentFill(input({ index }), dark, 55),
+    );
+    expect(after.slice(0, 3)).toEqual(before);
   });
 
   it("nudges hue by at most 4 degrees for a tempo change", () => {

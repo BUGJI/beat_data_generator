@@ -1,8 +1,8 @@
 import { app } from "electron";
-import { readFileSync, writeFileSync } from "node:fs";
-import { basename, join } from "node:path";
+import { join } from "node:path";
 import type { RecentProject } from "../shared/ipc";
-import log from "./logger";
+import { stripExtension } from "../shared/path";
+import { readJson, writeJsonAtomic } from "./jsonStore";
 
 /** The most-recently-opened project list (persisted, newest first). */
 
@@ -12,31 +12,25 @@ const recents: RecentProject[] = [];
 const recentsPath = (): string => join(app.getPath("userData"), "recents.json");
 
 export function defaultRecentTitle(filePath: string): string {
-  const b = basename(filePath);
-  const dot = b.lastIndexOf(".");
-  return dot > 0 ? b.slice(0, dot) : b;
+  return stripExtension(filePath);
 }
 
 export function loadRecents(): void {
-  try {
-    const raw = JSON.parse(readFileSync(recentsPath(), "utf-8")) as unknown;
-    if (!Array.isArray(raw)) return;
-    recents.length = 0;
-    for (const it of raw) {
-      if (!it || typeof it !== "object") continue;
-      const p = (it as RecentProject).path;
-      const t = (it as RecentProject).title;
-      if (typeof p === "string" && p) {
-        recents.push({
-          path: p,
-          title: typeof t === "string" && t ? t : defaultRecentTitle(p),
-        });
-      }
+  const raw = readJson<unknown>(recentsPath(), () => null);
+  if (!Array.isArray(raw)) return;
+  recents.length = 0;
+  for (const it of raw) {
+    if (!it || typeof it !== "object") continue;
+    const p = (it as RecentProject).path;
+    const t = (it as RecentProject).title;
+    if (typeof p === "string" && p) {
+      recents.push({
+        path: p,
+        title: typeof t === "string" && t ? t : defaultRecentTitle(p),
+      });
     }
-    recents.length = Math.min(recents.length, MAX_RECENTS);
-  } catch {
-    /* no saved recents yet */
   }
+  recents.length = Math.min(recents.length, MAX_RECENTS);
 }
 
 /** Insert/refresh a recent entry (newest first) and persist. */
@@ -60,9 +54,5 @@ export function getRecents(): RecentProject[] {
 }
 
 function persistRecents(): void {
-  try {
-    writeFileSync(recentsPath(), JSON.stringify(recents, null, 2), "utf-8");
-  } catch (err) {
-    log.error("persist recents failed", err);
-  }
+  writeJsonAtomic(recentsPath(), recents);
 }

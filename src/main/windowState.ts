@@ -1,8 +1,7 @@
 import type { BrowserWindow } from "electron";
 import { app } from "electron";
-import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import log from "./logger";
+import { readJson, writeJsonAtomic } from "./jsonStore";
 
 /** Persisted main-window geometry (only used when "remember window" is on). */
 
@@ -19,23 +18,17 @@ const windowStatePath = (): string =>
 
 export function loadWindowState(remember: boolean): WindowState | null {
   if (!remember) return null;
-  try {
-    const raw = JSON.parse(
-      readFileSync(windowStatePath(), "utf-8"),
-    ) as Partial<WindowState>;
-    const width = Number(raw.width);
-    const height = Number(raw.height);
-    if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
-    return {
-      x: Number.isFinite(Number(raw.x)) ? Number(raw.x) : undefined,
-      y: Number.isFinite(Number(raw.y)) ? Number(raw.y) : undefined,
-      width,
-      height,
-      maximized: raw.maximized === true,
-    };
-  } catch {
-    return null;
-  }
+  const raw = readJson<Partial<WindowState>>(windowStatePath(), () => ({}));
+  const width = Number(raw.width);
+  const height = Number(raw.height);
+  if (!Number.isFinite(width) || !Number.isFinite(height)) return null;
+  return {
+    x: Number.isFinite(Number(raw.x)) ? Number(raw.x) : undefined,
+    y: Number.isFinite(Number(raw.y)) ? Number(raw.y) : undefined,
+    width,
+    height,
+    maximized: raw.maximized === true,
+  };
 }
 
 export function saveWindowState(
@@ -44,23 +37,11 @@ export function saveWindowState(
 ): void {
   if (!win || win.isDestroyed() || !remember) return;
   const bounds = win.getNormalBounds();
-  try {
-    writeFileSync(
-      windowStatePath(),
-      JSON.stringify(
-        {
-          x: bounds.x,
-          y: bounds.y,
-          width: bounds.width,
-          height: bounds.height,
-          maximized: win.isMaximized(),
-        },
-        null,
-        2,
-      ),
-      "utf-8",
-    );
-  } catch (err) {
-    log.error("persist window state failed", err);
-  }
+  writeJsonAtomic(windowStatePath(), {
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    maximized: win.isMaximized(),
+  });
 }

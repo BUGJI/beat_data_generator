@@ -1,6 +1,6 @@
-import { isFreeInput } from "@shared/limits";
 import { gridDivAt } from "../../grid";
 import { snapBeat } from "../../tempo";
+import { currentNumberPolicy } from "../../utils/numberPolicy";
 import { useViewStore } from "../view";
 import { useProjectStore } from "./store";
 
@@ -8,11 +8,11 @@ import { useProjectStore } from "./store";
 
 /** Round to a stable 6-decimal grid (bypassed under free input). */
 export const round = (b: number): number =>
-  isFreeInput() ? b : Math.round(b * 1e6) / 1e6;
+  currentNumberPolicy().free ? b : Math.round(b * 1e6) / 1e6;
 
 /** Non-negative beat guard (dropped when free input is on). */
 export function clampBeat(b: number): number {
-  return isFreeInput() ? b : Math.max(0, b);
+  return currentNumberPolicy().free ? b : Math.max(0, b);
 }
 
 /** Snap a beat to the effective grid at that beat, or just round when off. */

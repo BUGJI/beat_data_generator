@@ -10,13 +10,16 @@ import { DROPDOWN_SELECT } from "./dropdown-context";
 
 const emit = defineEmits<{
   select: [value: string];
-  "update:open": [open: boolean];
 }>();
+
+/** Optional two-way open state for programmatic triggers (e.g. context menu). */
+const open = defineModel<boolean>("open", { default: false });
+
 provide(DROPDOWN_SELECT, (v: string) => emit("select", v));
 </script>
 
 <template>
-  <DropdownMenuRoot @update:open="emit('update:open', $event)">
+  <DropdownMenuRoot v-model:open="open">
     <DropdownMenuTrigger as-child><slot name="trigger" /></DropdownMenuTrigger>
     <DropdownMenuPortal>
       <DropdownMenuContent

@@ -4,7 +4,12 @@ import { useTransportStore } from "../stores/transport";
 import { ensureDefaultTrack, useProjectStore } from "../stores/project";
 import { initPluginEvents } from "../plugins/events";
 import { tickBeatFlash } from "./flash";
-import { autoSaveTick, saveProjectQuick } from "./projectIO";
+import { tickGridClick } from "./gridClick";
+import {
+  autoSaveTick,
+  maybeOfferRecovery,
+  saveProjectQuick,
+} from "./projectIO";
 
 /**
  * One-time runtime wiring that used to run as a module-level side effect of the
@@ -20,10 +25,12 @@ export function initEditorRuntime(): void {
       t.playing = false;
     }
     tickBeatFlash();
+    tickGridClick();
   };
   engine.setVolume(t.volume);
   initPluginEvents();
   ensureDefaultTrack();
+  void maybeOfferRecovery();
   window.setInterval(() => {
     void autoSaveTick();
   }, 1000);

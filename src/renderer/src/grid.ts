@@ -1,5 +1,6 @@
 import { DEFAULT_DIV } from "./metrics";
 import type { BpmPoint } from "./types";
+import { lastAtOrBefore } from "./utils/search";
 
 /**
  * Beat-grid regions derived from the global subdivision plus optional per-BPM
@@ -72,14 +73,11 @@ export interface GridInfoAt {
 /** Effective grid region at a beat. */
 export function gridInfoAt(segments: GridSegment[], beat: number): GridInfoAt {
   if (!segments.length) return { div: DEFAULT_DIV, override: false };
-  let lo = 0;
-  let hi = segments.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi + 1) >> 1;
-    if (segments[mid]!.beatStart <= beat) lo = mid;
-    else hi = mid - 1;
-  }
-  const seg = segments[lo]!;
+  const i = Math.max(
+    0,
+    lastAtOrBefore(segments, (s) => s.beatStart, beat),
+  );
+  const seg = segments[i]!;
   return { div: seg.div, override: seg.override };
 }
 

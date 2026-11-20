@@ -1,21 +1,34 @@
 /**
- * Global "free input" flag.
+ * Numeric admission policy.
  *
- * Developer setting (`devFreeInput`) that removes numeric min/max/precision
- * limits from every input field, allowing any positive or negative number.
- *
- * Kept as a plain module-level flag rather than a Pinia store so that shared
- * zod schemas, tempo math, the playback service and the renderer UI can all
- * consult it without pulling in framework dependencies. The main process also
- * bundles this module (it is dependency-free), so persisted settings are
- * sanitized with the same rules the renderer uses.
+ * The developer setting `devFreeInput` switches every numeric clamp/round to a
+ * pass-through. That used to be a module-level mutable flag, which made parsing
+ * order-dependent (the settings parser temporarily flipped it) and leaked state
+ * between tests. It is now an explicit value threaded into the pure functions
+ * and schema factories that need it.
  */
-let freeInput = false;
 
-export function setFreeInput(v: boolean): void {
-  freeInput = v;
+export interface NumberPolicy {
+  /** When true, skip clamping/rounding of user numeric values. */
+  readonly free: boolean;
 }
 
-export function isFreeInput(): boolean {
-  return freeInput;
+export const STRICT_NUMBERS: NumberPolicy = { free: false };
+export const FREE_NUMBERS: NumberPolicy = { free: true };
+
+export function numberPolicy(free: boolean): NumberPolicy {
+  return free ? FREE_NUMBERS : STRICT_NUMBERS;
 }
+
+/**
+ * IPC payload ceilings. Renderer-supplied paths and file contents cross a
+ * trust boundary: without an upper bound a buggy or hostile renderer could make
+ * the main process allocate an unbounded buffer. These are generous for real
+ * projects and audio exports while still refusing pathological inputs.
+ */
+/** UTF-8 project/text writes and reads (~64 MB). */
+export const MAX_TEXT_BYTES = 64 * 1024 * 1024;
+/** `io:read-binary` / `io:write-binary` payloads (~256 MB). */
+export const MAX_BINARY_BYTES = 256 * 1024 * 1024;
+/** Whole audio files loaded for waveform/analysis (~1 GB). */
+export const MAX_AUDIO_BYTES = 1024 * 1024 * 1024;

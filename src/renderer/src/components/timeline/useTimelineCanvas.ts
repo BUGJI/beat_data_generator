@@ -10,11 +10,17 @@ import { useSettingsStore } from "../../stores/settings";
 import { useTransportStore } from "../../stores/transport";
 import { useViewStore, setScroll, setViewport } from "../../stores/view";
 import { RULER_H } from "../../metrics";
-import { draw, hasActiveGlow, type DrawScene } from "./renderer";
+import { engine } from "../../engine";
+import {
+  followDecision,
+  isFollowHeld,
+  smoothScrollX,
+} from "../../services/follow";
+import { draw, hasActiveFx, type DrawScene } from "./renderer";
 
 /**
  * Owns the timeline canvas lifecycle: DPR sizing, the repaint effect, the
- * resize observer and the on-demand frame loop (playback follow + lane glow).
+ * resize observer and the on-demand frame loop (playback follow + beat effects).
  *
  * Painting is dependency-driven instead of a constant 60fps redraw: the paint
  * effect re-runs only when reactive state the canvas reads changes, and the loop
@@ -33,7 +39,8 @@ export function useTimelineCanvas(opts: {
   let raf = 0;
   let ro: ResizeObserver | null = null;
   let stopPaint: (() => void) | null = null;
-  let wasGlowing = false;
+  let wasFxActive = false;
+  let lastTs = 0;
 
   const renderNonce = ref(0);
   function markDirty(): void {
@@ -65,29 +72,42 @@ export function useTimelineCanvas(opts: {
   function loop(): void {
     raf = 0;
     if (transport.playing) {
-      const tpx = (transport.positionMs / 1000) * view.pxPerSec;
-      const W = view.vw;
-      const f = Math.min(1, Math.max(0, settings.settings.followPercent / 100));
-      if (transport.followActive) {
-        // follow reference line
-        const line = view.x + W * f;
-        if (tpx > line) {
-          setScroll(Math.max(0, tpx - W * f), view.y);
-        } else if (tpx < view.x - W * 0.5) {
-          setScroll(Math.max(0, tpx - W * f), view.y);
+      const now = performance.now();
+      const dt = lastTs ? Math.min(50, now - lastTs) : 0;
+      lastTs = now;
+      if (!isFollowHeld(now)) {
+        const decision = followDecision({
+          active: transport.followActive,
+          locked: transport.followLocked,
+          enabled: settings.settings.followScroll,
+          playheadPx: (engine.positionMs() / 1000) * view.pxPerSec,
+          viewX: view.x,
+          viewportW: view.vw,
+          followPercent: settings.settings.followPercent,
+        });
+        transport.followActive = decision.active;
+        if (decision.targetX !== null) {
+          setScroll(
+            smoothScrollX(
+              view.x,
+              decision.targetX,
+              dt,
+              settings.settings.animEnabled,
+            ),
+            view.y,
+          );
         }
-      } else if (!transport.followLocked && settings.settings.followScroll) {
-        // engage once the playhead crosses the reference line
-        if (tpx > view.x + W * f) transport.followActive = true;
       }
+    } else {
+      lastTs = 0;
     }
-    // lane glow decays over time, which no reactive value tracks, so drive those
-    // frames explicitly (the initial frame is painted by the paint effect). One
-    // extra frame after it ends clears the residual glow.
-    const glowing = hasActiveGlow();
-    if (glowing || wasGlowing) paint();
-    wasGlowing = glowing;
-    if (transport.playing || glowing) raf = requestAnimationFrame(loop);
+    // playback effects decay over time, which no reactive value tracks, so drive
+    // those frames explicitly (the initial frame is painted by the paint effect).
+    // One extra frame after they end clears the residual animation.
+    const fxActive = hasActiveFx();
+    if (fxActive || wasFxActive) paint();
+    wasFxActive = fxActive;
+    if (transport.playing || fxActive) raf = requestAnimationFrame(loop);
   }
 
   watch(
@@ -120,5 +140,5 @@ export function useTimelineCanvas(opts: {
     ro?.disconnect();
   });
 
-  return { markDirty, requestLoop };
+  return { markDirty };
 }

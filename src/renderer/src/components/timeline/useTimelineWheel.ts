@@ -1,6 +1,8 @@
+import { getCurrentScope, onScopeDispose } from "vue";
 import { useSettingsStore } from "../../stores/settings";
 import { setScroll, screenToTime, useViewStore } from "../../stores/view";
 import { MAX_PX_PER_SEC, MIN_PX_PER_SEC } from "../../metrics";
+import { holdFollow } from "../../services/follow";
 
 const ANIM_MS = 100;
 
@@ -15,6 +17,10 @@ export function useTimelineWheel() {
     cancelAnimationFrame(wheelAnimRaf);
     wheelAnimRaf = 0;
   }
+
+  // Stop the loop when the owning component unmounts; otherwise it would keep
+  // writing to a disposed view store on the next frame.
+  if (getCurrentScope()) onScopeDispose(cancelWheelAnim, true);
 
   /** interruptible ease-out animator over `durMs`; apply receives 0→1 eased progress */
   function animWheel(durMs: number, apply: (k: number) => void): void {
@@ -31,10 +37,15 @@ export function useTimelineWheel() {
 
   function onWheel(e: WheelEvent): void {
     e.preventDefault();
+    holdFollow();
     const anim = settings.settings.animEnabled;
     if (e.ctrlKey || e.metaKey) {
-      // zoom anchored on the currently visible centre of the timeline
-      const cx = view.vw / 2;
+      // zoom anchored on the pointer so the time under the cursor stays put
+      const root = e.currentTarget as HTMLElement | null;
+      const rect = root?.getBoundingClientRect();
+      const cx = rect
+        ? Math.min(view.vw, Math.max(0, e.clientX - rect.left))
+        : view.vw / 2;
       const from = view.pxPerSec;
       const target = Math.min(
         MAX_PX_PER_SEC,

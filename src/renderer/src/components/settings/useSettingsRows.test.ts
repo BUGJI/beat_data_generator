@@ -12,10 +12,20 @@ describe("useSettingsRowsStore / search index", () => {
     const rows = useSettingsRowsStore();
     const keys = rows.searchIndex.map((e) => `${e.cat}.${e.key}`);
     expect(keys).toContain("audio.autoBpm");
+    expect(keys).toContain("audio.stretchCacheMb");
     expect(keys).toContain("audio.metronome"); // custom row searchKey
     expect(keys).toContain("general.simpleMode");
     expect(keys.some((k) => k.startsWith("theme.tokens."))).toBe(true);
     expect(keys).toContain("network.proxy"); // hand-written extra entry
+    expect(keys).toContain("theme.appearance.bgImage");
+    expect(keys).toContain("theme.appearance.surfaceOpacity");
+  });
+
+  it("never indexes the same setting twice", () => {
+    const keys = useSettingsRowsStore().searchIndex.map(
+      (e) => `${e.cat}.${e.key}`,
+    );
+    expect(new Set(keys).size).toBe(keys.length);
   });
 
   it("marks expert entries so simple mode can hide them", () => {

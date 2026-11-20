@@ -3,7 +3,8 @@ import { computed, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { Check, Play } from "@lucide/vue";
 import { loadMetronome, previewMetronome } from "@renderer/services/audioIO";
-import { patchSettings, useSettingsStore } from "@renderer/stores/settings";
+import { useSettingsStore } from "@renderer/stores/settings";
+import { patchSettings } from "@renderer/services/settingsPersistence";
 import UiButton from "../../ui/UiButton.vue";
 import UiSlider from "../../ui/UiSlider.vue";
 import UiSwitch from "../../ui/UiSwitch.vue";
@@ -41,7 +42,15 @@ async function openMetronomeFolder(): Promise<void> {
   await refreshMetronomeFiles();
 }
 
+/**
+ * Guards the async preview/restore pair: a newer selection or audition bumps
+ * the token so an older load can't play or restore over the current sound.
+ */
+let previewToken = 0;
+
 async function selectMetronome(file: string): Promise<void> {
+  // Cancel any in-flight audition restore before switching the active sound.
+  previewToken += 1;
   await loadMetronome(file);
   void patchSettings({ metronomePath: file });
   // clicking a sound previews it once (the "none" option just clears)
@@ -50,7 +59,9 @@ async function selectMetronome(file: string): Promise<void> {
 
 /** Audition a file without changing which sound is selected. */
 async function previewMetronomeFile(file: string): Promise<void> {
+  const token = ++previewToken;
   await loadMetronome(file);
+  if (token !== previewToken) return;
   previewMetronome();
   // restore the selected sound so the preview doesn't become the active one
   if (metronomePath.value !== file) await loadMetronome(metronomePath.value);

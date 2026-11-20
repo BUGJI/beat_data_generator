@@ -28,6 +28,13 @@ const groupItems = computed(() =>
 
 /** A live, read-only demo pane for categories that benefit from it. */
 const preview = computed(() => visualPreviewFor(props.catKey));
+
+/** Stable identity per row so switching sub-tabs reuses component state safely. */
+function rowKey(row: RowDef): string {
+  if (row.kind === "field") return `field:${row.key}`;
+  if (row.kind === "custom") return `custom:${row.id}`;
+  return `subhead:${row.key}`;
+}
 </script>
 
 <template>
@@ -42,7 +49,7 @@ const preview = computed(() => visualPreviewFor(props.catKey));
     />
     <div class="cat-split" :class="{ split: !!preview }">
       <div class="cat-main">
-        <template v-for="(row, i) in rows" :key="i">
+        <template v-for="row in rows" :key="rowKey(row)">
           <div v-if="row.kind === 'subhead'" class="sub-head">
             {{ t(`settings.${catKey}.${row.key}`) }}
           </div>

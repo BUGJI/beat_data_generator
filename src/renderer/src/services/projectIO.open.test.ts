@@ -11,6 +11,7 @@ vi.mock("../engine", () => ({
       getChannelData: () => new Float32Array(10),
     }),
     load: () => {},
+    setLoop: () => {},
   },
   computePeaks: () => ({
     blockSamples: 512,
@@ -22,6 +23,7 @@ vi.mock("../engine", () => ({
 
 vi.mock("../analysis", () => ({
   onAudioLoaded: async () => {},
+  resetAnalysis: () => {},
 }));
 
 vi.mock("./playback", () => ({ stop: () => {} }));

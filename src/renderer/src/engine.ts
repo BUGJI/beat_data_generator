@@ -1,6 +1,10 @@
 import type { WaveData } from "./types";
+import { StretchCache } from "./stretch/cache";
 
 const PEAK_BLOCK_SAMPLES = 512;
+
+/** Default retained size for stretched playback buffers (configurable). */
+const DEFAULT_STRETCH_CACHE_BYTES = 256 * 1024 * 1024;
 
 export function computePeaks(buffer: AudioBuffer): WaveData {
   const channelCount = buffer.numberOfChannels;
@@ -65,14 +69,18 @@ export class PlaybackEngine {
   private speed = 1;
   private active: PlayConfig | null = null;
 
-  stretched: AudioBuffer | null = null;
-  stretchedFor = 0;
+  private stretchCache = new StretchCache(DEFAULT_STRETCH_CACHE_BYTES);
+  private stretchEpoch = 0;
 
   private metronome: AudioBuffer | null = null;
   /** Own gain so the metronome can bypass the master volume. */
   private metronomeGain: GainNode | null = null;
   private metronomeVolume = 0.85;
   private metronomeFollowsMaster = true;
+  private scheduledClicks: OscillatorNode[] = [];
+  private loopEnabled = false;
+  private loopStartMs = 0;
+  private loopEndMs = 0;
 
   onTick: (() => void) | null = null;
 
@@ -106,14 +114,35 @@ export class PlaybackEngine {
     return this.original ? this.original.duration * 1000 : 0;
   }
 
-  hasStretchedFor(rate: number): boolean {
-    return this.stretchedFor === rate && this.stretched !== null;
+  /** Cached stretched buffer for a canonical rate key, if any. */
+  getStretched(key: string): AudioBuffer | null {
+    return this.stretchCache.get(key);
   }
 
-  /** Drop the cached stretched buffer (e.g. after the engine setting changes). */
+  /** Store a stretched buffer for a canonical rate key. */
+  putStretched(key: string, buffer: AudioBuffer): void {
+    this.stretchCache.put(key, buffer);
+  }
+
+  /** Keep the entry used by the current playback alive across evictions. */
+  pinStretched(key: string | null): void {
+    this.stretchCache.pin(key);
+  }
+
+  /** Change the retained-cache budget (bytes); evicts immediately. */
+  setStretchBudget(bytes: number): void {
+    this.stretchCache.setMaxBytes(bytes);
+  }
+
+  /** Increments when the cache is invalidated (audio load / engine change). */
+  stretchEpochValue(): number {
+    return this.stretchEpoch;
+  }
+
+  /** Drop every cached stretched buffer (e.g. after the engine setting changes). */
   clearStretched(): void {
-    this.stretched = null;
-    this.stretchedFor = 0;
+    this.stretchCache.clear();
+    this.stretchEpoch++;
   }
 
   setVolume(v: number): void {
@@ -151,16 +180,74 @@ export class PlaybackEngine {
   }
 
   /** play the metronome click `count` times simultaneously (overlapping markers). */
-  playMetronome(count: number): void {
+  playMetronome(count: number, accent = false): void {
     if (!this.metronome || count < 1) return;
     const ctx = this.ensureCtx();
     if (!ctx || !this.metronomeGain) return;
     for (let i = 0; i < count; i++) {
       const src = ctx.createBufferSource();
       src.buffer = this.metronome;
-      src.connect(this.metronomeGain);
+      if (accent) {
+        const gain = ctx.createGain();
+        gain.gain.value = 1.45;
+        src.connect(gain);
+        gain.connect(this.metronomeGain);
+      } else {
+        src.connect(this.metronomeGain);
+      }
       src.start();
     }
+  }
+
+  /** Play a grid/beat click; falls back to the oscillator when no sample is set. */
+  playBeatClick(accent = false): void {
+    if (this.metronome) {
+      this.playMetronome(1, accent);
+      return;
+    }
+    this.scheduleClick(0, accent);
+  }
+
+  /** Schedule a short count-in click relative to now; independent of the click sample. */
+  scheduleClick(delaySec: number, accent = false): void {
+    const ctx = this.ensureCtx();
+    const dest = this.metronomeGain ?? this.gain;
+    if (!ctx || !dest) return;
+    const when = ctx.currentTime + Math.max(0, delaySec);
+    const osc = ctx.createOscillator();
+    const env = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.value = accent ? 1568 : 1046;
+    env.gain.setValueAtTime(0.0001, when);
+    env.gain.exponentialRampToValueAtTime(accent ? 0.3 : 0.18, when + 0.004);
+    env.gain.exponentialRampToValueAtTime(0.0001, when + 0.08);
+    osc.connect(env);
+    env.connect(dest);
+    osc.start(when);
+    osc.stop(when + 0.1);
+    this.scheduledClicks.push(osc);
+    osc.onended = () => {
+      const i = this.scheduledClicks.indexOf(osc);
+      if (i >= 0) this.scheduledClicks.splice(i, 1);
+    };
+  }
+
+  cancelScheduledClicks(): void {
+    for (const osc of this.scheduledClicks) {
+      try {
+        osc.stop();
+      } catch {
+        /* already stopped */
+      }
+      osc.disconnect();
+    }
+    this.scheduledClicks = [];
+  }
+
+  setLoop(enabled: boolean, startMs: number, endMs: number): void {
+    this.loopEnabled = enabled && endMs > startMs + 1;
+    this.loopStartMs = Math.max(0, startMs);
+    this.loopEndMs = Math.max(this.loopStartMs, endMs);
   }
 
   async decode(bytes: Uint8Array): Promise<AudioBuffer | null> {
@@ -186,8 +273,7 @@ export class PlaybackEngine {
   load(buffer: AudioBuffer): void {
     this.pause();
     this.original = buffer;
-    this.stretched = null;
-    this.stretchedFor = 0;
+    this.clearStretched();
     this.active = null;
     this.posMs = 0;
   }
@@ -260,7 +346,13 @@ export class PlaybackEngine {
     if (!cfg?.buf) return;
     const ctx = this.ensureCtx();
     const dur = this.durationMs();
-    const start = Math.max(0, Math.min(fromMs, dur));
+    let start = Math.max(0, Math.min(fromMs, dur));
+    if (
+      this.loopEnabled &&
+      (start < this.loopStartMs || start >= this.loopEndMs)
+    ) {
+      start = Math.max(0, Math.min(this.loopStartMs, dur));
+    }
     this.stopSource();
     this.posMs = start;
     this.playing = true;
@@ -296,7 +388,16 @@ export class PlaybackEngine {
     cancelAnimationFrame(this.raf);
     const tick = (): void => {
       if (!this.playing) return;
-      if (this.positionMs() >= this.durationMs()) {
+      const pos = this.positionMs();
+      if (
+        this.loopEnabled &&
+        this.loopEndMs > this.loopStartMs + 1 &&
+        pos >= this.loopEndMs - 1
+      ) {
+        this.schedule(this.loopStartMs);
+        return;
+      }
+      if (pos >= this.durationMs()) {
         this.pause();
         this.posMs = this.durationMs();
         this.onTick?.();
@@ -309,6 +410,7 @@ export class PlaybackEngine {
   }
 
   dispose(): void {
+    this.cancelScheduledClicks();
     this.pause();
     if (this.ctx) void this.ctx.close();
     this.ctx = null;

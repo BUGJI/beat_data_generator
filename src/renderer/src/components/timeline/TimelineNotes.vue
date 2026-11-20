@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, onBeforeUnmount, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { GripVertical, Lock, Pencil, Unlock, X } from "@lucide/vue";
 import { render as mdRender, escapeHtml } from "slimdown-js";
@@ -13,6 +13,7 @@ import {
 import { timeToScreenX, useViewStore } from "../../stores/view";
 import { RULER_H } from "../../metrics";
 import { historyGestureBegin, historyGestureEnd } from "../../services/history";
+import { startPointerDrag } from "../../utils/pointerDrag";
 import type { ProjectNote } from "../../types";
 
 const { t } = useI18n();
@@ -27,6 +28,7 @@ let dragNoteId: string | null = null;
 let dragGrab: { dx: number; dy: number } | null = null;
 let dragTarget: { timeMs: number; y: number } | null = null;
 let dragRaf = 0;
+let stopDrag: (() => void) | null = null;
 
 const noteOf = (id: string): ProjectNote | undefined =>
   project.notes.find((n) => n.id === id);
@@ -56,8 +58,11 @@ function onNoteDown(e: PointerEvent, note: ProjectNote | undefined): void {
   const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
   dragGrab = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
   historyGestureBegin();
-  window.addEventListener("pointermove", onNoteDragMove);
-  window.addEventListener("pointerup", onNoteDragEnd);
+  stopDrag = startPointerDrag({
+    onMove: onNoteDragMove,
+    onEnd: onNoteDragEnd,
+    onCancel: onNoteDragEnd,
+  });
   e.preventDefault();
 }
 
@@ -85,8 +90,8 @@ function applyNoteDrag(): void {
 }
 
 function onNoteDragEnd(): void {
-  window.removeEventListener("pointermove", onNoteDragMove);
-  window.removeEventListener("pointerup", onNoteDragEnd);
+  stopDrag?.();
+  stopDrag = null;
   // cancel any in-flight frame and flush the final position so the drag
   // always releases cleanly instead of staying stuck to the cursor.
   if (dragRaf) {
@@ -99,6 +104,13 @@ function onNoteDragEnd(): void {
   dragGrab = null;
   dragTarget = null;
 }
+
+onBeforeUnmount(() => {
+  // Unmounting mid-drag must release the window listeners and close the undo
+  // gesture, otherwise the next drag would inherit a dangling transaction.
+  if (dragNoteId) onNoteDragEnd();
+  else if (dragRaf) cancelAnimationFrame(dragRaf);
+});
 
 function startNoteEdit(note: ProjectNote | undefined): void {
   if (!note || note.locked) return;

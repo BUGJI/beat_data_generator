@@ -7,17 +7,14 @@
  * export a trimmed WAV without pulling in a codec library.
  */
 
+import { clamp } from "../utils/clamp";
+
 /** Minimal shape the WAV encoder needs; a real AudioBuffer satisfies it. */
 export interface AudioBufferLike {
   numberOfChannels: number;
   length: number;
   sampleRate: number;
   getChannelData(channel: number): Float32Array;
-}
-
-/** Clamp a value into `[lo, hi]`. */
-function clamp(v: number, lo: number, hi: number): number {
-  return v < lo ? lo : v > hi ? hi : v;
 }
 
 /** Sample index of `ms` in a buffer of `sampleRate`, clamped to `[0, length]`. */

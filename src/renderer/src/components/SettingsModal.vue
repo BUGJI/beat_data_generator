@@ -426,7 +426,8 @@ function onPanelKeydown(e: KeyboardEvent): void {
 .panel.drawer {
   position: relative;
   height: 100%;
-  min-width: 440px;
+  /* Never let the minimum exceed the viewport on narrow windows. */
+  min-width: min(440px, 90vw);
   max-width: 90vw;
   border-left: 1px solid var(--bdg-border-strong);
   box-shadow: -18px 0 60px var(--bdg-shadow);

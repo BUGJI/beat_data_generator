@@ -8,7 +8,7 @@ import {
   fmtBarBeat,
 } from "./tempo";
 import type { BpmPoint } from "./types";
-import { setFreeInput } from "@shared/limits";
+import { FREE_NUMBERS } from "@shared/limits";
 
 const point = (
   beat: number,
@@ -25,14 +25,9 @@ describe("clampBpm", () => {
   });
 
   it("drops all bounds when free input is enabled", () => {
-    setFreeInput(true);
-    try {
-      expect(clampBpm(0)).toBe(0);
-      expect(clampBpm(-5)).toBe(-5);
-      expect(clampBpm(5000)).toBe(5000);
-    } finally {
-      setFreeInput(false);
-    }
+    expect(clampBpm(0, FREE_NUMBERS)).toBe(0);
+    expect(clampBpm(-5, FREE_NUMBERS)).toBe(-5);
+    expect(clampBpm(5000, FREE_NUMBERS)).toBe(5000);
   });
 });
 
@@ -62,6 +57,8 @@ describe("beatParts / fmtBarBeat", () => {
     expect(beatParts(4)).toEqual({ bar: 2, inBar: 0 });
     expect(beatParts(17.25)).toEqual({ bar: 5, inBar: 1.25 });
     expect(beatParts(-3)).toEqual({ bar: 1, inBar: 0 });
+    expect(beatParts(4, 3)).toEqual({ bar: 2, inBar: 1 });
+    expect(beatParts(6, 3)).toEqual({ bar: 3, inBar: 0 });
   });
 
   it("formats bar and beat", () => {

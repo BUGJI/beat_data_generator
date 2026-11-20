@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, net, type OpenDialogOptions } from "electron";
+import { BrowserWindow, dialog, type OpenDialogOptions } from "electron";
 import { createHash, randomBytes } from "node:crypto";
 import {
   existsSync,
@@ -8,7 +8,7 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { dirname, join } from "node:path";
 import { unzipSync } from "fflate";
 import { IPC } from "../../shared/ipc";
 import {
@@ -19,8 +19,11 @@ import {
   type MarketVersionInfo,
   type PluginInstallReceipt,
 } from "../../shared/market";
+import { isInside, isSafeId } from "../../shared/path";
 import log from "../logger";
+import { withFetchTimeout } from "../network";
 import { rescanPlugins, setEnabled, userPluginsDir } from "../plugins";
+import { broadcastToAllWindows } from "../windows";
 import {
   findMarketPlugin,
   isCompatible,
@@ -30,7 +33,6 @@ import {
 import {
   DOWNLOAD_TIMEOUT_MS,
   getIndex,
-  isSafeId,
   proxify,
   registryUrl,
 } from "./registry";
@@ -47,11 +49,6 @@ const MAX_ARCHIVE_ENTRIES = 5000;
 const PROGRESS_STEP = 128 * 1024;
 
 // ---- path safety ----
-
-function isInside(root: string, target: string): boolean {
-  const rel = relative(resolve(root), resolve(target));
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-}
 
 function normalizeEntryName(name: string): string | null {
   if (!name || name.includes("\0")) return null;
@@ -71,9 +68,7 @@ function emitProgress(
   extra?: { received?: number; total?: number; error?: string },
 ): void {
   const payload: MarketProgress = { id, version, phase, ...extra };
-  for (const w of BrowserWindow.getAllWindows()) {
-    if (!w.isDestroyed()) w.webContents.send(IPC.marketProgress, payload);
-  }
+  broadcastToAllWindows(IPC.marketProgress, payload);
 }
 
 // ---- download + extract ----
@@ -92,52 +87,50 @@ async function download(
   if (parsed.protocol !== "https:")
     throw new Error("artifact URL must be HTTPS");
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
-  try {
-    const res = await net.fetch(proxify(info.url), {
-      signal: controller.signal,
-    });
-    if (!res.ok) throw new Error(`download HTTP ${res.status}`);
-    const total =
-      Number(res.headers.get("content-length")) || info.size || undefined;
-    if (total && total > MAX_ARTIFACT_BYTES)
-      throw new Error("artifact too large");
-    const reader = res.body?.getReader();
-    if (!reader) {
-      const buf = new Uint8Array(await res.arrayBuffer());
-      if (buf.byteLength > MAX_ARTIFACT_BYTES)
+  return withFetchTimeout(
+    proxify(info.url),
+    {},
+    DOWNLOAD_TIMEOUT_MS,
+    async (res) => {
+      if (!res.ok) throw new Error(`download HTTP ${res.status}`);
+      const total =
+        Number(res.headers.get("content-length")) || info.size || undefined;
+      if (total && total > MAX_ARTIFACT_BYTES)
         throw new Error("artifact too large");
-      return buf;
-    }
-    const chunks: Uint8Array[] = [];
-    let received = 0;
-    let lastEmit = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      received += value.byteLength;
-      if (received > MAX_ARTIFACT_BYTES) {
-        await reader.cancel();
-        throw new Error("artifact too large");
+      const reader = res.body?.getReader();
+      if (!reader) {
+        const buf = new Uint8Array(await res.arrayBuffer());
+        if (buf.byteLength > MAX_ARTIFACT_BYTES)
+          throw new Error("artifact too large");
+        return buf;
       }
-      chunks.push(value);
-      if (received - lastEmit >= PROGRESS_STEP) {
-        lastEmit = received;
-        emitProgress(id, version, "download", { received, total });
+      const chunks: Uint8Array[] = [];
+      let received = 0;
+      let lastEmit = 0;
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        if (!value) continue;
+        received += value.byteLength;
+        if (received > MAX_ARTIFACT_BYTES) {
+          await reader.cancel();
+          throw new Error("artifact too large");
+        }
+        chunks.push(value);
+        if (received - lastEmit >= PROGRESS_STEP) {
+          lastEmit = received;
+          emitProgress(id, version, "download", { received, total });
+        }
       }
-    }
-    const out = new Uint8Array(received);
-    let offset = 0;
-    for (const c of chunks) {
-      out.set(c, offset);
-      offset += c.byteLength;
-    }
-    return out;
-  } finally {
-    clearTimeout(timer);
-  }
+      const out = new Uint8Array(received);
+      let offset = 0;
+      for (const c of chunks) {
+        out.set(c, offset);
+        offset += c.byteLength;
+      }
+      return out;
+    },
+  );
 }
 
 function extractTo(data: Uint8Array, destDir: string): void {

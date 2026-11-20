@@ -42,13 +42,14 @@ import {
   openProject,
   saveProject,
   saveProjectQuick,
-  exportTimestamps,
-  exportEDL,
 } from "../services/projectIO";
+import { openAudioDialog } from "../services/audioIO";
 import { copyMarkerGroup, pasteMarkerGroup } from "../services/clipboard";
 import { canRedo, canUndo, redo, undo } from "../services/history";
 import { useProjectStore, removeSelectedMarkers } from "../stores/project";
 import { selectAllMarkers } from "../stores/selection";
+import { toast } from "../ui/toast";
+import { t as translate } from "../utils/text";
 import { setSettingsOpen } from "../stores/settings";
 import { useViewStore, zoomBy, fitZoom } from "../stores/view";
 import { MAX_PX_PER_SEC, MIN_PX_PER_SEC } from "../metrics";
@@ -199,6 +200,9 @@ function onCmd(cmd: string): void {
     case "open-project":
       void openProject();
       break;
+    case "open-audio":
+      void openAudioDialog();
+      break;
     case "save":
       void saveProjectQuick();
       break;
@@ -214,9 +218,19 @@ function onCmd(cmd: string): void {
     case "copy":
       copyMarkerGroup();
       break;
-    case "cut":
-      if (copyMarkerGroup()) removeSelectedMarkers();
+    case "cut": {
+      if (!copyMarkerGroup()) break;
+      const before = project.markers.length;
+      if (removeSelectedMarkers()) {
+        toast.undo(
+          translate("dialogs.deletedMarkers", {
+            n: before - project.markers.length,
+          }),
+          undo,
+        );
+      }
       break;
+    }
     case "paste":
       pasteMarkerGroup();
       break;
@@ -224,10 +238,10 @@ function onCmd(cmd: string): void {
       selectAllMarkers();
       break;
     case "export":
-      void exportTimestamps();
+      ui.openExport("timestamps");
       break;
     case "export-edl":
-      void exportEDL();
+      ui.openExport("edl");
       break;
   }
 }
@@ -271,6 +285,11 @@ onMounted(() => {
       </UiDropdownItem>
       <UiDropdownItem value="open-project">
         <FolderOpen class="size-3.5" />{{ t("menu.openProject") }}
+        <span class="kbd">Ctrl+O</span>
+      </UiDropdownItem>
+      <UiDropdownItem value="open-audio">
+        <FileDown class="size-3.5" />{{ t("menu.openAudio") }}
+        <span class="kbd">Ctrl+Shift+O</span>
       </UiDropdownItem>
       <UiDropdownItem
         v-for="(r, i) in recents"
@@ -290,6 +309,7 @@ onMounted(() => {
       </UiDropdownItem>
       <UiDropdownItem value="save-as">
         <Copy class="size-3.5" />{{ t("menu.saveProjectAs") }}
+        <span class="kbd">Ctrl+Shift+S</span>
       </UiDropdownItem>
       <template v-if="pluginImporters.length">
         <UiDropdownSeparator />

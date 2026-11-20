@@ -8,7 +8,7 @@ import {
   addTypedTrack,
   removeTrack,
   renameTrack,
-  moveTrack,
+  moveTrackTo,
   colorTrack,
   setTrackLocked,
   setTrackHidden,
@@ -17,16 +17,19 @@ import {
 } from "../stores/project";
 import { closeCard } from "../stores/selection";
 import { timeOfBeat, formatTime } from "../services/timeline";
+import { undo } from "../services/history";
+import { toast } from "../ui/toast";
 import { lanesTotalH, useViewStore } from "../stores/view";
 import { useTransportStore } from "../stores/transport";
 import { useUiStore } from "../stores/ui";
+import { useSettingsStore } from "../stores/settings";
+import { BEAT_FX_DURATION_MS } from "@shared/beatFx";
 import { RULER_H, BPM_LANE_H, MARKER_LANE_H } from "../metrics";
 import type { MarkerTrack } from "../types";
 import {
-  ChevronDown,
-  ChevronUp,
   Eye,
   EyeOff,
+  GripVertical,
   Lock,
   Plus,
   StickyNote,
@@ -44,6 +47,7 @@ const { t } = useI18n();
 const project = useProjectStore();
 const transport = useTransportStore();
 const ui = useUiStore();
+const settings = useSettingsStore();
 const view = useViewStore();
 
 const markerRows = computed<
@@ -81,8 +85,13 @@ function toggleAddMenu(): void {
 
 function onPickAdd(key: string): void {
   addMenuOpen.value = false;
-  if (key) addTypedTrack(key);
-  else addTrack();
+  if (key) {
+    const id = addTypedTrack(key);
+    if (id) ui.activeTrackId = id;
+  } else {
+    const track = addTrack();
+    ui.activeTrackId = track.id;
+  }
 }
 
 function onAddNote(): void {
@@ -103,8 +112,60 @@ function lastFor(trackId: string): string {
   return formatTime(timeOfBeat(arr[arr.length - 1].beat));
 }
 
-function clickTrack(_id: string): void {
+const activeTrackId = computed(() => {
+  const id = ui.activeTrackId;
+  if (id && project.tracks.some((track) => track.id === id)) return id;
+  return project.tracks[0]?.id ?? null;
+});
+
+function clickTrack(id: string): void {
+  ui.activeTrackId = id;
   closeCard();
+}
+
+function onRemoveTrack(track: MarkerTrack): void {
+  if (!removeTrack(track.id)) return;
+  if (ui.activeTrackId === track.id) ui.activeTrackId = null;
+  toast.undo(
+    t("dialogs.deletedTrack", {
+      name: track.name || t("sidebar.trackName"),
+    }),
+    undo,
+  );
+}
+
+const draggingTrackId = ref<string | null>(null);
+const dropTrackId = ref<string | null>(null);
+
+function onTrackDragStart(e: DragEvent, id: string): void {
+  draggingTrackId.value = id;
+  dropTrackId.value = null;
+  e.dataTransfer?.setData("text/plain", id);
+  if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+}
+
+function onTrackDragOver(e: DragEvent, id: string): void {
+  if (!draggingTrackId.value) return;
+  e.preventDefault();
+  if (draggingTrackId.value !== id) dropTrackId.value = id;
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+}
+
+function onTrackDrop(e: DragEvent, id: string): void {
+  e.preventDefault();
+  const source = draggingTrackId.value;
+  const targetIndex = project.tracks.findIndex((track) => track.id === id);
+  if (source && targetIndex >= 0) {
+    moveTrackTo(source, targetIndex);
+    ui.activeTrackId = source;
+  }
+  draggingTrackId.value = null;
+  dropTrackId.value = null;
+}
+
+function onTrackDragEnd(): void {
+  draggingTrackId.value = null;
+  dropTrackId.value = null;
 }
 
 const addBtnText = computed(() => t("sidebar.addTrack"));
@@ -124,7 +185,7 @@ function onRenameEsc(e: KeyboardEvent, id: string, name: string): void {
   input.blur();
 }
 
-const glowSeqSeen: Record<string, number> = {};
+const glowAtSeen: Record<string, number> = {};
 const glowOn = reactive<Record<string, boolean>>({});
 const glowTimers: Record<string, number> = {};
 
@@ -138,17 +199,26 @@ function pulseHeaderGlow(id: string): void {
   }, 110);
 }
 
+/** A pulse this recent is still part of the animation that is starting now. */
+const GLOW_FRESH_MS = BEAT_FX_DURATION_MS.laneGlow + 10;
+
 watch(
-  () => ui.glowSeqs,
-  (seqs) => {
-    for (const id of Object.keys(seqs)) {
-      const seq = seqs[id];
-      if (glowSeqSeen[id] === undefined) {
-        glowSeqSeen[id] = seq;
+  () => ui.fxPulses.laneGlow,
+  (pulses) => {
+    const now = performance.now();
+    for (const id of Object.keys(pulses)) {
+      const at = pulses[id]?.at;
+      if (at === undefined) continue;
+      if (glowAtSeen[id] === undefined) {
+        glowAtSeen[id] = at;
+        // The very first pulse after mount used to be swallowed by the
+        // "prime the baseline" branch; pulse it while it is still fresh, but
+        // don't replay old entries after a remount.
+        if (now - at <= GLOW_FRESH_MS) pulseHeaderGlow(id);
         continue;
       }
-      if (seq !== glowSeqSeen[id]) {
-        glowSeqSeen[id] = seq;
+      if (at !== glowAtSeen[id]) {
+        glowAtSeen[id] = at;
         pulseHeaderGlow(id);
       }
     }
@@ -235,9 +305,25 @@ onBeforeUnmount(() => {
           v-for="row in markerRows"
           :key="row.track.id"
           class="head marker-row"
+          :class="{
+            active: row.track.id === activeTrackId,
+            drop: row.track.id === dropTrackId,
+          }"
           :style="{ top: BPM_LANE_H + row.i * MARKER_LANE_H + 'px' }"
           @pointerdown="clickTrack(row.track.id)"
+          @dragover="onTrackDragOver($event, row.track.id)"
+          @drop="onTrackDrop($event, row.track.id)"
         >
+          <span
+            class="drag-grip"
+            draggable="true"
+            :title="t('a11y.reorderTrack')"
+            @pointerdown.stop
+            @dragstart.stop="onTrackDragStart($event, row.track.id)"
+            @dragend.stop="onTrackDragEnd"
+          >
+            <GripVertical class="size-3" />
+          </span>
           <span class="accent" :style="{ background: row.track.color }" />
           <UiColorPicker
             class="color-pick"
@@ -293,39 +379,23 @@ onBeforeUnmount(() => {
               <Eye v-else class="size-3" />
             </button>
             <button
-              class="mini"
-              :disabled="row.i === 0"
-              :title="t('a11y.moveTrackUp')"
-              :aria-label="t('a11y.moveTrackUp')"
-              @pointerdown.stop
-              @click.stop="moveTrack(row.track.id, -1)"
-            >
-              <ChevronUp class="size-3" />
-            </button>
-            <button
-              class="mini"
-              :disabled="row.i >= project.tracks.length - 1"
-              :title="t('a11y.moveTrackDown')"
-              :aria-label="t('a11y.moveTrackDown')"
-              @pointerdown.stop
-              @click.stop="moveTrack(row.track.id, 1)"
-            >
-              <ChevronDown class="size-3" />
-            </button>
-            <button
               class="mini danger"
               :disabled="project.tracks.length <= 1"
               :title="t('a11y.removeTrack')"
               :aria-label="t('a11y.removeTrack')"
               @pointerdown.stop
-              @click.stop="removeTrack(row.track.id)"
+              @click.stop="onRemoveTrack(row.track)"
             >
               <X class="size-3" />
             </button>
           </span>
           <span
-            v-if="ui.glowEnabled && glowOn[row.track.id]"
-            :key="'g' + (ui.glowSeqs[row.track.id] ?? 0)"
+            v-if="
+              ui.fxMasterOn &&
+              settings.settings.beatFx.laneGlow &&
+              glowOn[row.track.id]
+            "
+            :key="'g' + (ui.fxPulses.laneGlow[row.track.id]?.at ?? 0)"
             class="row-glow"
             :style="{ background: row.track.color }"
           />
@@ -468,6 +538,36 @@ onBeforeUnmount(() => {
 .head:hover {
   background: rgb(var(--bdg-neutral) / 0.05);
 }
+.head.active {
+  background: rgb(var(--bdg-accent-rgb) / 0.1);
+}
+.head.active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border: 1px solid rgb(var(--bdg-accent-rgb) / 0.35);
+  border-radius: var(--bdg-radius-sm);
+  pointer-events: none;
+}
+.head.drop {
+  background: rgb(var(--bdg-accent-rgb) / 0.16);
+}
+.drag-grip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 100%;
+  color: var(--bdg-text-faint);
+  cursor: grab;
+}
+.drag-grip:hover {
+  color: var(--bdg-text);
+}
+.drag-grip:active {
+  cursor: grabbing;
+}
 .accent {
   position: absolute;
   left: 0;
@@ -496,15 +596,6 @@ onBeforeUnmount(() => {
 .bpm-ic {
   background: rgb(var(--bdg-bpm-rgb) / 0.16);
   color: var(--bdg-bpm);
-}
-.color-chip {
-  width: 13px;
-  height: 13px;
-  flex: none;
-  border-radius: var(--bdg-radius-sm);
-  border: none;
-  cursor: pointer;
-  transform: rotate(45deg);
 }
 .t-body {
   flex: 1;

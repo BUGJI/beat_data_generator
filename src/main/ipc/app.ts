@@ -7,13 +7,19 @@ import type {
   WelcomeAction,
 } from "../../shared/ipc";
 import { IPC } from "../../shared/ipc";
+import { isAllowedExternalUrl } from "../../shared/navigation";
 import { sanitizeSettings } from "../../shared/settings";
 import { handle } from "../ipcHandle";
 import { setMainLocale } from "../i18n";
 import log, { setFileLogging } from "../logger";
 import { applyProxyMode } from "../network";
 import { addRecent, getRecents } from "../recents";
-import { getSettings, persistSettings, setSettings } from "../settings";
+import {
+  getSettings,
+  persistSettings,
+  setSettings,
+  takeSettingsRecoveryNotice,
+} from "../settings";
 import { checkUpdatesNow, checkUpdatesSilent } from "../updater";
 import {
   closeDevToolsAll,
@@ -50,6 +56,8 @@ export function installAppIpc(): void {
   });
 
   handle("getSettings", (): SettingsData => getSettings());
+
+  handle("getSettingsNotice", () => takeSettingsRecoveryNotice());
 
   handle("updateSettings", (_e, patch: Partial<SettingsData>): SettingsData => {
     const before = getSettings();
@@ -101,6 +109,13 @@ export function installAppIpc(): void {
   });
 
   handle("openWindow", (_e, opts: IpcOpenWindowOptions | undefined): void => {
+    const url = typeof opts?.url === "string" ? opts.url : "";
+    // Plugin windows carry no preload, but still must not run `javascript:`,
+    // `data:` or other privileged/non-web schemes inside Electron.
+    if (!isAllowedExternalUrl(url)) {
+      log.warn(`blocked plugin window URL: ${url}`);
+      return;
+    }
     const width = Number(opts?.width);
     const height = Number(opts?.height);
     const w = new BrowserWindow({
@@ -114,11 +129,9 @@ export function installAppIpc(): void {
         contextIsolation: true,
       },
     });
-    const url = typeof opts?.url === "string" ? opts.url : "";
-    if (url) {
-      void w.loadURL(url).catch(() => {
-        w.close();
-      });
-    }
+    w.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+    void w.loadURL(url).catch(() => {
+      w.close();
+    });
   });
 }

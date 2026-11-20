@@ -7,6 +7,7 @@ import {
   type MarketPluginView,
   type PluginInstallReceipt,
 } from "../../shared/market";
+import { resolveLocalizedText } from "../../shared/plugin";
 import { isPluginEnabled, userPluginsDir } from "../plugins";
 import { getIndex } from "./registry";
 
@@ -109,17 +110,7 @@ function resolveText(v: MarketPlugin["name"]): {
   fallback: string;
   i18n: Record<string, string>;
 } {
-  if (typeof v === "string" && v.trim()) {
-    return { fallback: v.trim(), i18n: {} };
-  }
-  if (v && typeof v === "object") {
-    const i18n: Record<string, string> = {};
-    for (const [loc, val] of Object.entries(v)) {
-      if (typeof val === "string" && val.trim()) i18n[loc] = val.trim();
-    }
-    return { fallback: i18n.en ?? i18n.zh ?? "", i18n };
-  }
-  return { fallback: "", i18n: {} };
+  return resolveLocalizedText(v);
 }
 
 export function findMarketPlugin(

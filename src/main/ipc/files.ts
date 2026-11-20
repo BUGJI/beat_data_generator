@@ -1,25 +1,34 @@
-import { dialog, shell } from "electron";
+import { app, dialog, shell } from "electron";
 import { createHash } from "node:crypto";
 import { mkdirSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, unlink, writeFile } from "node:fs/promises";
 import { basename, extname, isAbsolute, join } from "node:path";
 import type {
   AudioFileResult,
   IpcFileFilter,
   MetronomeFile,
+  RecoverySnapshot,
   SaveResult,
   TextFileResult,
 } from "../../shared/ipc";
 import { dirName } from "../../shared/path";
 import {
+  MAX_AUDIO_BYTES,
+  MAX_BINARY_BYTES,
+  MAX_TEXT_BYTES,
+} from "../../shared/limits";
+import {
   AUDIO_FILTERS,
   bytesToAudioResult,
   EDL_FILTERS,
+  fileSizeWithin,
   IMAGE_MIME,
+  isAbsoluteFileArg,
   MAX_IMAGE_BYTES,
   PROJECT_FILTERS,
   sanitizeFilters,
   TEXT_FILTERS,
+  utf8ByteLength,
 } from "../files";
 import { handle } from "../ipcHandle";
 import { mt } from "../i18n";
@@ -27,6 +36,9 @@ import { joinDefaultDir, lastDirDefault, rememberDir } from "../lastDirs";
 import log from "../logger";
 import { listMetronomeFiles, metronomeDir } from "../metronome";
 import { win } from "../windows";
+
+const recoveryPath = (): string =>
+  join(app.getPath("userData"), "recovery.json");
 
 /** File dialogs, audio / text / binary IO and metronome assets. */
 export function installFileIpc(): void {
@@ -47,6 +59,8 @@ export function installFileIpc(): void {
   handle(
     "readAudioFile",
     async (_e, filePath: string): Promise<AudioFileResult | null> => {
+      if (!isAbsoluteFileArg(filePath)) return null;
+      if (!(await fileSizeWithin(filePath, MAX_AUDIO_BYTES))) return null;
       try {
         return await bytesToAudioResult(filePath, true);
       } catch {
@@ -72,6 +86,8 @@ export function installFileIpc(): void {
       const full = isAbsolute(file)
         ? file
         : join(metronomeDir(), basename(file));
+      if (!isAbsoluteFileArg(full)) return null;
+      if (!(await fileSizeWithin(full, MAX_AUDIO_BYTES))) return null;
       try {
         return await bytesToAudioResult(full);
       } catch {
@@ -92,6 +108,9 @@ export function installFileIpc(): void {
     if (r.canceled || r.filePaths.length === 0) return { canceled: true };
     rememberDir("project", r.filePaths[0]);
     try {
+      if (!(await fileSizeWithin(r.filePaths[0], MAX_TEXT_BYTES))) {
+        return { canceled: true };
+      }
       const content = await readFile(r.filePaths[0], "utf-8");
       return { canceled: false, filePath: r.filePaths[0], content };
     } catch (err) {
@@ -107,6 +126,8 @@ export function installFileIpc(): void {
     filters: Electron.FileFilter[],
     content: string,
   ): Promise<SaveResult> {
+    if (typeof content !== "string" || utf8ByteLength(content) > MAX_TEXT_BYTES)
+      return { canceled: true };
     const w = win();
     if (!w) return { canceled: true };
     const memKind = kind === "export" ? "project" : kind;
@@ -171,8 +192,70 @@ export function installFileIpc(): void {
   );
 
   handle(
+    "writeRecovery",
+    async (_e, snapshot: RecoverySnapshot): Promise<boolean> => {
+      if (!snapshot || typeof snapshot.content !== "string") return false;
+      if (utf8ByteLength(snapshot.content) > MAX_TEXT_BYTES) return false;
+      try {
+        mkdirSync(app.getPath("userData"), { recursive: true });
+        await writeFile(
+          recoveryPath(),
+          JSON.stringify({
+            savedAt:
+              typeof snapshot.savedAt === "string" ? snapshot.savedAt : "",
+            projectPath:
+              typeof snapshot.projectPath === "string"
+                ? snapshot.projectPath
+                : null,
+            audioPath:
+              typeof snapshot.audioPath === "string"
+                ? snapshot.audioPath
+                : null,
+            content: snapshot.content,
+          }),
+          "utf-8",
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    },
+  );
+
+  handle("readRecovery", async (): Promise<RecoverySnapshot | null> => {
+    try {
+      if (!(await fileSizeWithin(recoveryPath(), MAX_TEXT_BYTES))) return null;
+      const raw = await readFile(recoveryPath(), "utf-8");
+      if (utf8ByteLength(raw) > MAX_TEXT_BYTES) return null;
+      const parsed = JSON.parse(raw) as Partial<RecoverySnapshot>;
+      if (!parsed || typeof parsed.content !== "string") return null;
+      return {
+        savedAt: typeof parsed.savedAt === "string" ? parsed.savedAt : "",
+        projectPath:
+          typeof parsed.projectPath === "string" ? parsed.projectPath : null,
+        audioPath:
+          typeof parsed.audioPath === "string" ? parsed.audioPath : null,
+        content: parsed.content,
+      };
+    } catch {
+      return null;
+    }
+  });
+
+  handle("clearRecovery", async (): Promise<void> => {
+    try {
+      await unlink(recoveryPath());
+    } catch {
+      /* missing recovery is already clear */
+    }
+  });
+
+  handle(
     "readTextFile",
     async (_e, filePath: string): Promise<TextFileResult> => {
+      if (!isAbsoluteFileArg(filePath)) return { canceled: true };
+      if (!(await fileSizeWithin(filePath, MAX_TEXT_BYTES)))
+        return { canceled: true };
       try {
         const content = await readFile(filePath, "utf-8");
         return { canceled: false, filePath, content };
@@ -185,6 +268,12 @@ export function installFileIpc(): void {
   handle(
     "writeProjectFile",
     async (_e, filePath: string, content: string): Promise<boolean> => {
+      if (!isAbsoluteFileArg(filePath)) return false;
+      if (
+        typeof content !== "string" ||
+        utf8ByteLength(content) > MAX_TEXT_BYTES
+      )
+        return false;
       try {
         await writeFile(filePath, content, "utf-8");
         return true;
@@ -197,6 +286,8 @@ export function installFileIpc(): void {
   handle(
     "readBinaryFile",
     async (_e, filePath: string): Promise<Uint8Array | null> => {
+      if (!isAbsoluteFileArg(filePath)) return null;
+      if (!(await fileSizeWithin(filePath, MAX_BINARY_BYTES))) return null;
       try {
         const buf = await readFile(filePath);
         return new Uint8Array(buf);
@@ -209,8 +300,9 @@ export function installFileIpc(): void {
   handle(
     "writeBinaryFile",
     async (_e, filePath: string, data: Uint8Array): Promise<boolean> => {
-      if (typeof filePath !== "string" || !filePath) return false;
+      if (!isAbsoluteFileArg(filePath)) return false;
       if (!(data instanceof Uint8Array)) return false;
+      if (data.byteLength > MAX_BINARY_BYTES) return false;
       try {
         await writeFile(filePath, data);
         return true;
@@ -221,6 +313,8 @@ export function installFileIpc(): void {
   );
 
   handle("computeMd5", async (_e, filePath: string): Promise<string | null> => {
+    if (!isAbsoluteFileArg(filePath)) return null;
+    if (!(await fileSizeWithin(filePath, MAX_AUDIO_BYTES))) return null;
     try {
       const buf = await readFile(filePath);
       return createHash("md5").update(buf).digest("hex");
@@ -246,9 +340,10 @@ export function installFileIpc(): void {
   handle(
     "readImageAsDataUrl",
     async (_e, filePath: string): Promise<string | null> => {
-      if (typeof filePath !== "string" || !filePath) return null;
+      if (!isAbsoluteFileArg(filePath)) return null;
       const mime = IMAGE_MIME[extname(filePath).toLowerCase()];
       if (!mime) return null;
+      if (!(await fileSizeWithin(filePath, MAX_IMAGE_BYTES))) return null;
       try {
         const buf = await readFile(filePath);
         if (buf.byteLength === 0 || buf.byteLength > MAX_IMAGE_BYTES)

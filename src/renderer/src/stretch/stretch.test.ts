@@ -8,7 +8,8 @@ const { soundtouch, signalsmith } = vi.hoisted(() => ({
 vi.mock("./soundtouch", () => ({ stretchWithSoundtouch: soundtouch }));
 vi.mock("./signalsmith", () => ({ stretchWithSignalsmith: signalsmith }));
 
-import { stretchAudioBuffer } from "./index";
+import { stretchAudioBuffer, resetStretchFallback } from "./index";
+import { StretchTooLargeError } from "./errors";
 
 const original = {} as AudioBuffer;
 const result = { id: "stretched" } as unknown as AudioBuffer;
@@ -16,6 +17,7 @@ const result = { id: "stretched" } as unknown as AudioBuffer;
 beforeEach(() => {
   soundtouch.mockReset();
   signalsmith.mockReset();
+  resetStretchFallback();
 });
 
 describe("stretchAudioBuffer", () => {
@@ -42,5 +44,19 @@ describe("stretchAudioBuffer", () => {
     expect(signalsmith).toHaveBeenCalledOnce();
     expect(soundtouch).toHaveBeenCalledWith(original, 1.5);
     expect(out).toBe(result);
+  });
+
+  it("refuses a rate whose stretched buffer would exhaust memory", async () => {
+    const huge = {
+      length: 44100 * 60 * 60 * 3,
+      numberOfChannels: 2,
+      duration: 10_800,
+      sampleRate: 44100,
+    } as unknown as AudioBuffer;
+    await expect(stretchAudioBuffer(huge, 0.01)).rejects.toBeInstanceOf(
+      StretchTooLargeError,
+    );
+    expect(signalsmith).not.toHaveBeenCalled();
+    expect(soundtouch).not.toHaveBeenCalled();
   });
 });

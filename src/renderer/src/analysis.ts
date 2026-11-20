@@ -268,6 +268,25 @@ export async function onAudioLoaded(autoApply = true): Promise<void> {
   await runAnalysis(autoApply);
 }
 
+/**
+ * Drop every analysis result (and invalidate any in-flight run) when the
+ * editor leaves a project, so the previous audio's BPM / beats / spectrum
+ * cannot linger over a fresh or newly opened document.
+ */
+export function resetAnalysis(): void {
+  analysisSeq++; // stale worker replies are now superseded and discarded
+  analyzingCount = 0;
+  analysis.bpm = null;
+  analysis.beats = [];
+  analysis.loopStart = null;
+  analysis.loopEnd = null;
+  analysis.loopConfidence = null;
+  analysis.liveBpm = null;
+  analysis.spectrum = null;
+  analysis.spectrumKey++;
+  analysis.analyzing = false;
+}
+
 /** Apply detected BPM to the project baseBpm. */
 export function applyDetectedBpm(): void {
   if (!analysis.bpm) return;

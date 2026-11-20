@@ -12,8 +12,6 @@ export const TRACK_COLOR_ROW = 16;
 export const SNAP_DIVISIONS = [1, 2, 4, 8, 16, 32] as const;
 export const DEFAULT_DIV = 4;
 
-export const BEATS_PER_BAR = 4;
-
 export const MIN_PX_PER_SEC = 6;
 export const MAX_PX_PER_SEC = 4000;
 
@@ -44,6 +42,8 @@ export interface CanvasColors {
   barText: string;
   rowLine: string;
   laneLockedBg: string;
+  loopFill: string;
+  loopEdge: string;
 }
 
 /** Canvas palette. Reactive so a theme switch repaints without code changes:
@@ -75,6 +75,8 @@ export const COLORS = reactive<CanvasColors>({
   barText: "rgba(52,211,153,0.9)",
   rowLine: "rgba(148,163,184,0.08)",
   laneLockedBg: "rgba(148,163,184,0.10)",
+  loopFill: "rgba(251,191,36,0.09)",
+  loopEdge: "rgba(251,191,36,0.7)",
 });
 
 export const LANE_COLORS = [

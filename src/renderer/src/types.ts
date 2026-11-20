@@ -51,6 +51,11 @@ export interface BpmPoint {
    * the next point that sets one. Absent means "inherit the previous grid".
    */
   gridDiv?: number;
+  /**
+   * Optional beats-per-bar (meter) effective from this point until the next
+   * point that sets one. Absent means "inherit the previous meter".
+   */
+  beatsPerBar?: number;
 }
 
 export interface BeatProject {
@@ -59,6 +64,8 @@ export interface BeatProject {
   name: string;
   baseBpm: number;
   offsetMs: number;
+  /** Beats per bar used for the bar ruler, bar jump and count-in. */
+  beatsPerBar: number;
   /** Global beat-grid subdivision; BPM points may override it from their beat. */
   gridDiv: number;
   audioName: string | null;

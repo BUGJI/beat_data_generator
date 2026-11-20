@@ -4,13 +4,14 @@ import { DropdownMenuItem } from "reka-ui";
 import { DROPDOWN_SELECT } from "./dropdown-context";
 
 const props = withDefaults(
-  defineProps<{ value?: string; disabled?: boolean }>(),
-  { disabled: false },
+  defineProps<{ value?: string; disabled?: boolean; keepOpen?: boolean }>(),
+  { disabled: false, keepOpen: false },
 );
 
 const onSelect = inject(DROPDOWN_SELECT, null);
 
-function handle(): void {
+function handle(e: Event): void {
+  if (props.keepOpen) e.preventDefault();
   if (props.disabled || props.value === undefined) return;
   onSelect?.(props.value);
 }

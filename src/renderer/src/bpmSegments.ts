@@ -1,13 +1,18 @@
 import { hexToRgb } from "./theme";
+import { clamp } from "./utils/clamp";
 
 /**
  * Theme-derived colors for BPM lane segments.
  *
  * Adjacent segments alternate between two theme anchors (the BPM color and the
- * accent color) instead of generating a random hue per segment. The side of the
- * alternation comes from a stable hash of the segment start, so inserting a
- * point later in the timeline never recolors existing segments, and the palette
- * stays within the active theme.
+ * accent color) in segment order. Alternation uses the ordinal, not a hash of
+ * the start: a hash makes neighbouring segments randomly collide, which makes
+ * the two colors look like they stopped alternating. Appending a segment keeps
+ * earlier colors; inserting one before a segment shifts the later phase.
+ *
+ * When the two theme anchors are too close in hue (warm themes such as amber),
+ * they are spread to opposite ends of the readable lightness band so the
+ * alternation still reads.
  *
  * A quantized tempo bucket nudges the hue by ±4° so faster/slower sections are
  * subtly distinguishable while the overall look stays calm. All strings are
@@ -18,6 +23,8 @@ import { hexToRgb } from "./theme";
 export interface BpmSegmentInput {
   /** First beat of the segment (a BPM point, or 0 for the base segment). */
   beatStart: number;
+  /** Zero-based segment ordinal; drives the two-color alternation. */
+  index: number;
   /** Effective BPM inside the segment. */
   bpm: number;
   /** Project base BPM, used as the neutral reference for the tempo bucket. */
@@ -50,6 +57,12 @@ export const BPM_SEGMENT_BAR_ALPHA = 0.42;
 /** Segment-start boundary; fixed so structure survives intensity 0. */
 export const BPM_SEGMENT_BOUNDARY_ALPHA = 0.5;
 
+/** Readable lightness bands for dark and light editor themes. */
+const DARK_L_BAND = { lo: 46, hi: 64 } as const;
+const LIGHT_L_BAND = { lo: 34, hi: 48 } as const;
+/** Below this hue gap the anchors are also separated by lightness. */
+const MIN_ANCHOR_HUE_GAP = 24;
+
 function rgbToHsl(rgb: { r: number; g: number; b: number }): Hsl {
   const r = rgb.r / 255;
   const g = rgb.g / 255;
@@ -67,33 +80,25 @@ function rgbToHsl(rgb: { r: number; g: number; b: number }): Hsl {
   return { h: (h / 6) * 360, s: s * 100, l: l * 100 };
 }
 
-function clamp(v: number, lo: number, hi: number): number {
-  return Math.min(hi, Math.max(lo, v));
-}
-
 function wrapHue(h: number): number {
   return ((h % 360) + 360) % 360;
 }
 
-/** FNV-1a over a compact, quantized description of the segment start. */
-function stableHash(beatStart: number): number {
-  const key = String(Math.round(beatStart * 64));
-  let h = 2166136261 >>> 0;
-  for (let i = 0; i < key.length; i++) {
-    h ^= key.charCodeAt(i);
-    h = Math.imul(h, 16777619) >>> 0;
-  }
-  return h >>> 0;
+/** Shortest distance between two hues on the color wheel, in degrees. */
+function hueGap(a: number, b: number): number {
+  const d = Math.abs(wrapHue(a) - wrapHue(b));
+  return Math.min(d, 360 - d);
 }
 
 /** Dim the theme color and pin its lightness to the readable band. */
 function anchorHsl(base: Hsl, light: boolean): Hsl {
+  const band = light ? LIGHT_L_BAND : DARK_L_BAND;
   return {
     h: base.h,
     s: clamp(base.s * 0.5 + 18, 28, 72),
     l: light
-      ? clamp(base.l * 0.55 + 12, 34, 48)
-      : clamp(base.l * 0.85 + 8, 46, 64),
+      ? clamp(base.l * 0.55 + 12, band.lo, band.hi)
+      : clamp(base.l * 0.85 + 8, band.lo, band.hi),
   };
 }
 
@@ -105,11 +110,14 @@ export function bpmSegmentTheme(
 ): BpmSegmentTheme {
   const bg = rgbToHsl(hexToRgb(backgroundHex));
   const light = bg.l > 50;
-  return {
-    primary: anchorHsl(rgbToHsl(hexToRgb(bpmHex)), light),
-    secondary: anchorHsl(rgbToHsl(hexToRgb(accentHex)), light),
-    light,
-  };
+  const primary = anchorHsl(rgbToHsl(hexToRgb(bpmHex)), light);
+  const secondary = anchorHsl(rgbToHsl(hexToRgb(accentHex)), light);
+  if (hueGap(primary.h, secondary.h) < MIN_ANCHOR_HUE_GAP) {
+    const band = light ? LIGHT_L_BAND : DARK_L_BAND;
+    primary.l = band.lo;
+    secondary.l = band.hi;
+  }
+  return { primary, secondary, light };
 }
 
 /** Quantized tempo bucket (-1 slower, 0 same, 1 faster) for the hue nudge. */
@@ -124,8 +132,7 @@ export function bpmSegmentHsl(
   input: BpmSegmentInput,
   theme: BpmSegmentTheme,
 ): Hsl {
-  const anchor =
-    stableHash(input.beatStart) % 2 ? theme.secondary : theme.primary;
+  const anchor = input.index % 2 ? theme.secondary : theme.primary;
   return {
     h: wrapHue(anchor.h + tempoBucket(input) * 4),
     s: anchor.s,

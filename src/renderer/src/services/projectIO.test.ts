@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useProjectStore } from "../stores/project";
+import { selectSingleMarker } from "../stores/selection";
 import {
   edlContent,
   exportLines,
+  exportStats,
   projectJson,
   saveProjectQuick,
 } from "./projectIO";
@@ -53,6 +55,54 @@ describe("exportLines", () => {
       { id: "c", trackId: "typed", beat: 3 },
     ];
     expect(exportLines()).toEqual(["500.000"]);
+  });
+});
+
+describe("exportStats and export scope", () => {
+  it("counts excluded hidden and plugin-typed markers", () => {
+    const p = setupProject();
+    p.tracks = [
+      { id: "t1", name: "Main", color: "#fff" },
+      { id: "hidden", name: "H", color: "#fff", hidden: true },
+      { id: "typed", name: "T", color: "#fff", type: "plug:x" },
+    ];
+    p.markers = [
+      { id: "a", trackId: "t1", beat: 1 },
+      { id: "b", trackId: "hidden", beat: 2 },
+      { id: "c", trackId: "typed", beat: 3 },
+    ];
+
+    expect(exportStats()).toEqual({
+      total: 3,
+      exportable: 1,
+      hidden: 1,
+      typed: 1,
+      selected: 0,
+      selectedExportable: 0,
+    });
+  });
+
+  it("exports only the selected marker group", () => {
+    const p = setupProject();
+    p.markers = [
+      { id: "a", trackId: "t1", beat: 0 },
+      { id: "b", trackId: "t1", beat: 1 },
+      { id: "child", trackId: "t1", beat: 2, parentId: "b" },
+    ];
+    selectSingleMarker("b");
+
+    expect(exportLines({ scope: "selection" })).toEqual([
+      "500.000",
+      "1000.000",
+    ]);
+  });
+
+  it("honours timestamp precision and EDL frame rate", () => {
+    const p = setupProject();
+    p.markers = [{ id: "a", trackId: "t1", beat: 1 }];
+
+    expect(exportLines({ decimals: 1 })).toEqual(["500.0"]);
+    expect(edlContent({ fps: 30 }).text).toContain("00:00:00:15");
   });
 });
 
@@ -136,10 +186,12 @@ describe("projectJson", () => {
 
     const raw = JSON.parse(projectJson()) as {
       version: number;
+      beatsPerBar: number;
       markers: unknown[];
       bpmPoints: { value: number }[];
     };
     expect(raw.version).toBe(2);
+    expect(raw.beatsPerBar).toBe(4);
     expect(raw.markers).toHaveLength(1);
     expect(raw.bpmPoints[0].value).toBe(130);
   });

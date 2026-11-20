@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from "vue";
+import { computed, onBeforeUnmount, ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
+import { useSettingsStore } from "../../stores/settings";
+import { backgroundImageUrl } from "../../services/settingsEffects";
 import {
-  backgroundImageUrl,
   patchSettings,
   previewSettings,
-  useSettingsStore,
-} from "../../stores/settings";
+} from "../../services/settingsPersistence";
 import type { BackgroundFit } from "@shared/settings";
 import { useSettingsRowsStore } from "./useSettingsRows";
 import UiButton from "../ui/UiButton.vue";
@@ -82,6 +82,27 @@ const uiFontScale = computed({
   get: () => settings.settings.uiFontScale,
   set: (v: number) => void patchSettings({ uiFontScale: v }),
 });
+
+// Text scale drives every `--bdg-fs-*` token, so repainting on every
+// pointermove reflows the whole UI. Coalesce previews to one per frame while
+// keeping the slider live; the final value is committed on release.
+let fontPreviewRaf = 0;
+let pendingFontScale: number | null = null;
+function previewFontScale(v: number): void {
+  pendingFontScale = v;
+  if (fontPreviewRaf) return;
+  fontPreviewRaf = window.requestAnimationFrame(() => {
+    fontPreviewRaf = 0;
+    if (pendingFontScale === null) return;
+    previewSettings({ uiFontScale: pendingFontScale });
+    pendingFontScale = null;
+  });
+}
+onBeforeUnmount(() => {
+  if (fontPreviewRaf) window.cancelAnimationFrame(fontPreviewRaf);
+  fontPreviewRaf = 0;
+  pendingFontScale = null;
+});
 const uiBlur = computed({
   get: () => settings.settings.uiBlur,
   set: (v: boolean) => void patchSettings({ uiBlur: v }),
@@ -101,7 +122,10 @@ const uiShadow = computed({
 </script>
 
 <template>
-  <div class="field-row col">
+  <div
+    class="field-row col"
+    :data-search="t('settings.theme.appearance.bgImage')"
+  >
     <div class="field-info">
       <span class="field-name">{{
         t("settings.theme.appearance.bgImage")
@@ -139,7 +163,10 @@ const uiShadow = computed({
   />
 
   <template v-if="settings.settings.backgroundImage">
-    <div class="field-row col">
+    <div
+      class="field-row col"
+      :data-search="t('settings.theme.appearance.bgFit')"
+    >
       <div class="field-info">
         <span class="field-name">{{
           t("settings.theme.appearance.bgFit")
@@ -156,7 +183,10 @@ const uiShadow = computed({
       />
     </div>
 
-    <div class="field-row col">
+    <div
+      class="field-row col"
+      :data-search="t('settings.theme.appearance.bgBlur')"
+    >
       <div class="field-info">
         <span class="field-name">{{
           t("settings.theme.appearance.bgBlur")
@@ -181,7 +211,10 @@ const uiShadow = computed({
       </div>
     </div>
 
-    <div class="field-row col">
+    <div
+      class="field-row col"
+      :data-search="t('settings.theme.appearance.bgDim')"
+    >
       <div class="field-info">
         <span class="field-name">{{
           t("settings.theme.appearance.bgDim")
@@ -207,7 +240,10 @@ const uiShadow = computed({
     </div>
   </template>
 
-  <div class="field-row col">
+  <div
+    class="field-row col"
+    :data-search="t('settings.theme.appearance.surfaceOpacity')"
+  >
     <div class="field-info">
       <span class="field-name">{{
         t("settings.theme.appearance.surfaceOpacity")
@@ -273,7 +309,7 @@ const uiShadow = computed({
         :step="5"
         :label="t('settings.theme.appearance.uiFontScale')"
         class="pct-slider"
-        @update:model-value="(v: number) => previewSettings({ uiFontScale: v })"
+        @update:model-value="previewFontScale"
         @commit="(v: number) => patchSettings({ uiFontScale: v })"
       />
       <span class="num pct-value">{{ uiFontScale }}%</span>

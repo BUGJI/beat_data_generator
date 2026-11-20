@@ -5,6 +5,7 @@ import { i18n } from "./i18n";
 import "./styles/tailwind.css";
 import "./styles/index.css";
 import "./styles/settings.css";
+import "./styles/propCard.css";
 import { initEditorRuntime } from "./services/bootstrap";
 
 // Surface uncaught renderer errors in the console so they reach the main-process

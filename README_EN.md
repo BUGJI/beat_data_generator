@@ -31,8 +31,10 @@ See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
 
 - **Audio import**: mp3 / wav / ogg / flac / m4a / aac / opus, with real-time waveform rendering.
 - **Beat grid**: dual ruler (time + beat). Snapping from 1 to 1/32 beat subdivisions.
+- **Magnetic snapping**: dragged/placed points snap to nearby markers, the playhead, notes and loop edges (requires grid snap).
+- **Time signature**: 1–16 beats per bar, driving the bar ruler, bar jump, default loop length, count-in and grid-metronome accents.
 - **Marker editing**: click to add, drag to fine-tune, right-click to delete; nudge by snap step, multi-select (Ctrl/Cmd + click), select all.
-- **Multiple marker tracks**: add / rename / recolor / lock / hide tracks. Markers on hidden tracks are excluded from the playback indicator and exports.
+- **Multiple marker tracks**: add / rename / recolor / lock / hide tracks. Drag a track header to reorder, click it to make it active, and drag markers vertically to change tracks. Markers on hidden tracks are excluded from the playback indicator and exports.
 - **Loop groups**: a main marker can generate child markers by `interval × count`, with optional exclusion; capped at **256** children per group to keep the editor responsive.
 - **Sticky notes**: place floating notes (non-modal, never steals focus) on the timeline and edit them with double-click (Markdown).
 - **Undo / redo**: up to 100 steps; copy / paste marker groups (including loops).
@@ -42,14 +44,18 @@ See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
 - **Audio intelligence**: on load, auto-detect BPM, place beat markers, find the best looping segment, and keep a live BPM readout plus a mel spectrogram in a collapsible analysis panel. Powered by **pleco-xa**, computed asynchronously in a Web Worker; each capability is an independent toggle in Settings.
 - **BPM lane**: add BPM points (absolute BPM or multiplier modes) to build a tempo map; supports locking the BPM lane.
 - **Variable-speed playback**: 0.1–4× rate; pitch-following playback, or pitch-preserving time stretch (defaults to `signalsmith-stretch`, with `soundtouchjs` as fallback — see [Time-stretch engine](#time-stretch-engine)).
+- **Loop audition**: Shift+drag the ruler for an A–B loop, or select markers and loop them in one click; the analysis panel can audition the detected loop.
+- **Grid metronome & count-in**: click every beat (accented downbeat) with an optional 1–4 bar count-in, independent of marker clicks.
+- **Tap tempo**: click Tap or press T to tap the tempo into the base BPM.
+- **Quick navigation**: click the transport time or press Ctrl+G to jump with `1:23.456`, `83.456` or `b12.3`; reset speed to 1× and mute from the transport.
 - **Metronome click**: plays a tick each time a marker is passed; a custom audio file can be selected (empty disables it).
 - **Auto-follow**: the timeline scrolls once the playhead passes a configurable threshold.
 
 ### Project & export
 
-- **Project files**: `.bdg` (JSON). Audio is referenced by a path relative to the project plus an MD5, verified / auto-relinked on open.
-- **Auto-save**: configurable interval (1–60 min) saves the current project in the background.
-- **Built-in exports**: timestamp list `.txt` (millisecond precision, de-duplicated) and **CMX3600 EDL** `.edl` (25 fps, non-drop).
+- **Project files**: `.bdg` (JSON). Audio is referenced by a path relative to the project plus an MD5, verified / auto-relinked on open; beats per bar is configurable (1–16).
+- **Auto-save & recovery**: configurable interval (1–60 min) saves in the background; a crash-recovery snapshot is written while editing and can be restored at startup.
+- **Built-in exports**: timestamp list `.txt` (adjustable precision, de-duplicated by value) and **CMX3600 EDL** `.edl` (adjustable frame rate, default 25 fps non-drop). A preview shows the range, count and markers excluded from hidden / plugin-typed tracks.
 - **Plugin-based import / export**: ADOFAI, Phira, MIDI and more are provided by official plugins — see the table below.
 
 ### Extensibility & appearance
@@ -68,8 +74,8 @@ One project can feed several targets: generic formats ship with the editor, ever
 
 | Target | Format | Provided by |
 | --- | --- | --- |
-| Timestamp list | `.txt`: one float millisecond timestamp per line (3 decimals), de-duplicated across tracks | Built-in |
-| CMX3600 EDL | `.edl`: 25 fps, Non-Drop Frame; each marker produces a 1-frame event with a `FROM CLIP NAME` | Built-in |
+| Timestamp list | `.txt`: one float millisecond timestamp per line (3 decimals by default, adjustable), de-duplicated across tracks | Built-in |
+| CMX3600 EDL | `.edl`: adjustable frame rate (default 25 fps), Non-Drop Frame; each marker produces a 1-frame event with a `FROM CLIP NAME` | Built-in |
 | A Dance of Fire and Ice | `.adofai` level, with double-press, BPM speed track and pause compensation | Plugin [bdg_plugin_adofai](https://github.com/beat-data-generator/bdg_plugin_adofai) |
 | Phira / RPE | `.pez` chart, optional single-judge-line merge, packed together with the audio | Plugin [bdg_plugin_phira](https://github.com/beat-data-generator/bdg_plugin_phira) |
 | Text timestamps / MIDI (import) | Import markers from text timestamps or MIDI files: integers are milliseconds, decimals are seconds; MIDI note times create new tracks | Plugin [bdg_plugin_import](https://github.com/beat-data-generator/bdg_plugin_import) |
@@ -99,17 +105,25 @@ One project can feed several targets: generic formats ship with the editor, ever
 | Key | Action |
 | --- | --- |
 | Space | Play / pause |
-| Ctrl+S | Save project |
-| Ctrl+C / Ctrl+V | Copy / paste marker group |
+| Ctrl+S / Ctrl+Shift+S | Save project / Save As |
+| Ctrl+O / Ctrl+Shift+O | Open project / Open audio |
+| Ctrl+C / Ctrl+X / Ctrl+V | Copy / cut / paste marker group |
+| Ctrl+A | Select all markers |
 | Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z | Undo / redo |
-| Delete / Backspace | Delete selected |
-| ← / → | Nudge left / right by snap step (when selected) |
+| Delete / Backspace | Delete selected (undoable) |
+| M | Place a marker at the playhead |
+| T | Tap tempo (Shift+T resets) |
+| Ctrl+G | Jump to time / bar |
+| Ctrl+Shift+↑ / Ctrl+Shift+↓ | Move the active track up / down |
+| , / . or Alt+← / Alt+→ | Select and jump to the previous / next marker |
+| ← / → | Nudge by snap step (when selected; moves the whole multi-selection) |
 | Esc | Close popover / clear selection |
 | Home | Go to start |
+| Ctrl+0 / Ctrl++ / Ctrl+- | Fit view / zoom timeline in / out |
 | Ctrl+wheel | Zoom timeline (when hovering it) |
 | Wheel / drag | Scroll the timeline vertically / horizontally |
 
-Shortcuts are currently read-only (listed under **Settings → Shortcuts**); user remapping is planned for a later version. Plugins can register their own shortcuts via `api.ui.registerShortcut`.
+Shortcuts can be rebound per action under **Settings → Shortcuts**, reset to defaults, and conflicts are detected automatically. Plugins can register their own shortcuts via `api.ui.registerShortcut`.
 
 ## Tech Stack
 
@@ -228,7 +242,7 @@ Pitch-preserving off-speed playback uses `signalsmith-stretch` by default (WASM 
 - **Pitch-preserving playback sounds off / stutters?** It defaults to `signalsmith-stretch`; failures or timeouts fall back to `soundtouchjs` automatically, and you can pin the engine under **Settings → Audio → Playback**.
 - **"Check for updates" does nothing?** Update checks are unsupported in development mode; if the check fails, download manually from [Releases](https://github.com/BUGJI/beat_data_generator/releases/latest).
 - **Does it run on macOS / Linux?** Linux installers (AppImage + deb) are available; macOS is on the roadmap — meanwhile you can try the source build and report back.
-- **Why is the EDL fixed at 25 fps?** That is the current fixed output (25 fps, non-drop); for other frame rates or formats, open an [issue](https://github.com/BUGJI/beat_data_generator/issues) or write a plugin as described in [Export & Integration Targets](#export--integration-targets).
+- **What frame rate does the EDL use?** 25 fps non-drop by default, adjustable in the export dialog; for other formats, open an [issue](https://github.com/BUGJI/beat_data_generator/issues) or write a plugin as described in [Export & Integration Targets](#export--integration-targets).
 
 ## Contributing
 

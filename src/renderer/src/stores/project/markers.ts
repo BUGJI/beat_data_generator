@@ -1,4 +1,4 @@
-import { isFreeInput } from "@shared/limits";
+import { currentNumberPolicy } from "../../utils/numberPolicy";
 import type { AlignRounding } from "@shared/settings";
 import { defaultAttrsFor } from "../../plugins/registry";
 import {
@@ -110,8 +110,9 @@ export function refreshChildren(parent: Marker): void {
     return true;
   });
   const cfg = parent.loop;
-  if (!isFreeInput() && (!(cfg.interval > 0) || cfg.count < 1)) return;
-  const count = isFreeInput()
+  if (!currentNumberPolicy().free && (!(cfg.interval > 0) || cfg.count < 1))
+    return;
+  const count = currentNumberPolicy().free
     ? Math.floor(cfg.count)
     : Math.min(cfg.count, MAX_LOOP_CHILDREN);
   const exclude = new Set(cfg.exclude ?? []);
@@ -137,12 +138,12 @@ export function updateMarkerLoopImpl(
     parent.loop = null;
   } else {
     parent.loop = {
-      interval: isFreeInput()
+      interval: currentNumberPolicy().free
         ? cfg.interval
         : cfg.interval > 0
           ? cfg.interval
           : 1,
-      count: isFreeInput()
+      count: currentNumberPolicy().free
         ? Math.floor(cfg.count)
         : Math.min(MAX_LOOP_CHILDREN, Math.max(1, Math.floor(cfg.count))),
       ...(Array.isArray(cfg.exclude) && cfg.exclude.length
@@ -183,10 +184,12 @@ export function updateMarkerAttrsImpl(
   useProjectStore().dirty = true;
 }
 
-export function removeMarker(id: string): void {
+export function removeMarker(id: string): boolean {
   const p = useProjectStore();
   const m = findMarker(id);
-  if (!m || isTrackBlocked(m.trackId)) return;
+  if (!m || isTrackBlocked(m.trackId)) return false;
+  const index = p.markers.findIndex((x) => x.id === id);
+  if (index < 0) return false;
   pushHistory();
   if (m.parentId) {
     const parent = findMarker(m.parentId);
@@ -196,16 +199,16 @@ export function removeMarker(id: string): void {
         parent.loop.exclude = [...new Set([...(parent.loop.exclude ?? []), k])];
       }
     }
-    const i = p.markers.findIndex((x) => x.id === id);
-    if (i >= 0) p.markers.splice(i, 1);
+    p.markers.splice(index, 1);
     p.dirty = true;
     clearSelectionIfMissing();
-    return;
+    return true;
   }
   // main marker -> cascade delete its children
   p.markers = p.markers.filter((x) => x.id !== m.id && x.parentId !== m.id);
   p.dirty = true;
   clearSelectionIfMissing();
+  return true;
 }
 
 export function removeMarkerAtImpl(
@@ -247,6 +250,49 @@ export function moveMarkerImpl(
   pushHistory();
   m.beat = beat;
   if (m.loop) refreshChildren(m);
+  p.dirty = true;
+  return true;
+}
+
+/**
+ * Move several main markers at once, preserving their relative spacing.
+ * Collisions are checked against everything that is not part of the moving
+ * groups, so a blocked target rejects the whole move instead of splitting it.
+ */
+export function moveMarkersImpl(
+  moves: Array<{ id: string; beat: number }>,
+): boolean {
+  const p = useProjectStore();
+  const targets: Array<{ marker: Marker; beat: number }> = [];
+  const moving = new Set<string>();
+  let changed = false;
+  for (const move of moves) {
+    const m = findMarker(move.id);
+    if (!m || m.parentId || isTrackBlocked(m.trackId)) continue;
+    const beat = round(Math.max(0, move.beat));
+    moving.add(m.id);
+    if (beat !== m.beat) changed = true;
+    targets.push({ marker: m, beat });
+  }
+  if (!targets.length || !changed) return false;
+  for (const child of p.markers) {
+    if (child.parentId && moving.has(child.parentId)) moving.add(child.id);
+  }
+  for (const { marker, beat } of targets) {
+    const blocked = p.markers.some(
+      (x) =>
+        x.trackId === marker.trackId &&
+        !moving.has(x.id) &&
+        Math.abs(x.beat - beat) < 1 / 128,
+    );
+    if (blocked) return false;
+  }
+  pushHistory();
+  for (const { marker, beat } of targets) {
+    if (marker.beat === beat) continue;
+    marker.beat = beat;
+    if (marker.loop) refreshChildren(marker);
+  }
   p.dirty = true;
   return true;
 }
@@ -352,4 +398,10 @@ export function moveMarker(
   force = false,
 ): boolean {
   return useProjectStore().moveMarker(id, rawBeat, force);
+}
+
+export function moveMarkers(
+  moves: Array<{ id: string; beat: number }>,
+): boolean {
+  return useProjectStore().moveMarkers(moves);
 }

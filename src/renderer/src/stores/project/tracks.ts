@@ -50,16 +50,17 @@ export function ensureDefaultTrack(): void {
   if (useProjectStore().tracks.length === 0) addTrack(undefined, false);
 }
 
-export function removeTrack(trackId: string): void {
-  if (isTrackLocked(trackId)) return;
+export function removeTrack(trackId: string): boolean {
+  if (isTrackLocked(trackId)) return false;
   const p = useProjectStore();
   const i = p.tracks.findIndex((tr) => tr.id === trackId);
-  if (i < 0) return;
+  if (i < 0) return false;
   pushHistory();
   p.tracks.splice(i, 1);
   p.markers = p.markers.filter((m) => m.trackId !== trackId);
   p.dirty = true;
   clearSelectionIfMissing();
+  return true;
 }
 
 export function renameTrack(trackId: string, name: string): void {
@@ -92,6 +93,18 @@ export function moveTrack(trackId: string, dir: -1 | 1): void {
   pushHistory();
   const arr = p.tracks;
   [arr[i], arr[j]] = [arr[j] as MarkerTrack, arr[i] as MarkerTrack];
+  p.dirty = true;
+}
+
+export function moveTrackTo(trackId: string, targetIndex: number): void {
+  const p = useProjectStore();
+  const i = p.tracks.findIndex((tr) => tr.id === trackId);
+  if (i < 0) return;
+  const j = Math.max(0, Math.min(p.tracks.length - 1, targetIndex));
+  if (i === j) return;
+  pushHistory();
+  const [track] = p.tracks.splice(i, 1);
+  p.tracks.splice(j, 0, track as MarkerTrack);
   p.dirty = true;
 }
 

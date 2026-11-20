@@ -6,7 +6,7 @@ import type {
   MarketProgress,
 } from "./market";
 import type { PingResult } from "./network";
-import type { SettingsData } from "./settings";
+import type { SettingsData, SettingsRecoveryNotice } from "./settings";
 
 export type { SettingsData } from "./settings";
 
@@ -36,6 +36,14 @@ export interface MetronomeFile {
 export interface SaveResult {
   canceled: boolean;
   filePath?: string;
+}
+
+/** Crash-recovery snapshot written periodically while the project is dirty. */
+export interface RecoverySnapshot {
+  savedAt: string;
+  projectPath: string | null;
+  audioPath: string | null;
+  content: string;
 }
 
 export interface IpcFileFilter {
@@ -76,6 +84,8 @@ export interface IpcApi {
   saveEDLFile: (defaultPath: string, content: string) => Promise<SaveResult>;
   getFilePath: (title: string) => Promise<string | null>;
   getSettings: () => Promise<SettingsData>;
+  /** One-shot notice when settings had to be restored at startup; then null. */
+  getSettingsNotice: () => Promise<SettingsRecoveryNotice | null>;
   updateSettings: (patch: Partial<SettingsData>) => Promise<SettingsData>;
   /** Manually check for app updates (About page); resolves with the outcome. */
   checkForUpdates: () => Promise<UpdateCheckResult>;
@@ -83,6 +93,9 @@ export interface IpcApi {
   /** Set the main window's page zoom factor (1 = 100%). */
   setZoom: (factor: number) => Promise<void>;
   writeProjectFile: (filePath: string, content: string) => Promise<boolean>;
+  writeRecovery: (snapshot: RecoverySnapshot) => Promise<boolean>;
+  readRecovery: () => Promise<RecoverySnapshot | null>;
+  clearRecovery: () => Promise<void>;
   readTextFile: (filePath: string) => Promise<TextFileResult>;
   /** Read an image file as a data URL for the app background (null when missing/too large). */
   readImageAsDataUrl: (filePath: string) => Promise<string | null>;
@@ -186,12 +199,16 @@ export const IPC = {
   saveProjectFile: "text:saveAsTxt",
   saveEDLFile: "text:saveEdl",
   readTextFile: "text:read",
+  // `IpcApi.writeTextFile` is an alias for this same handler (see preload).
   writeProjectFile: "text:write",
-  writeTextFile: "text:write",
+  writeRecovery: "recovery:write",
+  readRecovery: "recovery:read",
+  clearRecovery: "recovery:clear",
   readBinaryFile: "io:read-binary",
   writeBinaryFile: "io:write-binary",
   getFilePath: "file:path",
   getSettings: "settings:get",
+  getSettingsNotice: "settings:notice",
   updateSettings: "settings:update",
   checkForUpdates: "updates:check",
   toggleDevTools: "dev:tools",
@@ -233,8 +250,6 @@ export const IPC = {
   quitRequest: "app:quit-request",
 } as const;
 
-export type IpcChannel = (typeof IPC)[keyof typeof IPC];
-
 /** Keys of {@link IPC} that are push/subscription channels, not request/response. */
 export type IpcEventKey =
   | "welcomeAction"
@@ -247,8 +262,5 @@ export type IpcEventKey =
  * `keyof IpcApi` intersection keeps the table honest: adding an entry whose key
  * is not an `IpcApi` method is a compile error where the typed handler is used.
  */
-export type IpcMethodKey = Exclude<
-  keyof typeof IPC,
-  IpcEventKey | "writeTextFile" | "setDirty"
-> &
+export type IpcMethodKey = Exclude<keyof typeof IPC, IpcEventKey | "setDirty"> &
   keyof IpcApi;

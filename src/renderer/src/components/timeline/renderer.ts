@@ -11,14 +11,10 @@ import {
   markerTime as storeMarkerTime,
   timeOfBeat,
 } from "../../services/timeline";
-import {
-  BEATS_PER_BAR,
-  BEAT_RULER_H,
-  COLORS,
-  RULER_H,
-  TIME_RULER_H,
-} from "../../metrics";
+import { BEAT_RULER_H, COLORS, RULER_H, TIME_RULER_H } from "../../metrics";
 import { gridDivAt, gridInfoAt } from "../../grid";
+import { barStartsInRange, beatsPerBarAt } from "../../meter";
+import { lowerBound } from "../../utils/search";
 import {
   bpmSegmentBar,
   bpmSegmentBoundary,
@@ -29,10 +25,11 @@ import {
   MIN_SUB_PX,
   beatStr,
   cappedSnapDiv,
-  effectiveSegments,
   fmtTick,
   visibleRows,
 } from "./geometry";
+import { drawMarkerBloom } from "./bloom";
+import { BEAT_FX_DURATION_MS, BEAT_FX_IDS } from "@shared/beatFx";
 import type { Marker } from "../../types";
 import type { BoxRect, GhostState } from "./types";
 
@@ -48,18 +45,27 @@ export interface DrawScene {
   hover: { x: number; y: number };
 }
 
-// ---- per-track lane glow (same detection as the beat indicator) ----
+// ---- playback effects (same detection as the beat indicator) ----
+// Pulses carry the instant they fired, so an entity that was scrolled out of
+// view when playback crossed it does not replay the effect late on return.
 
-const LANE_GLOW_MS = 100;
-const glowSeqSeen: Record<string, number> = {};
-const glowEndAt: Record<string, number> = {};
+const LANE_GLOW_MS = BEAT_FX_DURATION_MS.laneGlow;
+const MARKER_FLASH_MS = BEAT_FX_DURATION_MS.markerFlash;
+const MARKER_BLOOM_PX = 32;
+const reduceMotion =
+  typeof window !== "undefined" &&
+  typeof window.matchMedia === "function" &&
+  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-/** True while any lane glow is still animating (drives the frame loop). */
-export function hasActiveGlow(): boolean {
-  if (!useUiStore().glowEnabled) return false;
+/** True while any enabled effect is still animating (drives the frame loop). */
+export function hasActiveFx(): boolean {
+  const flags = useSettingsStore().settings.beatFx;
+  const ui = useUiStore();
+  if (!ui.fxMasterOn) return false;
+  const until = ui.fxUntil;
   const now = performance.now();
-  for (const id in glowEndAt) {
-    if ((glowEndAt[id] ?? 0) > now) return true;
+  for (const id of BEAT_FX_IDS) {
+    if (flags[id] && (until[id] ?? 0) > now) return true;
   }
   return false;
 }
@@ -87,6 +93,7 @@ export function draw(scene: DrawScene): void {
   drawLaneBacks(ctx, W, H);
   drawLaneGlow(ctx, W, H);
   drawBpmSegmentFills(ctx, W, H, X);
+  drawLoopRegion(ctx, W, H, X);
   drawGridLines(ctx, W, H, t0, t1, X, endMs);
   drawBpmLaneContent(ctx, W, H, t0, X);
   drawMarkerLanesContent(ctx, W, H, t0, t1, X);
@@ -131,30 +138,62 @@ function drawRulers(
   }
 
   // beat ruler (variable spacing via tempo map)
+  const project = useProjectStore();
+  const segments = project.meterSegments;
   const map = beatOfTime;
   const b0 = Math.floor(map(t0)) - 1;
   const b1 = Math.ceil(map(t1)) + 1;
   const beatY = TIME_RULER_H;
+  ctx.fillStyle = COLORS.gridBeat;
   for (let b = b0; b <= b1; b++) {
     if (b < 0) continue;
-    const tm = timeOfBeat(b);
+    const x = X(timeOfBeat(b));
+    if (x < -4 || x > W + 4) continue;
+    ctx.fillRect(x, beatY, 1, BEAT_RULER_H);
+  }
+  // bar lines and labels follow the active meter (BPM-point overrides allowed)
+  for (const bar of barStartsInRange(segments, b0, b1)) {
+    if (bar.beat < 0) continue;
+    const tm = timeOfBeat(bar.beat);
     const x = X(tm);
     if (x < -4 || x > W + 4) continue;
-    const isBar = b % BEATS_PER_BAR === 0;
-    ctx.fillStyle = isBar ? COLORS.gridBar : COLORS.gridBeat;
-    ctx.fillRect(x, beatY, isBar ? 1.5 : 1, BEAT_RULER_H);
-    if (isBar && (timeOfBeat(b + 1) - tm) * pps > 44) {
+    ctx.fillStyle = COLORS.gridBar;
+    ctx.fillRect(x, beatY, 1.5, BEAT_RULER_H);
+    const perBar = beatsPerBarAt(segments, bar.beat);
+    if ((timeOfBeat(bar.beat + perBar) - tm) * pps > 44) {
       ctx.fillStyle = COLORS.barText;
       ctx.font = "10px Consolas, monospace";
-      ctx.fillText(
-        String(Math.floor(b / BEATS_PER_BAR) + 1),
-        x + 3,
-        beatY + BEAT_RULER_H - 5,
-      );
+      ctx.fillText(String(bar.bar), x + 3, beatY + BEAT_RULER_H - 5);
       ctx.font = "9px Consolas, monospace";
     }
   }
   void endMs;
+}
+
+function drawLoopRegion(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  H: number,
+  X: (t: number) => number,
+): void {
+  const t = useTransportStore();
+  if (!t.loopEnabled || t.loopEndMs <= t.loopStartMs) return;
+  const x0 = X(t.loopStartMs);
+  const x1 = X(t.loopEndMs);
+  if (x1 < 0 || x0 > W || x1 - x0 < 1) return;
+  const left = Math.max(0, x0);
+  const right = Math.min(W, x1);
+  ctx.save();
+  ctx.fillStyle = COLORS.loopFill;
+  ctx.fillRect(left, TIME_RULER_H, right - left, H - TIME_RULER_H);
+  ctx.fillStyle = COLORS.loopEdge;
+  if (x0 >= -2 && x0 <= W + 2) ctx.fillRect(x0, TIME_RULER_H, 2, H - RULER_H);
+  if (x1 >= -2 && x1 <= W + 2)
+    ctx.fillRect(x1 - 2, TIME_RULER_H, 2, H - RULER_H);
+  ctx.font = "9px Consolas, monospace";
+  if (x0 >= 0 && x0 <= W) ctx.fillText("A", x0 + 4, RULER_H - 5);
+  if (x1 >= 0 && x1 <= W) ctx.fillText("B", x1 - 10, RULER_H - 5);
+  ctx.restore();
 }
 
 function drawLaneBacks(
@@ -190,19 +229,17 @@ function drawLaneGlow(
   const view = useViewStore();
   const project = useProjectStore();
   const ui = useUiStore();
-  if (!ui.glowEnabled) return;
+  if (!ui.fxMasterOn || !useSettingsStore().settings.beatFx.laneGlow) return;
   const now = performance.now();
   const rows = visibleRows(H, view.y, project.tracks.length);
+  const pulses = ui.fxPulses.laneGlow;
   for (const r of rows) {
     if (r.bpm) continue;
     const track = project.tracks[r.i];
     if (!track) continue;
-    const seq = ui.glowSeqs[track.id];
-    if (seq !== glowSeqSeen[track.id]) {
-      glowSeqSeen[track.id] = seq;
-      glowEndAt[track.id] = now + LANE_GLOW_MS;
-    }
-    const left = (glowEndAt[track.id] ?? 0) - now;
+    const pulse = pulses[track.id];
+    if (!pulse) continue;
+    const left = pulse.at + LANE_GLOW_MS - now;
     if (left <= 0) continue;
     const k = left / LANE_GLOW_MS;
     ctx.fillStyle = track.color;
@@ -222,7 +259,7 @@ function drawBpmSegmentFills(
   if (!settings.settings.bpmSegmentColors) return;
   const project = useProjectStore();
   if (!project.bpmPoints.length) return;
-  const segs = effectiveSegments(project.baseBpm, project.bpmPoints);
+  const segs = project.tempoMap.segments;
   if (segs.length <= 1) return;
   const view = useViewStore();
   const row = visibleRows(H, view.y, project.tracks.length).find((r) => r.bpm);
@@ -237,13 +274,15 @@ function drawBpmSegmentFills(
   const y0 = row.y;
   const laneH = row.h;
   let lastBoundaryX = -Infinity;
-  for (const s of segs) {
+  for (let si = 0; si < segs.length; si++) {
+    const s = segs[si]!;
     const x0 = X(timeOfBeat(s.beatStart));
     const x1 = s.beatEnd === null ? W + 40 : X(timeOfBeat(s.beatEnd));
     if (x1 <= 0 || x0 >= W) continue;
     const info = gridInfoAt(project.gridSegments, s.beatStart);
     const input = {
       beatStart: s.beatStart,
+      index: si,
       bpm: s.bpm,
       baseBpm: project.baseBpm,
       gridOverride: info.override,
@@ -277,20 +316,19 @@ function drawGridLines(
   endMs: number,
 ): void {
   const view = useViewStore();
+  const project = useProjectStore();
+  const segments = project.meterSegments;
   const b0 = Math.max(0, Math.floor(beatOfTime(t0)) - 1);
   const b1 = Math.ceil(beatOfTime(t1)) + 1;
+  ctx.fillStyle = COLORS.gridBeat;
   for (let b = b0; b <= b1; b++) {
-    const tm = timeOfBeat(b);
-    const x = X(tm);
+    const x = X(timeOfBeat(b));
     if (x < -2 || x > W + 2) continue;
-    const isBar = b % BEATS_PER_BAR === 0;
-    ctx.fillStyle = isBar ? COLORS.gridBar : COLORS.gridBeat;
-    ctx.fillRect(x, RULER_H, isBar ? 1.25 : 1, H - RULER_H);
+    ctx.fillRect(x, RULER_H, 1, H - RULER_H);
   }
   // subdivisions when zoomed & snap on. Each grid region can use a different
   // denominator (BPM-point overrides); auto-hide is applied per region.
   if (view.snapEnabled) {
-    const project = useProjectStore();
     for (const seg of project.gridSegments) {
       const lo = Math.max(seg.beatStart, b0);
       const hi = Math.min(seg.beatEnd ?? b1, b1);
@@ -310,6 +348,14 @@ function drawGridLines(
         ctx.fillRect(x, RULER_H, 1, H - RULER_H);
       }
     }
+  }
+  // bar lines follow the active meter (BPM-point overrides allowed); drawn last
+  // so they sit above the beat and subdivision lines.
+  ctx.fillStyle = COLORS.gridBar;
+  for (const bar of barStartsInRange(segments, b0, b1)) {
+    const x = X(timeOfBeat(bar.beat));
+    if (x < -2 || x > W + 2) continue;
+    ctx.fillRect(x, RULER_H, 1.25, H - RULER_H);
   }
   void endMs;
 }
@@ -417,9 +463,7 @@ function drawBpmLaneContent(
 
   // tempo segment labels (effective map)
   const map = beatOfTime;
-  const segs = project.bpmPoints.length
-    ? effectiveSegments(project.baseBpm, project.bpmPoints)
-    : [];
+  const segs = project.bpmPoints.length ? project.tempoMap.segments : [];
   if (project.bpmPoints.length) {
     ctx.font = "11px Consolas, monospace";
     const floorBeat = Math.max(0, Math.floor(map(t0)));
@@ -465,6 +509,10 @@ function drawMarkerLanesContent(
   const view = useViewStore();
   const project = useProjectStore();
   const selection = useSelectionStore();
+  const ui = useUiStore();
+  const markerFlashOn =
+    ui.fxMasterOn && useSettingsStore().settings.beatFx.markerFlash;
+  const now = performance.now();
   const rows = visibleRows(H, view.y, project.tracks.length).filter(
     (r) => !r.bpm,
   );
@@ -509,6 +557,29 @@ function drawMarkerLanesContent(
       // big diamond marker
       const rr = sel ? 9 : 7;
       drawDiamond(ctx, x, cy, rr);
+      // playback flash: additive brightness over the normal diamond, no scaling.
+      if (markerFlashOn) {
+        const pulse = ui.fxPulses.markerFlash[m.id];
+        const left = pulse ? pulse.at + MARKER_FLASH_MS - now : 0;
+        if (left > 0) {
+          // Hit first, decay after: alpha peaks on the crossing frame and only
+          // falls, and the bloom starts at its widest so nothing ramps up. The
+          // slight inward settle keeps the hit from feeling like a static blob.
+          const p = 1 - left / MARKER_FLASH_MS;
+          const fade = (1 - p) ** 1.15;
+          const coreR = reduceMotion ? rr : rr * (1 + 0.25 * (1 - p));
+          const bloomPx = reduceMotion
+            ? MARKER_BLOOM_PX
+            : MARKER_BLOOM_PX * (1.25 - 0.2 * p);
+          drawMarkerBloom(ctx, x, cy, bloomPx, color, fade);
+          ctx.save();
+          ctx.globalCompositeOperation = "lighter";
+          ctx.globalAlpha = fade;
+          ctx.fillStyle = "#ffffff";
+          drawDiamond(ctx, x, cy, coreR);
+          ctx.restore();
+        }
+      }
       if (inGroup) {
         ctx.strokeStyle = COLORS.markerSelected;
         ctx.lineWidth = 1.5;
@@ -533,14 +604,7 @@ function drawMarkerLanesContent(
 
 /** First index whose marker beat is >= `beat` (list is sorted by beat). */
 function lowerBoundByBeat(list: Marker[], beat: number): number {
-  let lo = 0;
-  let hi = list.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (list[mid]!.beat < beat) lo = mid + 1;
-    else hi = mid;
-  }
-  return lo;
+  return lowerBound(list, (m) => m.beat, beat);
 }
 
 function drawDiamond(

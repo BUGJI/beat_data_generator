@@ -10,8 +10,7 @@ import {
 } from "../../stores/project";
 import { useSelectionStore } from "../../stores/selection";
 import { useSettingsStore } from "../../stores/settings";
-import { formatTime } from "../../services/timeline";
-import { fmtBar } from "./geometry";
+import { fmtBarAtBeat, formatTime } from "../../services/timeline";
 import TimelineMarkerAttrs from "./TimelineMarkerAttrs.vue";
 import type { BpmMode, BpmPoint, Marker } from "../../types";
 import UiButton from "../ui/UiButton.vue";
@@ -88,6 +87,8 @@ const {
   gridOverride,
   gridOptions,
   gridDivModel,
+  meterOverride,
+  meterValue,
 } = useBpmCardModel(selBpm);
 </script>
 
@@ -134,7 +135,8 @@ const {
         />
       </label>
       <div class="pc-sub num">
-        {{ t("prop.asBar") }}: {{ fmtBar(markerBeat) }} · {{ t("prop.time") }}:
+        {{ t("prop.asBar") }}: {{ fmtBarAtBeat(markerBeat) }} ·
+        {{ t("prop.time") }}:
         {{ formatTime(markerTime) }}
       </div>
       <label class="pc-field">
@@ -229,7 +231,8 @@ const {
         />
       </label>
       <div class="pc-sub num">
-        {{ t("prop.asBar") }}: {{ fmtBar(bpmBeat) }} · {{ t("prop.time") }}:
+        {{ t("prop.asBar") }}: {{ fmtBarAtBeat(bpmBeat) }} ·
+        {{ t("prop.time") }}:
         {{ formatTime(bpmTime) }}
       </div>
       <div class="pc-mode">
@@ -294,6 +297,29 @@ const {
           />
         </label>
         <div class="pc-sub">{{ t("prop.gridHint") }}</div>
+      </template>
+      <div class="pc-loop-row">
+        <span class="pc-field-label">{{ t("prop.meterOverride") }}</span>
+        <UiSwitch
+          v-model="meterOverride"
+          :disabled="project.bpmLocked"
+          :aria-label="t('prop.meterOverride')"
+        />
+      </div>
+      <template v-if="meterOverride">
+        <label class="pc-field">
+          <span>{{ t("prop.beatsPerBar") }}</span>
+          <UiNumberInput
+            v-model="meterValue"
+            :min="1"
+            :max="16"
+            :step="1"
+            :precision="0"
+            :disabled="project.bpmLocked"
+            class="w-full"
+          />
+        </label>
+        <div class="pc-sub">{{ t("prop.meterHint") }}</div>
       </template>
     </template>
 
@@ -361,13 +387,6 @@ const {
   background: rgb(var(--bdg-neutral) / 0.12);
   color: var(--bdg-text);
 }
-.pc-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  font-size: var(--bdg-fs-11);
-  color: var(--bdg-text-dim);
-}
 .pc-mode {
   display: flex;
 }
@@ -391,57 +410,6 @@ const {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 8px;
-}
-.pc-attrs {
-  border-top: 1px solid var(--bdg-border);
-  padding-top: 8px;
-  margin-top: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-}
-.pc-attrs-title {
-  font-size: var(--bdg-fs-11);
-  font-weight: 700;
-  color: var(--bdg-text);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.pc-missing-tag {
-  font-size: var(--bdg-fs-9);
-  color: var(--bdg-amber);
-  background: rgb(var(--bdg-amber-rgb) / 0.14);
-  padding: 1px 6px;
-  border-radius: var(--bdg-radius-sm);
-  text-transform: none;
-  letter-spacing: 0;
-  font-weight: 600;
-}
-.pc-missing {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  color: var(--bdg-text-dim);
-  font-size: var(--bdg-fs-11);
-}
-.pc-raw {
-  margin: 0;
-  padding: 6px;
-  background: rgb(var(--bdg-neutral) / 0.06);
-  border: 1px solid var(--bdg-border);
-  border-radius: var(--bdg-radius, 6px);
-  max-height: 120px;
-  overflow: auto;
-  font-size: var(--bdg-fs-10);
-  white-space: pre-wrap;
-  word-break: break-word;
-  color: var(--bdg-text);
-}
-.pc-enum {
-  width: 100%;
 }
 .pc-stepper {
   display: flex;
