@@ -1,8 +1,11 @@
-import { computed, nextTick, ref, type Ref } from "vue";
+import { computed, nextTick, ref, watch, type Ref } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
-import type { CatKey, SearchEntry } from "./types";
+import { CAT_ORDER, type CatKey, type SearchEntry } from "./types";
 import { useSettingsRowsStore } from "./useSettingsRows";
+import { animationsEnabled } from "../../services/motion";
+
+type Hit = SearchEntry & { label: string; desc: string };
 
 /**
  * Settings search: builds the result list from the declarative row index and
@@ -20,6 +23,7 @@ export function useSettingsSearch(opts: {
   const { t, te } = useI18n();
 
   const search = ref("");
+  const activeIndex = ref(0);
 
   function catLabel(key: string): string {
     return t(`settings.cats.${key}`);
@@ -32,12 +36,10 @@ export function useSettingsSearch(opts: {
   /** Normalized query, reused by matching and highlighting. */
   const searchQuery = computed(() => search.value.trim().toLowerCase());
 
-  const searchResults = computed<
-    Array<SearchEntry & { label: string; desc: string }>
-  >(() => {
+  const searchResults = computed<Hit[]>(() => {
     const q = searchQuery.value;
     if (!q) return [];
-    const hits: Array<SearchEntry & { label: string; desc: string }> = [];
+    const hits: Hit[] = [];
     for (const entry of rows.searchIndex) {
       if (simpleMode.value && entry.expert) continue;
       const key = labelKeyOf(entry);
@@ -57,6 +59,50 @@ export function useSettingsSearch(opts: {
     return hits;
   });
 
+  /** Results ordered by the navigation grouping, then grouped for display. */
+  const orderedResults = computed<Hit[]>(() => {
+    const rank = new Map(CAT_ORDER.map((cat, index) => [cat, index]));
+    return [...searchResults.value].sort(
+      (a, b) => (rank.get(a.cat) ?? 0) - (rank.get(b.cat) ?? 0),
+    );
+  });
+
+  const searchGroups = computed<
+    Array<{
+      cat: CatKey;
+      label: string;
+      hits: Array<{ hit: Hit; index: number }>;
+    }>
+  >(() => {
+    const groups: Array<{
+      cat: CatKey;
+      label: string;
+      hits: Array<{ hit: Hit; index: number }>;
+    }> = [];
+    let index = 0;
+    for (const hit of orderedResults.value) {
+      let group = groups[groups.length - 1];
+      if (!group || group.cat !== hit.cat) {
+        group = { cat: hit.cat, label: catLabel(hit.cat), hits: [] };
+        groups.push(group);
+      }
+      group.hits.push({ hit, index });
+      index += 1;
+    }
+    return groups;
+  });
+
+  watch(searchQuery, () => {
+    activeIndex.value = 0;
+  });
+  watch(
+    () => searchResults.value.length,
+    (length) => {
+      if (activeIndex.value >= length)
+        activeIndex.value = Math.max(0, length - 1);
+    },
+  );
+
   /** Split `text` into segments so the matched query can be marked in the list. */
   function highlightParts(
     text: string,
@@ -73,6 +119,30 @@ export function useSettingsSearch(opts: {
     return parts;
   }
 
+  function scrollResultIntoView(index: number): void {
+    void nextTick(() => {
+      document
+        .getElementById(`settings-hit-${index}`)
+        ?.scrollIntoView({ block: "nearest" });
+    });
+  }
+
+  function setActive(index: number): void {
+    const last = orderedResults.value.length - 1;
+    if (last < 0) {
+      activeIndex.value = 0;
+      return;
+    }
+    activeIndex.value = Math.min(Math.max(index, 0), last);
+    scrollResultIntoView(activeIndex.value);
+  }
+
+  function moveActive(delta: number): void {
+    const count = orderedResults.value.length;
+    if (!count) return;
+    setActive((activeIndex.value + delta + count) % count);
+  }
+
   function goToSetting(hit: SearchEntry & { label: string }): void {
     opts.cat.value = hit.cat;
     if (hit.cat === "theme") {
@@ -83,6 +153,8 @@ export function useSettingsSearch(opts: {
       rows.setSubCat(hit.cat, hit.group);
     }
     search.value = "";
+    opts.searchEl.value?.focus();
+    if (hit.page) return;
     void nextTick(() => {
       // Prefer explicit `data-search` targets (preset cards, metronome chips…);
       // fall back to matching a regular field row by its visible text.
@@ -95,7 +167,7 @@ export function useSettingsSearch(opts: {
         if (label.includes(hit.label)) {
           row.scrollIntoView({
             block: "center",
-            behavior: uiMotion.value ? "smooth" : "auto",
+            behavior: uiMotion.value && animationsEnabled() ? "smooth" : "auto",
           });
           row.classList.add("search-hit");
           window.setTimeout(() => row.classList.remove("search-hit"), 1600);
@@ -105,18 +177,32 @@ export function useSettingsSearch(opts: {
     });
   }
 
-  function onSearchEnter(): void {
-    const first = searchResults.value[0];
-    if (first) goToSetting(first);
+  function onSearchKeydown(e: KeyboardEvent): void {
+    // Do not hijack keys while an IME composition is active (notably CJK).
+    if (e.isComposing || e.keyCode === 229) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      moveActive(1);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      moveActive(-1);
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      const hit = orderedResults.value[activeIndex.value];
+      if (hit) goToSetting(hit);
+    }
   }
 
   return {
     search,
     searchQuery,
     searchResults,
+    orderedResults,
+    searchGroups,
+    activeIndex,
     highlightParts,
     goToSetting,
-    onSearchEnter,
+    onSearchKeydown,
     catLabel,
   };
 }

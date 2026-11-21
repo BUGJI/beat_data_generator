@@ -1,5 +1,7 @@
 import { computed, onScopeDispose, ref, watch, type Ref } from "vue";
 import { hexToRgb, type resolveTheme } from "../../theme";
+import { motionMs } from "../../services/motion";
+import { useSettingsStore } from "../../stores/settings";
 import { useUiStore } from "../../stores/ui";
 
 /**
@@ -11,7 +13,7 @@ import { useUiStore } from "../../stores/ui";
  * loop writing to a disposed store.
  */
 
-const FLASH_MS = 100;
+const BASE_FLASH_MS = 100;
 
 type ThemeSpec = ReturnType<typeof resolveTheme>;
 
@@ -28,15 +30,21 @@ function flashStyle(
   };
 }
 
-function makeFlash(source: () => number) {
+function makeFlash(source: () => number, durationMs: () => number) {
   const intensity = ref(0);
   let start = 0;
+  let dur = 0;
   let raf = 0;
   watch(source, () => {
-    start = performance.now();
     cancelAnimationFrame(raf);
+    dur = durationMs();
+    if (dur <= 0) {
+      intensity.value = 0;
+      return;
+    }
+    start = performance.now();
     const step = (): void => {
-      const k = Math.max(0, 1 - (performance.now() - start) / FLASH_MS);
+      const k = Math.max(0, 1 - (performance.now() - start) / dur);
       intensity.value = k;
       if (k > 0) raf = requestAnimationFrame(step);
     };
@@ -48,8 +56,10 @@ function makeFlash(source: () => number) {
 
 export function useBeatFlash(themeSpec: Ref<ThemeSpec>) {
   const ui = useUiStore();
-  const beat = makeFlash(() => ui.beatPulse);
-  const overlap = makeFlash(() => ui.overlapPulse);
+  const pulseDuration = (): number =>
+    useSettingsStore().settings.beatPulse ? motionMs(BASE_FLASH_MS) : 0;
+  const beat = makeFlash(() => ui.beatPulse, pulseDuration);
+  const overlap = makeFlash(() => ui.overlapPulse, pulseDuration);
 
   const overlapColor = computed(() => {
     const n = ui.overlapCount;

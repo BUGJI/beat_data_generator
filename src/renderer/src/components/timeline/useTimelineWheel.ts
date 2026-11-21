@@ -3,6 +3,7 @@ import { useSettingsStore } from "../../stores/settings";
 import { setScroll, screenToTime, useViewStore } from "../../stores/view";
 import { MAX_PX_PER_SEC, MIN_PX_PER_SEC } from "../../metrics";
 import { holdFollow } from "../../services/follow";
+import { motionMs } from "../../services/motion";
 
 const ANIM_MS = 100;
 
@@ -38,7 +39,8 @@ export function useTimelineWheel() {
   function onWheel(e: WheelEvent): void {
     e.preventDefault();
     holdFollow();
-    const anim = settings.settings.animEnabled;
+    const duration = motionMs(ANIM_MS);
+    const anim = settings.settings.animEnabled && duration > 0;
     if (e.ctrlKey || e.metaKey) {
       // zoom anchored on the pointer so the time under the cursor stays put
       const root = e.currentTarget as HTMLElement | null;
@@ -47,11 +49,12 @@ export function useTimelineWheel() {
         ? Math.min(view.vw, Math.max(0, e.clientX - rect.left))
         : view.vw / 2;
       const from = view.pxPerSec;
+      const zoomStep = settings.settings.wheelZoomStep;
       const target = Math.min(
         MAX_PX_PER_SEC,
         Math.max(
           MIN_PX_PER_SEC,
-          view.pxPerSec * (e.deltaY < 0 ? 1.25 : 1 / 1.25),
+          view.pxPerSec * (e.deltaY < 0 ? zoomStep : 1 / zoomStep),
         ),
       );
       const tc = screenToTime(cx); // time currently at the viewport centre
@@ -60,7 +63,7 @@ export function useTimelineWheel() {
         view.pxPerSec = p;
         setScroll(Math.max(0, (tc / 1000) * p - cx), view.y);
       };
-      if (anim) animWheel(ANIM_MS, applyZoom);
+      if (anim) animWheel(duration, applyZoom);
       else {
         view.pxPerSec = target;
         setScroll(Math.max(0, (tc / 1000) * target - cx), view.y);
@@ -74,7 +77,7 @@ export function useTimelineWheel() {
       const y0 = view.y;
       const x1 = x0 + (dx || 0);
       const y1 = y0 + dy;
-      animWheel(ANIM_MS, (k) => {
+      animWheel(duration, (k) => {
         setScroll(x0 + (x1 - x0) * k, y0 + (y1 - y0) * k);
       });
     } else {

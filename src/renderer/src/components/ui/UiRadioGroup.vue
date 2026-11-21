@@ -15,7 +15,7 @@ const model = defineModel<string>({ required: true });
   <RadioGroupRoot
     v-model="model"
     :disabled="disabled"
-    class="inline-flex rounded-ui border border-line bg-sunken p-0.5"
+    class="inline-flex flex-wrap gap-0.5 rounded-ui border border-line bg-sunken p-0.5"
   >
     <RadioGroupItem
       v-for="o in options"

@@ -12,10 +12,12 @@ import { useViewStore, setScroll, setViewport } from "../../stores/view";
 import { RULER_H } from "../../metrics";
 import { engine } from "../../engine";
 import {
+  FOLLOW_TAU_MS,
   followDecision,
   isFollowHeld,
   smoothScrollX,
 } from "../../services/follow";
+import { motionMs } from "../../services/motion";
 import { draw, hasActiveFx, type DrawScene } from "./renderer";
 
 /**
@@ -87,12 +89,14 @@ export function useTimelineCanvas(opts: {
         });
         transport.followActive = decision.active;
         if (decision.targetX !== null) {
+          const tau = motionMs(FOLLOW_TAU_MS);
           setScroll(
             smoothScrollX(
               view.x,
               decision.targetX,
               dt,
-              settings.settings.animEnabled,
+              settings.settings.followSmooth && tau > 0,
+              tau,
             ),
             view.y,
           );

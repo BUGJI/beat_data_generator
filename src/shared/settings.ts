@@ -46,6 +46,19 @@ const intInRange = (
       policy.free ? v : Math.min(max, Math.max(min, Math.round(v))),
     );
 
+/** Decimal clamped into [min, max] with a safe fallback (bypassed by free input). */
+const numInRange = (
+  policy: NumberPolicy,
+  def: number,
+  min: number,
+  max: number,
+) =>
+  z.coerce
+    .number()
+    .catch(def)
+    .default(def)
+    .transform((v) => (policy.free ? v : Math.min(max, Math.max(min, v))));
+
 export const CloseModeSchema = z.enum(["ask", "minimize", "close"]);
 
 /** UI language preference; "auto" follows the OS/browser language. */
@@ -80,6 +93,16 @@ export type ProxyMode = z.infer<typeof ProxyModeSchema>;
 export const AlignRoundingSchema = z.enum(["round", "floor", "ceil"]);
 export type AlignRounding = z.infer<typeof AlignRoundingSchema>;
 
+/**
+ * Step used by the keyboard nudge shortcuts: "grid" follows the active grid
+ * subdivision, otherwise the value is a beat subdivision denominator (1/N).
+ */
+export const NudgeStepSchema = z
+  .enum(["grid", "1", "2", "4", "8", "16", "32"])
+  .catch("grid")
+  .default("grid");
+export type NudgeStep = z.infer<typeof NudgeStepSchema>;
+
 /** How the background image fills the window. */
 export const BackgroundFitSchema = z
   .enum(["cover", "contain", "tile"])
@@ -93,6 +116,23 @@ export const StretchEngineSchema = z
   .catch("signalsmith")
   .default("signalsmith");
 export type StretchEngine = z.infer<typeof StretchEngineSchema>;
+
+/** Global animation duration tier (slow = longer, fast = shorter). */
+export const MotionSpeedSchema = z
+  .enum(["slow", "normal", "fast"])
+  .catch("normal")
+  .default("normal");
+export type MotionSpeed = z.infer<typeof MotionSpeedSchema>;
+
+/**
+ * How to honour the OS "reduce motion" preference: "system" follows it,
+ * "on" always reduces, "off" ignores it (explicit opt-in to full motion).
+ */
+export const ReduceMotionSchema = z
+  .enum(["system", "on", "off"])
+  .catch("system")
+  .default("system");
+export type ReduceMotion = z.infer<typeof ReduceMotionSchema>;
 
 const createSettingsSchema = (policy: NumberPolicy) =>
   z.object({
@@ -115,9 +155,24 @@ const createSettingsSchema = (policy: NumberPolicy) =>
     stretchEngine: StretchEngineSchema,
     /** Retained budget (MB) for cached pitch-preserving stretch buffers. */
     stretchCacheMb: intInRange(policy, 256, 32, 4096),
+    /** animate timeline zoom/pan and wheel scrolling. */
     animEnabled: bool(true),
-    /** animate UI surfaces (settings drawer/overlay, toasts, etc.). */
+    /** smoothly ease the viewport while playback follow moves it. */
+    followSmooth: bool(true),
+    /** animate the settings panel (drawer/overlay) and other panel transitions. */
     uiMotion: bool(true),
+    /** crossfade color tokens when the theme changes. */
+    themeCrossfade: bool(true),
+    /** animate transient surfaces (menus, toasts, panels, notes, glows). */
+    menuMotion: bool(true),
+    /** master switch for the checked playback beat effects. */
+    beatFxMaster: bool(true),
+    /** pulse the project-bar beat / overlap indicator lights. */
+    beatPulse: bool(true),
+    /** global animation duration tier. */
+    motionSpeed: MotionSpeedSchema,
+    /** OS reduce-motion handling. */
+    reduceMotion: ReduceMotionSchema,
     /** overall UI zoom in percent (75–150); applied via Electron page zoom. */
     uiZoom: intInRange(policy, 100, 75, 150),
     /** text scale in percent (85–150); multiplies every UI font size. */
@@ -198,6 +253,39 @@ const createSettingsSchema = (policy: NumberPolicy) =>
     showWelcome: bool(true),
     autoSave: bool(true),
     autoSaveMinutes: intInRange(policy, 5, 1, 60),
+    /** default beat-grid subdivision for a newly created project (1/N). */
+    defaultGridDiv: intInRange(policy, 4, 1, 64),
+    /** start each session with grid snapping enabled. */
+    snapByDefault: bool(true),
+    /** start each session with magnet snapping enabled. */
+    magnetByDefault: bool(true),
+    /** magnet snap distance in screen pixels. */
+    magnetThresholdPx: intInRange(policy, 9, 4, 24),
+    /** which entities the magnet may snap to. */
+    magnetMarkers: bool(true),
+    magnetPlayhead: bool(true),
+    magnetLoopEdges: bool(true),
+    magnetNotes: bool(true),
+    /** select a marker right after it is placed. */
+    selectAfterPlace: bool(false),
+    /** open the property card right after placing a marker. */
+    openCardAfterPlace: bool(false),
+    /** start each session in quick draw/erase mode. */
+    quickPlaceByDefault: bool(false),
+    /** start each session with time alignment enabled. */
+    timeAlignByDefault: bool(false),
+    /** keyboard nudge step: follow the grid or a fixed 1/N beat subdivision. */
+    nudgeStep: NudgeStepSchema,
+    /** start each session with pitch-preserving speed changes. */
+    pitchFollowByDefault: bool(true),
+    /** default playback rate (1 = normal speed). */
+    defaultRate: numInRange(policy, 1, 0.05, 4),
+    /** initial timeline zoom in px per second for a new session. */
+    defaultZoom: intInRange(policy, 90, 6, 4000),
+    /** wheel zoom multiplier per notch (Ctrl/Cmd + wheel). */
+    wheelZoomStep: numInRange(policy, 1.25, 1.05, 2),
+    /** maximum undo steps kept in memory. */
+    undoLimit: intInRange(policy, 100, 20, 1000),
     /** hold Ctrl when pressing Space to play at the current rate; plain Space plays at 1x. */
     ctrlSpeedPlay: bool(false),
     /** bars of metronome count-in before playback starts (0 = disabled). */

@@ -5,6 +5,7 @@ import type { CatKey, GroupDef, RowDef } from "./types";
 import { customRowComponent } from "./custom";
 import { visualPreviewFor } from "./previews";
 import SettingsFieldRow from "./SettingsFieldRow.vue";
+import SettingsPage from "./SettingsPage.vue";
 import SettingsSubnav from "./SettingsSubnav.vue";
 
 const props = defineProps<{
@@ -22,7 +23,6 @@ const groupItems = computed(() =>
   props.groups.map((g) => ({
     key: g.key,
     label: t(`settings.subcats.${props.catKey}.${g.key}`),
-    icon: g.icon,
   })),
 );
 
@@ -38,78 +38,59 @@ function rowKey(row: RowDef): string {
 </script>
 
 <template>
-  <section :class="{ 'has-preview': !!preview }">
-    <h3>{{ t(`settings.cats.${catKey}`) }}</h3>
-    <SettingsSubnav
-      v-if="groups.length > 1"
-      :items="groupItems"
-      :model-value="activeGroup"
-      :aria-label="t(`settings.cats.${catKey}`)"
-      @update:model-value="emit('selectGroup', $event)"
-    />
-    <div class="cat-split" :class="{ split: !!preview }">
-      <div class="cat-main">
-        <template v-for="row in rows" :key="rowKey(row)">
-          <div v-if="row.kind === 'subhead'" class="sub-head">
-            {{ t(`settings.${catKey}.${row.key}`) }}
-          </div>
+  <SettingsPage
+    :title="t(`settings.cats.${catKey}`)"
+    :wide="!!preview"
+    :has-aside="!!preview"
+  >
+    <template v-if="groups.length > 1" #subnav>
+      <SettingsSubnav
+        :items="groupItems"
+        :model-value="activeGroup"
+        :aria-label="t(`settings.cats.${catKey}`)"
+        @update:model-value="emit('selectGroup', $event)"
+      />
+    </template>
 
-          <component
-            :is="customRowComponent(row.id)"
-            v-else-if="row.kind === 'custom'"
-          />
-
-          <SettingsFieldRow
-            v-else-if="row.kind === 'field'"
-            :label="t(`settings.${catKey}.${row.key}`)"
-            :desc="
-              te(`settings.${catKey}.${row.key}Desc`)
-                ? t(`settings.${catKey}.${row.key}Desc`)
-                : undefined
-            "
-            :unit="
-              row.control.type === 'number' && row.control.unitKey
-                ? t(`settings.${catKey}.${row.control.unitKey}`)
-                : undefined
-            "
-            :col="row.col"
-            :show-if="row.showIf"
-            :control="row.control"
-          />
-        </template>
+    <template v-for="row in rows" :key="rowKey(row)">
+      <div v-if="row.kind === 'subhead'" class="sub-head">
+        {{ t(`settings.${catKey}.${row.key}`) }}
       </div>
 
-      <aside v-if="preview" class="cat-preview">
-        <div class="sub-head">{{ t("settings.preview.title") }}</div>
-        <component :is="preview" :cat="catKey" />
-        <p class="muted cat-preview-hint">{{ t("settings.preview.hint") }}</p>
-      </aside>
-    </div>
-  </section>
+      <component
+        :is="customRowComponent(row.id)"
+        v-else-if="row.kind === 'custom'"
+      />
+
+      <SettingsFieldRow
+        v-else-if="row.kind === 'field'"
+        :label="t(`settings.${catKey}.${row.key}`)"
+        :desc="
+          te(`settings.${catKey}.${row.key}Desc`)
+            ? t(`settings.${catKey}.${row.key}Desc`)
+            : undefined
+        "
+        :unit="
+          row.control.type === 'number' && row.control.unitKey
+            ? t(`settings.${catKey}.${row.control.unitKey}`)
+            : undefined
+        "
+        :col="row.col"
+        :show-if="row.showIf"
+        :control="row.control"
+      />
+    </template>
+
+    <template v-if="preview" #aside>
+      <div class="sub-head">{{ t("settings.preview.title") }}</div>
+      <component :is="preview" :cat="catKey" />
+      <p class="muted preview-hint">{{ t("settings.preview.hint") }}</p>
+    </template>
+  </SettingsPage>
 </template>
 
 <style scoped>
-.cat-split.split {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 20px;
-}
-.cat-main {
-  flex: 1 1 380px;
-  min-width: 0;
-}
-.cat-split:not(.split) .cat-main {
-  width: 100%;
-}
-.cat-preview {
-  flex: 1 1 220px;
-  max-width: 320px;
-  min-width: 0;
-  position: sticky;
-  top: 0;
-}
-.cat-preview-hint {
+.preview-hint {
   margin: 8px 0 0;
 }
 </style>

@@ -26,6 +26,7 @@ import {
   useTransportStore,
   disableFollowOnScrub,
 } from "../../stores/transport";
+import { useSettingsStore } from "../../stores/settings";
 import { useUiStore } from "../../stores/ui";
 import {
   screenToTime,
@@ -90,6 +91,7 @@ export function useTimelineGestures(opts: {
   const selection = useSelectionStore();
   const view = useViewStore();
   const ui = useUiStore();
+  const settings = useSettingsStore();
   const { hitMarkerAt, hitBpmAt } = useTimelineHitTest();
 
   let mode: Mode = "idle";
@@ -487,8 +489,10 @@ export function useTimelineGestures(opts: {
           const raw = Math.max(0, beatOfTime(screenToTime(x)));
           const beat =
             magnetBeat(x) ?? doSnap(raw, view.snapEnabled, gridDivAtBeat(raw));
-          addMarker(track.id, beat);
-          // no popup on placement; click the marker again to open its card
+          const placed = addMarker(track.id, beat);
+          const st = settings.settings;
+          if (placed && st.selectAfterPlace) selectSingleMarker(placed.id);
+          if (placed && st.openCardAfterPlace) opts.openCard(x, y);
         }
       } else if (mode === "dragBpm") {
         opts.openCard(x, y);

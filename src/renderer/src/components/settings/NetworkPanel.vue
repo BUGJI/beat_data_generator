@@ -10,6 +10,7 @@ import {
   type PingResult,
 } from "@shared/network";
 import type { ProxyMode } from "@shared/settings";
+import SettingsPage from "./SettingsPage.vue";
 import UiButton from "../ui/UiButton.vue";
 import UiInput from "../ui/UiInput.vue";
 import UiRadioGroup from "../ui/UiRadioGroup.vue";
@@ -111,9 +112,7 @@ async function testProxies(): Promise<void> {
 </script>
 
 <template>
-  <section>
-    <h3>{{ t("settings.cats.network") }}</h3>
-
+  <SettingsPage :title="t('settings.cats.network')">
     <div class="field-row col">
       <div class="field-info">
         <span class="field-name">{{ t("settings.network.proxy") }}</span>
@@ -194,7 +193,7 @@ async function testProxies(): Promise<void> {
         </UiButton>
       </div>
     </div>
-  </section>
+  </SettingsPage>
 </template>
 
 <style scoped>

@@ -101,6 +101,14 @@ function selectAdjacentMarker(dir: 1 | -1): void {
   seekTo(timeOfBeat(target.beat));
 }
 
+/** Beat step for the keyboard nudge at `beat` (grid-following or fixed 1/N). */
+function nudgeStepAt(beat: number): number {
+  const mode = settings.settings.nudgeStep;
+  if (mode === "grid") return 1 / gridDivAtBeat(beat);
+  const div = Number(mode);
+  return Number.isFinite(div) && div > 0 ? 1 / div : 1 / gridDivAtBeat(beat);
+}
+
 function nudgeSelectedMarkers(delta: number): void {
   const markers = markerSelectionIds()
     .map((id) => findMarker(id))
@@ -337,7 +345,7 @@ function onKeydown(e: KeyboardEvent): void {
   if (sel.kind === "marker") {
     const m = findMarker(sel.id);
     if (!m) return;
-    const step = 1 / gridDivAtBeat(m.beat);
+    const step = nudgeStepAt(m.beat);
     if (hit("deleteSel")) {
       e.preventDefault();
       const before = project.markers.length;
@@ -355,7 +363,7 @@ function onKeydown(e: KeyboardEvent): void {
   } else if (sel.kind === "bpm") {
     const p = findBpmPoint(sel.id);
     if (!p) return;
-    const step = 1 / gridDivAtBeat(p.beat);
+    const step = nudgeStepAt(p.beat);
     if (hit("deleteSel")) {
       e.preventDefault();
       if (removeBpmPoint(p.id)) {

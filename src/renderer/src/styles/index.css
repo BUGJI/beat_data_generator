@@ -1,3 +1,4 @@
+/* biome-ignore-all lint/complexity/noImportantStyles: the app-level reduce-motion rule must override scoped component transitions */
 :root {
   /* Surfaces */
   --bdg-bg: #0e1116;
@@ -190,11 +191,24 @@ html.theme-anim *,
 html.theme-anim *::before,
 html.theme-anim *::after {
   transition:
-    background-color 0.28s ease,
-    border-color 0.28s ease,
-    color 0.28s ease,
-    fill 0.28s ease,
-    stroke 0.28s ease;
+    background-color calc(0.28s * var(--bdg-theme-motion-scale, 1)) ease,
+    border-color calc(0.28s * var(--bdg-theme-motion-scale, 1)) ease,
+    color calc(0.28s * var(--bdg-theme-motion-scale, 1)) ease,
+    fill calc(0.28s * var(--bdg-theme-motion-scale, 1)) ease,
+    stroke calc(0.28s * var(--bdg-theme-motion-scale, 1)) ease;
+}
+
+/* App-level "reduce motion" (independent of the OS preference) collapses every
+   CSS transition and animation, including utility-class micro transitions. */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  transition-duration: 0s !important;
+  transition-delay: 0s !important;
+  animation-duration: 0s !important;
+  animation-delay: 0s !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
 }
 
 @media (prefers-reduced-motion: reduce) {

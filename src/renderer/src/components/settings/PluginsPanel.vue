@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import {
   pluginDescription,
@@ -11,6 +11,8 @@ import {
 } from "../../plugins/host";
 import { useMarketplaceStore } from "./useMarketplace";
 import type { PluginEntry } from "@shared/plugin";
+import SettingsPage from "./SettingsPage.vue";
+import SettingsSubnav from "./SettingsSubnav.vue";
 import UiButton from "../ui/UiButton.vue";
 import UiInput from "../ui/UiInput.vue";
 import UiSelect from "../ui/UiSelect.vue";
@@ -18,6 +20,11 @@ import UiSwitch from "../ui/UiSwitch.vue";
 
 const { t } = useI18n();
 const market = useMarketplaceStore();
+
+const pluginSubs = computed(() => [
+  { key: "installed", label: t("settings.plugins.subInstalled") },
+  { key: "market", label: t("settings.plugins.subMarket") },
+]);
 
 const pluginBusy = ref<string | null>(null);
 const pluginsLoading = ref(false);
@@ -55,24 +62,15 @@ watch(
 </script>
 
 <template>
-  <section>
-    <h3>{{ t("settings.plugins.title") }}</h3>
-    <nav class="subnav">
-      <button
-        class="subnav-item"
-        :class="{ active: market.tab === 'installed' }"
-        @click="market.tab = 'installed'"
-      >
-        {{ t("settings.plugins.subInstalled") }}
-      </button>
-      <button
-        class="subnav-item"
-        :class="{ active: market.tab === 'market' }"
-        @click="market.tab = 'market'"
-      >
-        {{ t("settings.plugins.subMarket") }}
-      </button>
-    </nav>
+  <SettingsPage :title="t('settings.plugins.title')" wide>
+    <template #subnav>
+      <SettingsSubnav
+        :items="pluginSubs"
+        :model-value="market.tab"
+        :aria-label="t('settings.plugins.title')"
+        @update:model-value="market.tab = $event as 'installed' | 'market'"
+      />
+    </template>
 
     <div v-show="market.tab === 'installed'">
       <div class="plugin-tools">
@@ -182,111 +180,113 @@ watch(
         {{ t("settings.plugins.marketNoMatch") }}
       </p>
 
-      <div v-for="p in market.filtered" :key="p.id" class="plugin-card">
-        <div class="plugin-main">
-          <div class="plugin-titles">
-            <span class="plugin-name">
-              <span class="plugin-name-text">{{ market.name(p) }}</span>
-              <span class="plugin-ver num">v{{ p.latest }}</span>
-              <span
-                v-if="p.installedVersion && p.updateAvailable"
-                class="badge warn"
-              >
-                {{ t("settings.plugins.badgeUpdate") }}
+      <div class="plugin-grid">
+        <div v-for="p in market.filtered" :key="p.id" class="plugin-card">
+          <div class="plugin-main">
+            <div class="plugin-titles">
+              <span class="plugin-name">
+                <span class="plugin-name-text">{{ market.name(p) }}</span>
+                <span class="plugin-ver num">v{{ p.latest }}</span>
+                <span
+                  v-if="p.installedVersion && p.updateAvailable"
+                  class="badge warn"
+                >
+                  {{ t("settings.plugins.badgeUpdate") }}
+                </span>
+                <span v-else-if="p.installedVersion" class="badge">
+                  {{ t("settings.plugins.badgeInstalled") }}
+                </span>
               </span>
-              <span v-else-if="p.installedVersion" class="badge">
-                {{ t("settings.plugins.badgeInstalled") }}
+              <span class="plugin-desc">{{ market.desc(p) }}</span>
+              <span class="plugin-sub muted">
+                <template v-if="p.author">{{ p.author }}</template>
+                <template v-for="c in p.categories" :key="c">
+                  · {{ market.categoryLabel(c) }}
+                </template>
+                <template v-if="p.installedVersion">
+                  ·
+                  {{
+                    t("settings.plugins.installedVer", {
+                      version: p.installedVersion,
+                    })
+                  }}
+                </template>
               </span>
-            </span>
-            <span class="plugin-desc">{{ market.desc(p) }}</span>
-            <span class="plugin-sub muted">
-              <template v-if="p.author">{{ p.author }}</template>
-              <template v-for="c in p.categories" :key="c">
-                · {{ market.categoryLabel(c) }}
-              </template>
-              <template v-if="p.installedVersion">
-                ·
-                {{
-                  t("settings.plugins.installedVer", {
-                    version: p.installedVersion,
-                  })
-                }}
-              </template>
-            </span>
-          </div>
-          <div class="plugin-meta">
-            <template v-if="market.busy === p.id">
-              <span class="plugin-ver num">
-                {{ market.phaseText(market.progress[p.id]) }}
-              </span>
-              <div
-                v-if="market.percent(market.progress[p.id]) !== null"
-                class="progress-track"
-              >
+            </div>
+            <div class="plugin-meta">
+              <template v-if="market.busy === p.id">
+                <span class="plugin-ver num">
+                  {{ market.phaseText(market.progress[p.id]) }}
+                </span>
                 <div
-                  class="progress-fill"
-                  :style="{
-                    width: `${market.percent(market.progress[p.id])}%`,
-                  }"
-                />
-              </div>
-            </template>
-            <template v-else-if="market.trustFor === p.id">
-              <UiButton size="sm" variant="solid" @click="market.install(p)">
-                {{ t("settings.plugins.trustConfirm") }}
-              </UiButton>
-              <UiButton size="sm" @click="market.trustFor = null">
-                {{ t("settings.plugins.trustCancel") }}
-              </UiButton>
-            </template>
-            <template v-else>
-              <span
-                v-if="!p.compatible"
-                class="plugin-ver"
-                :title="
-                  t('settings.plugins.requiresApp', {
-                    version: p.minAppVersion,
-                  })
-                "
-              >
-                {{ t("settings.plugins.incompatible") }}
-              </span>
-              <UiButton
-                v-else-if="market.action(p) === 'install'"
-                size="sm"
-                variant="solid"
-                @click="market.trustFor = p.id"
-              >
-                {{ t("settings.plugins.install") }}
-              </UiButton>
-              <UiButton
-                v-else-if="market.action(p) === 'update'"
-                size="sm"
-                variant="solid"
-                @click="market.trustFor = p.id"
-              >
-                {{ t("settings.plugins.update") }}
-              </UiButton>
-              <button
-                v-if="market.action(p) === 'installed' && p.managed"
-                class="link-btn"
-                @click="market.uninstall(p)"
-              >
-                {{ t("settings.plugins.uninstall") }}
-              </button>
-            </template>
+                  v-if="market.percent(market.progress[p.id]) !== null"
+                  class="progress-track"
+                >
+                  <div
+                    class="progress-fill"
+                    :style="{
+                      width: `${market.percent(market.progress[p.id])}%`,
+                    }"
+                  />
+                </div>
+              </template>
+              <template v-else-if="market.trustFor === p.id">
+                <UiButton size="sm" variant="solid" @click="market.install(p)">
+                  {{ t("settings.plugins.trustConfirm") }}
+                </UiButton>
+                <UiButton size="sm" @click="market.trustFor = null">
+                  {{ t("settings.plugins.trustCancel") }}
+                </UiButton>
+              </template>
+              <template v-else>
+                <span
+                  v-if="!p.compatible"
+                  class="plugin-ver"
+                  :title="
+                    t('settings.plugins.requiresApp', {
+                      version: p.minAppVersion,
+                    })
+                  "
+                >
+                  {{ t("settings.plugins.incompatible") }}
+                </span>
+                <UiButton
+                  v-else-if="market.action(p) === 'install'"
+                  size="sm"
+                  variant="solid"
+                  @click="market.trustFor = p.id"
+                >
+                  {{ t("settings.plugins.install") }}
+                </UiButton>
+                <UiButton
+                  v-else-if="market.action(p) === 'update'"
+                  size="sm"
+                  variant="solid"
+                  @click="market.trustFor = p.id"
+                >
+                  {{ t("settings.plugins.update") }}
+                </UiButton>
+                <button
+                  v-if="market.action(p) === 'installed' && p.managed"
+                  class="link-btn"
+                  @click="market.uninstall(p)"
+                >
+                  {{ t("settings.plugins.uninstall") }}
+                </button>
+              </template>
+            </div>
           </div>
+          <div v-if="market.trustFor === p.id" class="trust-box">
+            <strong>{{ t("settings.plugins.trustTitle") }}</strong>
+            <span>
+              {{ t("settings.plugins.trustBody", { name: market.name(p) }) }}
+            </span>
+          </div>
+          <div class="plugin-dir num">{{ p.repo || p.id }}</div>
         </div>
-        <div v-if="market.trustFor === p.id" class="trust-box">
-          <strong>{{ t("settings.plugins.trustTitle") }}</strong>
-          <span>
-            {{ t("settings.plugins.trustBody", { name: market.name(p) }) }}
-          </span>
-        </div>
-        <div class="plugin-dir num">{{ p.repo || p.id }}</div>
       </div>
     </div>
-  </section>
+  </SettingsPage>
 </template>
 
 <style scoped>
@@ -301,9 +301,20 @@ watch(
   color: var(--bdg-text-dim);
   font-size: var(--bdg-fs-13);
 }
+.plugin-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0 18px;
+}
 .plugin-card {
+  min-width: 0;
   padding: 10px 0;
   border-bottom: 1px solid var(--bdg-border);
+}
+@container (min-width: 780px) {
+  .plugin-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 .plugin-main {
   display: flex;
@@ -427,7 +438,7 @@ watch(
 .progress-fill {
   height: 100%;
   background: var(--bdg-accent);
-  transition: width 0.15s ease;
+  transition: width calc(0.15s * var(--bdg-motion-scale, 1)) ease;
 }
 .trust-box {
   display: flex;

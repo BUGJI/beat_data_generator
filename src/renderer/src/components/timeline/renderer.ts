@@ -15,6 +15,7 @@ import { BEAT_RULER_H, COLORS, RULER_H, TIME_RULER_H } from "../../metrics";
 import { gridDivAt, gridInfoAt } from "../../grid";
 import { barStartsInRange, beatsPerBarAt } from "../../meter";
 import { lowerBound } from "../../utils/search";
+import { reduceMotionActive } from "../../services/motion";
 import {
   bpmSegmentBar,
   bpmSegmentBoundary,
@@ -52,16 +53,13 @@ export interface DrawScene {
 const LANE_GLOW_MS = BEAT_FX_DURATION_MS.laneGlow;
 const MARKER_FLASH_MS = BEAT_FX_DURATION_MS.markerFlash;
 const MARKER_BLOOM_PX = 32;
-const reduceMotion =
-  typeof window !== "undefined" &&
-  typeof window.matchMedia === "function" &&
-  window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /** True while any enabled effect is still animating (drives the frame loop). */
 export function hasActiveFx(): boolean {
-  const flags = useSettingsStore().settings.beatFx;
+  const settings = useSettingsStore().settings;
+  const flags = settings.beatFx;
   const ui = useUiStore();
-  if (!ui.fxMasterOn) return false;
+  if (!settings.beatFxMaster) return false;
   const until = ui.fxUntil;
   const now = performance.now();
   for (const id of BEAT_FX_IDS) {
@@ -229,7 +227,8 @@ function drawLaneGlow(
   const view = useViewStore();
   const project = useProjectStore();
   const ui = useUiStore();
-  if (!ui.fxMasterOn || !useSettingsStore().settings.beatFx.laneGlow) return;
+  const settings = useSettingsStore().settings;
+  if (!settings.beatFxMaster || !settings.beatFx.laneGlow) return;
   const now = performance.now();
   const rows = visibleRows(H, view.y, project.tracks.length);
   const pulses = ui.fxPulses.laneGlow;
@@ -239,9 +238,11 @@ function drawLaneGlow(
     if (!track) continue;
     const pulse = pulses[track.id];
     if (!pulse) continue;
-    const left = pulse.at + LANE_GLOW_MS - now;
+    const dur = pulse.dur ?? LANE_GLOW_MS;
+    if (dur <= 0) continue;
+    const left = pulse.at + dur - now;
     if (left <= 0) continue;
-    const k = left / LANE_GLOW_MS;
+    const k = left / dur;
     ctx.fillStyle = track.color;
     ctx.globalAlpha = 0.1 + 0.34 * k;
     ctx.fillRect(0, r.y, W, r.h);
@@ -510,8 +511,9 @@ function drawMarkerLanesContent(
   const project = useProjectStore();
   const selection = useSelectionStore();
   const ui = useUiStore();
-  const markerFlashOn =
-    ui.fxMasterOn && useSettingsStore().settings.beatFx.markerFlash;
+  const settings = useSettingsStore().settings;
+  const markerFlashOn = settings.beatFxMaster && settings.beatFx.markerFlash;
+  const reduced = reduceMotionActive();
   const now = performance.now();
   const rows = visibleRows(H, view.y, project.tracks.length).filter(
     (r) => !r.bpm,
@@ -560,15 +562,16 @@ function drawMarkerLanesContent(
       // playback flash: additive brightness over the normal diamond, no scaling.
       if (markerFlashOn) {
         const pulse = ui.fxPulses.markerFlash[m.id];
-        const left = pulse ? pulse.at + MARKER_FLASH_MS - now : 0;
+        const dur = pulse?.dur ?? MARKER_FLASH_MS;
+        const left = pulse && dur > 0 ? pulse.at + dur - now : 0;
         if (left > 0) {
           // Hit first, decay after: alpha peaks on the crossing frame and only
           // falls, and the bloom starts at its widest so nothing ramps up. The
           // slight inward settle keeps the hit from feeling like a static blob.
-          const p = 1 - left / MARKER_FLASH_MS;
+          const p = 1 - left / dur;
           const fade = (1 - p) ** 1.15;
-          const coreR = reduceMotion ? rr : rr * (1 + 0.25 * (1 - p));
-          const bloomPx = reduceMotion
+          const coreR = reduced ? rr : rr * (1 + 0.25 * (1 - p));
+          const bloomPx = reduced
             ? MARKER_BLOOM_PX
             : MARKER_BLOOM_PX * (1.25 - 0.2 * p);
           drawMarkerBloom(ctx, x, cy, bloomPx, color, fade);

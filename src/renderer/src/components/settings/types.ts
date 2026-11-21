@@ -1,5 +1,3 @@
-import type { Component } from "vue";
-
 /**
  * Shared model for the declarative settings rows.
  *
@@ -20,6 +18,20 @@ export type CatKey =
   | "advanced"
   | "about";
 
+/** Category order shared by the navigation groups and the search results. */
+export const CAT_ORDER: readonly CatKey[] = [
+  "general",
+  "display",
+  "theme",
+  "edit",
+  "audio",
+  "shortcuts",
+  "plugins",
+  "network",
+  "advanced",
+  "about",
+];
+
 export type ColOption = { value: string; label: string };
 export type RefLike<T> = { value: T };
 
@@ -31,6 +43,8 @@ export type SearchEntry = {
   keywords?: string[];
   /** Hidden from results while simple mode is on. */
   expert?: boolean;
+  /** A whole-page target: jumping to it switches category without scrolling. */
+  page?: boolean;
 };
 
 export type FieldControl =
@@ -86,8 +100,6 @@ export type GroupDef = {
   key: string;
   rows: RowDef[];
   expert?: boolean;
-  /** Optional icon shown in the category's second-level tab chip. */
-  icon?: Component;
 };
 
 export const sw = (

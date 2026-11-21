@@ -145,6 +145,68 @@ export const DEFAULT_SHORTCUTS = Object.fromEntries(
   SHORTCUT_DEFS.map((def) => [def.action, def.defaultBinding]),
 ) as Record<ShortcutAction, string>;
 
+/** Display groups for the shortcuts page (kept beside the definitions so a new
+ *  action must pick a group when this record is type-checked). */
+export type ShortcutGroup =
+  | "playback"
+  | "file"
+  | "edit"
+  | "navigation"
+  | "view"
+  | "tracks";
+
+export const SHORTCUT_GROUP_ORDER: readonly ShortcutGroup[] = [
+  "playback",
+  "file",
+  "edit",
+  "navigation",
+  "view",
+  "tracks",
+];
+
+export const SHORTCUT_GROUP: Record<ShortcutAction, ShortcutGroup> = {
+  playPause: "playback",
+  playAtRate: "playback",
+  tapTempo: "playback",
+  tapTempoReset: "playback",
+  save: "file",
+  saveAs: "file",
+  openProject: "file",
+  openAudio: "file",
+  exportTimestamps: "file",
+  exportEdl: "file",
+  undo: "edit",
+  redo: "edit",
+  copy: "edit",
+  cut: "edit",
+  paste: "edit",
+  selectAll: "edit",
+  deleteSel: "edit",
+  nudgeLeft: "edit",
+  nudgeRight: "edit",
+  placeMarker: "edit",
+  prevMarker: "navigation",
+  nextMarker: "navigation",
+  goto: "navigation",
+  home: "navigation",
+  escape: "navigation",
+  zoomIn: "view",
+  zoomOut: "view",
+  zoomFit: "view",
+  toggleSnap: "view",
+  toggleMagnet: "view",
+  toggleQuickPlace: "view",
+  toggleTimeAlign: "view",
+  toggleFollow: "view",
+  toggleLoop: "view",
+  toggleGridClick: "view",
+  toggleAnalysis: "view",
+  addTrack: "tracks",
+  moveTrackUp: "tracks",
+  moveTrackDown: "tracks",
+  addNote: "tracks",
+};
+
 export function bindingFor(
   action: ShortcutAction,
   overrides: Record<string, string> | undefined,

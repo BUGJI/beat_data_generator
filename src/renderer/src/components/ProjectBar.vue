@@ -2,6 +2,7 @@
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
 import { openAudioDialog, relinkAudio } from "../services/audioIO";
+import { patchSettings } from "../services/settingsPersistence";
 import { analysis, applyDetectedBpm, analyzeCurrent } from "../analysis";
 import { SNAP_DIVISIONS } from "../metrics";
 import { parseGridDenominator } from "../grid";
@@ -69,7 +70,9 @@ const FX_LABEL_KEY: Record<BeatFxId, string> = {
 };
 const fxMenuOpen = ref(false);
 const fxSelectedAny = computed(() => BEAT_FX_IDS.some(beatFxSelected));
-const fxActive = computed(() => ui.fxMasterOn && fxSelectedAny.value);
+const fxActive = computed(
+  () => settings.settings.beatFxMaster && fxSelectedAny.value,
+);
 const fxTitle = computed(() => t("follow.fxQuickTip"));
 
 /** Show short text labels beside the quick-action icons (settings toggle). */
@@ -93,7 +96,7 @@ function toggleMasterFx(): void {
     fxMenuOpen.value = true;
     return;
   }
-  ui.fxMasterOn = !ui.fxMasterOn;
+  void patchSettings({ beatFxMaster: !settings.settings.beatFxMaster });
 }
 
 /**

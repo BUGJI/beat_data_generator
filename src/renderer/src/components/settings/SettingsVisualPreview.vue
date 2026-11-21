@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 import { useI18n } from "vue-i18n";
+import { animationsEnabled, MOTION_SPEED_SCALE } from "../../services/motion";
 import { useSettingsStore } from "../../stores/settings";
 
 /**
@@ -36,11 +37,29 @@ const replayKey = ref(0);
 function replay(): void {
   replayKey.value++;
 }
+
+/** Whether animations should run under the current speed / reduce settings. */
+const motionOn = computed(() => animationsEnabled());
+/** Inline multiplier lets the mock follow the speed tier without new classes. */
+const motionStyle = computed(() => ({
+  "--vp-motion-scale": String(
+    motionOn.value ? (MOTION_SPEED_SCALE[s.value.motionSpeed] ?? 1) : 0,
+  ),
+}));
+const laneGlowOn = computed(
+  () => s.value.beatFxMaster && s.value.beatFx.laneGlow === true,
+);
+const markerFlashOn = computed(
+  () => s.value.beatFxMaster && s.value.beatFx.markerFlash === true,
+);
+const fxDemoOn = computed(
+  () => motionOn.value && (laneGlowOn.value || markerFlashOn.value),
+);
 </script>
 
 <template>
-  <div class="vp" aria-hidden="true">
-    <div class="vp-top">
+  <div class="vp" :style="motionStyle">
+    <div class="vp-top" aria-hidden="true">
       <span class="vp-dot" style="background: var(--bdg-danger)" />
       <span class="vp-dot" style="background: var(--bdg-amber)" />
       <span class="vp-dot" style="background: var(--bdg-accent-2)" />
@@ -48,13 +67,13 @@ function replay(): void {
       <span v-if="cat === 'audio' && s.audioPanel" class="vp-panel-btn" />
     </div>
 
-    <div class="vp-body">
+    <div class="vp-body" aria-hidden="true">
       <div
         :key="replayKey"
         class="vp-canvas"
         :class="{
           fine: cat === 'display' && !s.gridAutoHide,
-          motion: cat === 'display' && s.animEnabled,
+          motion: cat === 'display' && s.animEnabled && motionOn,
         }"
       >
         <div class="vp-motion">
@@ -86,6 +105,8 @@ function replay(): void {
               class="vp-follow"
               :style="followZone.line"
             />
+            <span v-if="fxDemoOn && laneGlowOn" class="vp-fx-lane" />
+            <span v-if="fxDemoOn && markerFlashOn" class="vp-fx-marker" />
           </template>
         </div>
       </div>
@@ -93,22 +114,29 @@ function replay(): void {
 
     <div class="vp-bottom">
       <template v-if="cat === 'audio'">
-        <span v-if="s.audioAutoBpm" class="vp-bpm">128</span>
-        <span v-if="s.audioLiveBpm" class="vp-live">
+        <span v-if="s.audioAutoBpm" class="vp-bpm" aria-hidden="true">128</span>
+        <span v-if="s.audioLiveBpm" class="vp-live" aria-hidden="true">
           <i class="vp-live-dot" />BPM
         </span>
-        <span v-if="s.audioSpectrum" class="vp-spectrum">
+        <span v-if="s.audioSpectrum" class="vp-spectrum" aria-hidden="true">
           <i v-for="(h, i) in SPECTRUM" :key="i" :style="{ height: `${h}%` }" />
         </span>
       </template>
-      <button
-        v-else-if="s.animEnabled"
-        type="button"
-        class="vp-replay"
-        @click="replay()"
-      >
-        {{ t("settings.preview.replay") }}
-      </button>
+      <template v-else>
+        <span
+          v-if="s.beatPulse && motionOn"
+          class="vp-beat-pulse"
+          aria-hidden="true"
+        />
+        <button
+          v-if="motionOn && (s.animEnabled || fxDemoOn)"
+          type="button"
+          class="vp-replay"
+          @click="replay()"
+        >
+          {{ t("settings.preview.replay") }}
+        </button>
+      </template>
     </div>
   </div>
 </template>
@@ -190,7 +218,8 @@ function replay(): void {
   inset: 0;
 }
 .vp-canvas.motion .vp-motion {
-  animation: vpPan 1.3s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: vpPan calc(1.3s * var(--vp-motion-scale, 1))
+    cubic-bezier(0.22, 1, 0.36, 1);
 }
 @keyframes vpPan {
   0% {
@@ -251,6 +280,45 @@ function replay(): void {
   background: var(--bdg-danger);
   opacity: 0.1;
 }
+/* Playback FX demo: lane wash + marker bloom, restarted by the replay key. */
+.vp-fx-lane {
+  position: absolute;
+  inset: 0;
+  background: var(--bdg-accent);
+  pointer-events: none;
+  animation: vpFxLane calc(0.1s * var(--vp-motion-scale, 1)) ease-out forwards;
+}
+@keyframes vpFxLane {
+  from {
+    opacity: 0.34;
+  }
+  to {
+    opacity: 0;
+  }
+}
+.vp-fx-marker {
+  position: absolute;
+  left: 50%;
+  top: 34%;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bdg-accent);
+  box-shadow: 0 0 18px 6px rgb(var(--bdg-accent-rgb) / 0.6);
+  pointer-events: none;
+  animation: vpFxMarker calc(0.2s * var(--vp-motion-scale, 1)) ease-out forwards;
+}
+@keyframes vpFxMarker {
+  from {
+    opacity: 1;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 1.35;
+  }
+}
 
 .vp-bottom {
   flex: none;
@@ -282,7 +350,7 @@ function replay(): void {
   height: 5px;
   border-radius: 50%;
   background: var(--bdg-accent-2);
-  animation: vpPulse 1.4s ease-in-out infinite;
+  animation: vpPulse calc(1.4s * var(--vp-motion-scale, 1)) ease-in-out infinite;
 }
 @keyframes vpPulse {
   0%,
@@ -291,6 +359,26 @@ function replay(): void {
   }
   50% {
     opacity: 1;
+  }
+}
+.vp-beat-pulse {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--bdg-accent);
+  box-shadow: 0 0 10px 2px rgb(var(--bdg-accent-rgb) / 0.55);
+  animation: vpBeatPulse calc(0.1s * var(--vp-motion-scale, 1)) ease-out
+    forwards;
+}
+@keyframes vpBeatPulse {
+  from {
+    opacity: 1;
+    scale: 1.4;
+  }
+  to {
+    opacity: 0.2;
+    scale: 0.8;
   }
 }
 .vp-spectrum {

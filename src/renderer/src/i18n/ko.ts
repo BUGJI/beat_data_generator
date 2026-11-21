@@ -234,6 +234,13 @@ export default {
     searchPlaceholder: "설정 검색…",
     searchNoResults: "일치하는 설정이 없어요",
     searchClear: "검색 지우기",
+    navLabel: "설정 섹션",
+    searchResults: "검색 결과",
+    nav: {
+      app: "필수",
+      edit: "편집",
+      extras: "확장",
+    },
     cats: {
       general: "일반",
       edit: "편집",
@@ -247,10 +254,19 @@ export default {
       about: "정보",
     },
     subcats: {
-      general: { general: "일반", window: "창 및 시작" },
+      general: {
+        general: "일반",
+        window: "창 및 시작",
+        data: "데이터 및 백업",
+      },
       edit: {
         follow: "따라가기",
+        grid: "그리드 및 스냅",
+        magnet: "자석 대상",
+        placement: "배치 및 선택",
         playback: "재생",
+        viewport: "뷰포트",
+        history: "실행 취소",
         align: "정렬",
         autosave: "자동 저장",
       },
@@ -277,8 +293,6 @@ export default {
       reset: "프리셋 초기화",
       resetGroup: "그룹 초기화",
       accentPick: "빠른 강조색",
-      accentPickDesc:
-        "프리셋과 무관하게 강조색을 선택하며, 라이트 / 다크 전환에도 유지돼요.",
       preview: "실시간 미리보기",
       previewHint: "색을 편집하면 바로 반영돼요.",
       modeLight: "라이트",
@@ -366,12 +380,13 @@ export default {
     general: {
       simpleMode: "간단 모드",
       simpleModeDesc: "고급 옵션과 분류를 숨기고 일반적인 설정만 표시해요",
+      settingsData: "데이터 및 백업",
+      settingsDataDesc: "설정을 내보내기, 가져오기 또는 초기화해요.",
       language: "언어",
       languageDesc: "UI 언어를 전환해요 (즉시 적용)",
       closeMode: "기본 창 닫기 모드",
       closeModeDesc: "창 X와 모든 종료 경로에 적용돼요",
       modeAsk: "묻기",
-      modeAskDesc: "종료 전에 물어봐요",
       modeAskHint: "종료 전에 확인 창을 띄워요.",
       modeMinimize: "최소화",
       modeMinimizeHint: "X를 누르면 작업 표시줄로 최소화하고 계속 실행해요.",
@@ -397,6 +412,55 @@ export default {
       autoSaveDesc: "일정 간격으로 프로젝트를 자동 저장해요",
       autoSaveMinutes: "자동 저장 간격",
       autoSaveMinutesUnit: "분 (1–60)",
+      defaultGridDiv: "새 프로젝트 기본 그리드",
+      defaultGridDivDesc:
+        "프로젝트를 새로 만들 때 사용하는 그리드 세분(1/N). 기존 프로젝트는 자체 설정을 유지해요.",
+      snapByDefault: "시작 시 그리드 스냅",
+      snapByDefaultDesc: "실행 / 새 세션마다 그리드 스냅을 기본으로 켜요.",
+      magnetByDefault: "시작 시 자석 스냅",
+      magnetByDefaultDesc:
+        "실행 / 새 세션마다 마커, 재생 헤드 등에 대한 자석 스냅을 기본으로 켜요.",
+      magnetThresholdPx: "자석 거리",
+      magnetThresholdPxDesc:
+        "포인터가 몇 픽셀 이내로 가까워지면 자석이 작동해요.",
+      magnetThresholdPxUnit: "픽셀",
+      magnetMarkers: "마커에 스냅",
+      magnetMarkersDesc: "드래그할 때 가까운 마커에 스냅해요.",
+      magnetPlayhead: "재생 헤드에 스냅",
+      magnetPlayheadDesc: "드래그할 때 현재 재생 헤드 위치에 스냅해요.",
+      magnetLoopEdges: "루프 경계에 스냅",
+      magnetLoopEdgesDesc: "드래그할 때 루프 구간의 시작과 끝 경계에 스냅해요.",
+      magnetNotes: "메모에 스냅",
+      magnetNotesDesc: "드래그할 때 가까운 메모에 스냅해요.",
+      selectAfterPlace: "배치 후 자동 선택",
+      selectAfterPlaceDesc: "마커를 놓은 직후 자동으로 선택해요.",
+      openCardAfterPlace: "배치 후 속성 카드 열기",
+      openCardAfterPlaceDesc:
+        "마커를 놓은 직후 속성 카드를 열어요 (BPM 포인트는 이미 그렇게 동작).",
+      quickPlaceByDefault: "시작 시 빠른 배치 모드",
+      quickPlaceByDefaultDesc:
+        "실행 / 새 세션마다 빠른 그리기/지우기 브러시를 기본으로 켜요.",
+      timeAlignByDefault: "시작 시 시간 정렬",
+      timeAlignByDefaultDesc: "실행 / 새 세션마다 마커를 절대 시간에 고정해요.",
+      nudgeStep: "미세 이동 단위",
+      nudgeStepDesc:
+        "방향키로 선택한 마커를 미세 이동할 때의 단위: 그리드를 따르거나 고정 1/N 박자.",
+      nudgeGrid: "그리드 따르기",
+      pitchFollowByDefault: "시작 시 음정 유지",
+      pitchFollowByDefaultDesc:
+        "실행 / 새 세션마다 속도 변경 시 음정을 유지해요.",
+      defaultRate: "기본 재생 속도",
+      defaultRateDesc: "새 세션의 초기 재생 속도 (1 = 원속).",
+      defaultZoom: "기본 확대",
+      defaultZoomDesc: "새 세션의 타임라인 초기 확대 (픽셀/초).",
+      defaultZoomUnit: "픽셀/초",
+      wheelZoomStep: "휠 확대 단계",
+      wheelZoomStepDesc:
+        "Ctrl / ⌘ + 휠 한 칸당 확대 비율. 클수록 빠르게 확대돼요.",
+      undoLimit: "실행 취소 한도",
+      undoLimitDesc:
+        "메모리에 보관하는 실행 취소 단계 수 (20–1000). 초과하면 가장 오래된 기록부터 버려요.",
+      undoLimitUnit: "단계",
       countInBars: "카운트인",
       countInBarsDesc:
         "재생 전에 지정한 마디만큼 클릭을 들려줘요 (0 = 끔). 현재 BPM, 4/4 기준.",
@@ -407,7 +471,6 @@ export default {
       ctrlSpeedPlay: "Ctrl을 누르면 속도 재생",
       ctrlSpeedPlayDesc:
         "켜면 Ctrl+Space는 현재 속도로, Space는 1배속으로 재생해요; 끄면 둘 다 현재 속도로 재생해요.",
-      alignTitle: "마커 정렬",
       alignDecimals: "소수 자릿수",
       alignDecimalsDesc:
         '"정렬" 버튼이 마커 박자를 반올림할 때 유지하는 소수 자릿수 (0–6)',
@@ -443,7 +506,6 @@ export default {
       analysisWindowMinutesUnit: "분 (1–60)",
       analysisWindowMinutesDesc:
         "오디오 시작부터 이 길이만큼만 분석해요 (BPM / 박자 / 루프 / 스펙트럼). 긴 오디오의 전체 스펙트럼 분석은 메모리를 많이 사용하므로 창을 제한해 멈춤이나 충돌을 막아요. 재생과 파형은 영향을 받지 않아요.",
-      metronomeTitle: "메트로놈",
       metronome: "메트로놈 클릭",
       metronomeDesc:
         "메트로놈 폴더에 소리를 넣고 여기서 하나를 고르세요 (없음 = 비활성). 마커를 지날 때마다 클릭음이 울리고, 여러 마커가 겹치면 동시에 여러 번 울려요.",
@@ -494,15 +556,62 @@ export default {
       quickBarLabels: "빠른 버튼 라벨",
       quickBarLabelsDesc:
         "프로젝트 바의 빠른 작업 버튼 아이콘 옆에 이름을 표시해 알아보기 쉽게 해요; 끄면 아이콘만 표시해요.",
-      editor: "편집기 애니메이션",
+      motionEditor: "편집기",
+      motionInterface: "인터페이스",
+      motionFx: "재생 효과",
+      motionFeel: "감각 및 접근성",
+      editor: "확대 / 이동 애니메이션",
       editorDesc:
-        "타임라인 확대 / 이동을 중단 가능한 0.1초 이즈아웃으로 처리해요",
-      uiMotion: "인터페이스 모션",
+        "타임라인 확대·이동 시 이즈 애니메이션을 사용해요 (중단 가능, 입력 차단 없음)",
+      followSmooth: "재생 팔로우 부드럽게",
+      followSmoothDesc:
+        "재생 중 재생 헤드를 따라갈 때 뷰포트를 부드럽게 이동해요; 끄면 즉시 맞춰요",
+      uiMotion: "패널 전환",
       uiMotionDesc:
-        "설정 패널(슬라이드 / 페이드)과 기타 UI 전환을 애니메이션으로 처리해요",
+        "설정 패널(슬라이드 / 페이드)과 기타 패널 전환을 애니메이션으로 처리해요",
+      themeCrossfade: "테마 크로스페이드",
+      themeCrossfadeDesc: "테마나 프리셋을 바꿀 때 색상이 부드럽게 전환돼요",
+      menuMotion: "메뉴 / 알림 모션",
+      menuMotionDesc:
+        "메뉴, 알림, 플로팅 카드의 등장 / 퇴장 전환을 애니메이션으로 처리해요",
+      beatFxMaster: "재생 효과 마스터",
+      beatFxMasterDesc:
+        "선택한 재생 효과의 총 스위치예요; 끄면 \u2728 버튼도 활성 상태로 보이지 않아요",
+      laneGlow: "레인 글로우",
+      laneGlowDesc: "재생이 마커를 지날 때 해당 레인을 잠시 밝혀요",
+      markerFlash: "마커 점등",
+      markerFlashDesc:
+        "재생이 마커를 지날 때 마커를 잠시 밝히고 빛무리를 표시해요",
+      beatPulse: "비트 표시 펄스",
+      beatPulseDesc:
+        "프로젝트 바의 비트 / 겹침 표시등을 재생에 맞춰 펄스시켜요",
+      motionSpeed: "애니메이션 속도",
+      motionSpeedDesc:
+        "모든 애니메이션 길이를 한 번에 조절해요; 느림은 부드럽고 빠름은 경쾌해요",
+      motionSlow: "느리게",
+      motionNormal: "표준",
+      motionFast: "빠르게",
+      reduceMotion: "모션 줄이기",
+      reduceMotionDesc:
+        "시스템의 모션 줄이기 설정을 따르거나, 강제로 켜거나 무시해요",
+      reduceMotionSystem: "시스템 따르기",
+      reduceMotionOn: "항상 줄이기",
+      reduceMotionOff: "전체 모션",
     },
     shortcuts: {
+      page: "키보드 단축키",
       note: "변경을 누른 뒤 새 조합을 누르세요. Esc로 취소할 수 있어요. 기본값 복원은 해당 동작의 사용자 지정을 지워요.",
+      filter: "단축키 필터…",
+      filterCount: "{total}개 중 {count}개",
+      filterEmpty: "이 필터와 일치하는 단축키가 없어요.",
+      groups: {
+        playback: "재생",
+        file: "파일",
+        edit: "편집",
+        navigation: "탐색",
+        view: "보기",
+        tracks: "트랙",
+      },
       playPause: "재생 / 일시정지",
       playAtRate: "현재 배속으로 재생",
       save: "프로젝트 저장",
@@ -570,20 +679,7 @@ export default {
       disabledNote:
         "개발자 옵션이 꺼져 있어요. 스위치를 켜면 DevTools를 사용할 수 있어요.",
     },
-    about: {
-      checkUpdates: "업데이트 확인",
-      checkUpdatesDesc:
-        "지금 새 버전을 확인해요. 시작 시 조용한 확인은 일반 → 창 및 시작에서 끌 수 있어요.",
-      upToDate: "최신 버전을 사용 중이에요",
-      updateAvailable:
-        "새 버전 v{version}이(가) 있어요 — GitHub Releases에서 내려받으세요.",
-      updateUnsupported: "개발 모드에서는 업데이트 확인을 지원하지 않아요",
-      updateError: "업데이트 확인에 실패했어요. 나중에 다시 시도하세요.",
-      version: "버전",
-      author: "제작자",
-      tech: "스택",
-      license: "라이선스",
-      runtime: "런타임",
+    data: {
       manage: "설정 관리",
       manageDesc:
         "설정을 내보내거나 가져오거나 기본값으로 복원해요. 가져오기는 이 앱의 설정 JSON만 지원해요.",
@@ -600,7 +696,24 @@ export default {
       resetOk: "설정을 기본값으로 복원했어요",
       resetDesc: "복원해도 인터페이스 언어와 패널 레이아웃은 유지돼요.",
     },
+    about: {
+      page: "정보 및 업데이트",
+      checkUpdates: "업데이트 확인",
+      checkUpdatesDesc:
+        "지금 새 버전을 확인해요. 시작 시 조용한 확인은 일반 → 창 및 시작에서 끌 수 있어요.",
+      upToDate: "최신 버전을 사용 중이에요",
+      updateAvailable:
+        "새 버전 v{version}이(가) 있어요 — GitHub Releases에서 내려받으세요.",
+      updateUnsupported: "개발 모드에서는 업데이트 확인을 지원하지 않아요",
+      updateError: "업데이트 확인에 실패했어요. 나중에 다시 시도하세요.",
+      version: "버전",
+      author: "제작자",
+      tech: "스택",
+      license: "라이선스",
+      runtime: "런타임",
+    },
     plugins: {
+      page: "플러그인 및 마켓",
       title: "플러그인",
       reload: "다시 검색 및 로드",
       openFolder: "플러그인 폴더 열기",
@@ -613,12 +726,8 @@ export default {
       marketRefresh: "마켓 새로 고침",
       marketSearch: "플러그인 검색",
       marketAll: "전체",
-      marketEmpty: "마켓에 플러그인이 없어요",
-      marketEmptyHint:
-        "레지스트리에 아직 설치 가능한 플러그인이 없어요 — 나중에 다시 시도하세요.",
       marketNoMatch:
         "일치하는 플러그인이 없어요 — 다른 분류나 키워드를 시도해 보세요.",
-      marketError: "마켓을 불러오지 못했어요: {error}",
       install: "설치",
       update: "업데이트",
       uninstall: "삭제",

@@ -235,6 +235,13 @@ export default {
     searchPlaceholder: "Search settings…",
     searchNoResults: "No matching settings",
     searchClear: "Clear search",
+    navLabel: "Settings sections",
+    searchResults: "Search results",
+    nav: {
+      app: "Essentials",
+      edit: "Editing",
+      extras: "Extras",
+    },
     cats: {
       general: "General",
       edit: "Editing",
@@ -248,10 +255,19 @@ export default {
       about: "About",
     },
     subcats: {
-      general: { general: "General", window: "Window & Startup" },
+      general: {
+        general: "General",
+        window: "Window & Startup",
+        data: "Data & Backup",
+      },
       edit: {
         follow: "Follow",
+        grid: "Grid & snapping",
+        magnet: "Magnet targets",
+        placement: "Placement & selection",
         playback: "Playback",
+        viewport: "Viewport",
+        history: "Undo",
         align: "Align",
         autosave: "Auto-save",
       },
@@ -278,8 +294,6 @@ export default {
       reset: "Reset preset",
       resetGroup: "Reset group",
       accentPick: "Quick accent",
-      accentPickDesc:
-        "Pick an accent independent of the preset; it survives light/dark switches.",
       preview: "Live preview",
       previewHint: "Updates as you edit the colors.",
       modeLight: "Light",
@@ -370,12 +384,13 @@ export default {
       simpleMode: "Simple mode",
       simpleModeDesc:
         "Hide advanced options and categories, keeping only the common settings",
+      settingsData: "Data & backup",
+      settingsDataDesc: "Export, import or reset your settings.",
       language: "Language",
       languageDesc: "Switch UI language (applies immediately)",
       closeMode: "Default window close mode",
       closeModeDesc: "Applies to window X and all quit paths",
       modeAsk: "Ask",
-      modeAskDesc: "Ask before quitting",
       modeAskHint: "Show a confirmation prompt before quitting.",
       modeMinimize: "Minimize",
       modeMinimizeHint: "Minimize to the taskbar on X; the app keeps running.",
@@ -401,6 +416,58 @@ export default {
       autoSaveDesc: "Automatically save the project on an interval",
       autoSaveMinutes: "Auto-save interval",
       autoSaveMinutesUnit: "minutes (1–60)",
+      defaultGridDiv: "Default grid for new projects",
+      defaultGridDivDesc:
+        "Grid subdivision (1/N) used when creating a project; existing projects keep their own setting.",
+      snapByDefault: "Start with grid snapping",
+      snapByDefaultDesc:
+        "Enable grid snapping by default on every launch / new session.",
+      magnetByDefault: "Start with magnet",
+      magnetByDefaultDesc:
+        "Enable magnet snapping by default on every launch / new session.",
+      magnetThresholdPx: "Magnet distance",
+      magnetThresholdPxDesc:
+        "How close (in pixels) the pointer must be to trigger magnet snapping.",
+      magnetThresholdPxUnit: "px",
+      magnetMarkers: "Snap to markers",
+      magnetMarkersDesc: "Snap to nearby markers while dragging.",
+      magnetPlayhead: "Snap to playhead",
+      magnetPlayheadDesc:
+        "Snap to the current playhead position while dragging.",
+      magnetLoopEdges: "Snap to loop edges",
+      magnetLoopEdgesDesc: "Snap to the loop region's start and end edges.",
+      magnetNotes: "Snap to notes",
+      magnetNotesDesc: "Snap to nearby notes while dragging.",
+      selectAfterPlace: "Select after placing",
+      selectAfterPlaceDesc: "Select a marker right after it is placed.",
+      openCardAfterPlace: "Open card after placing",
+      openCardAfterPlaceDesc:
+        "Open the property card right after placing a marker (BPM points already do).",
+      quickPlaceByDefault: "Start in quick-place mode",
+      quickPlaceByDefaultDesc:
+        "Start each session with the quick draw/erase brush enabled.",
+      timeAlignByDefault: "Start with time alignment",
+      timeAlignByDefaultDesc:
+        "Start each session with markers pinned to absolute time.",
+      nudgeStep: "Nudge step",
+      nudgeStepDesc:
+        "Step used by the arrow-key nudge: follow the grid or a fixed 1/N beat.",
+      nudgeGrid: "Follow grid",
+      pitchFollowByDefault: "Start with pitch preservation",
+      pitchFollowByDefaultDesc:
+        "Start each session with pitch preserved during speed changes.",
+      defaultRate: "Default playback rate",
+      defaultRateDesc: "Initial playback rate for a new session (1 = normal).",
+      defaultZoom: "Default zoom",
+      defaultZoomDesc: "Initial timeline zoom for a new session (px/second).",
+      defaultZoomUnit: "px/s",
+      wheelZoomStep: "Wheel zoom step",
+      wheelZoomStepDesc:
+        "Zoom factor per Ctrl/⌘ + wheel notch; larger zooms faster.",
+      undoLimit: "Undo step limit",
+      undoLimitDesc:
+        "Undo steps kept in memory (20–1000); the oldest are dropped beyond that.",
+      undoLimitUnit: "steps",
       countInBars: "Count-in",
       countInBarsDesc:
         "Play this many bars of clicks before starting (0 = off), using the current BPM and 4/4.",
@@ -411,7 +478,6 @@ export default {
       ctrlSpeedPlay: "Hold Ctrl to play at speed",
       ctrlSpeedPlayDesc:
         "When on, Ctrl+Space plays at the current rate and Space plays at 1x; when off, both play at the current rate.",
-      alignTitle: "Marker alignment",
       alignDecimals: "Decimal places",
       alignDecimalsDesc:
         'Decimal places kept when the "Align" button rounds marker beats (0–6).',
@@ -448,7 +514,6 @@ export default {
       analysisWindowMinutesUnit: "minutes (1–60)",
       analysisWindowMinutesDesc:
         "Analyse only this much from the start of the audio (BPM / beats / loop / spectrum). Whole-track spectral analysis uses a lot of memory on long audio, so limiting the window prevents stalls or crashes; playback and the waveform are unaffected.",
-      metronomeTitle: "Metronome",
       metronome: "Metronome click",
       metronomeDesc:
         "Drop sounds into the metronome folder, then pick one here (none = disabled). A click plays each time a marker is passed; when several markers coincide, several clicks play at once.",
@@ -500,14 +565,62 @@ export default {
       quickBarLabels: "Quick button labels",
       quickBarLabelsDesc:
         "Show each quick-action button's name beside its icon in the project bar; turn off to show icons only.",
-      editor: "Editor animations",
-      editorDesc: "Zoom/pan the timeline with an interruptible 0.1s ease-out",
-      uiMotion: "Interface motion",
+      motionEditor: "Editor",
+      motionInterface: "Interface",
+      motionFx: "Playback FX",
+      motionFeel: "Feel & accessibility",
+      editor: "Zoom / pan animations",
+      editorDesc:
+        "Ease the timeline when zooming or panning (interruptible, never blocks input)",
+      followSmooth: "Smooth playback follow",
+      followSmoothDesc:
+        "Ease the viewport while it follows the playhead during playback; turn off to snap",
+      uiMotion: "Panel transitions",
       uiMotionDesc:
-        "Animate the settings panel (slide / fade) and other UI transitions",
+        "Animate the settings panel (slide / fade) and other panel transitions",
+      themeCrossfade: "Theme crossfade",
+      themeCrossfadeDesc: "Crossfade colors when switching themes or presets",
+      menuMotion: "Menu / toast motion",
+      menuMotionDesc:
+        "Enter and exit transitions for menus, notifications and floating cards",
+      beatFxMaster: "Playback FX master",
+      beatFxMasterDesc:
+        "Master switch for the checked playback effects; the \u2728 button also stops showing active",
+      laneGlow: "Lane glow",
+      laneGlowDesc:
+        "Briefly light the marker's track when playback crosses a beat",
+      markerFlash: "Marker flash",
+      markerFlashDesc:
+        "Briefly flash and bloom the marker when playback crosses it",
+      beatPulse: "Beat indicator pulse",
+      beatPulseDesc: "Pulse the beat / overlap lights in the project bar",
+      motionSpeed: "Animation speed",
+      motionSpeedDesc:
+        "Scales every animation duration; slow is gentler, fast is snappier",
+      motionSlow: "Slow",
+      motionNormal: "Normal",
+      motionFast: "Fast",
+      reduceMotion: "Reduce motion",
+      reduceMotionDesc:
+        "Follow the OS reduce-motion preference, or force it on / ignore it",
+      reduceMotionSystem: "Follow system",
+      reduceMotionOn: "Always reduce",
+      reduceMotionOff: "Full motion",
     },
     shortcuts: {
+      page: "Keyboard shortcuts",
       note: "Click Rebind, then press a new combination; Esc cancels. Reset removes that action's custom binding.",
+      filter: "Filter shortcuts…",
+      filterCount: "{count} of {total}",
+      filterEmpty: "No shortcuts match this filter.",
+      groups: {
+        playback: "Playback",
+        file: "File",
+        edit: "Editing",
+        navigation: "Navigation",
+        view: "View",
+        tracks: "Tracks",
+      },
       playPause: "Play / Pause",
       playAtRate: "Play at current speed",
       save: "Save project",
@@ -575,20 +688,7 @@ export default {
       disabledNote:
         "Developer options are off. Enable the switch to use DevTools.",
     },
-    about: {
-      checkUpdates: "Check for updates",
-      checkUpdatesDesc:
-        "Check for a new version now. The silent startup check can be turned off under General → Window & Startup.",
-      upToDate: "You are on the latest version",
-      updateAvailable:
-        "New version v{version} is available — download it from GitHub Releases.",
-      updateUnsupported: "Update checks are unavailable in development",
-      updateError: "Update check failed. Please try again later.",
-      version: "Version",
-      author: "Author",
-      tech: "Stack",
-      license: "License",
-      runtime: "Runtime",
+    data: {
       manage: "Settings management",
       manageDesc:
         "Export, import or reset your settings. Import accepts this app's settings JSON only.",
@@ -605,7 +705,24 @@ export default {
       resetOk: "Settings reset to defaults",
       resetDesc: "Resetting keeps your language and panel layout.",
     },
+    about: {
+      page: "About & updates",
+      checkUpdates: "Check for updates",
+      checkUpdatesDesc:
+        "Check for a new version now. The silent startup check can be turned off under General → Window & Startup.",
+      upToDate: "You are on the latest version",
+      updateAvailable:
+        "New version v{version} is available — download it from GitHub Releases.",
+      updateUnsupported: "Update checks are unavailable in development",
+      updateError: "Update check failed. Please try again later.",
+      version: "Version",
+      author: "Author",
+      tech: "Stack",
+      license: "License",
+      runtime: "Runtime",
+    },
     plugins: {
+      page: "Plugins & marketplace",
       title: "Plugins",
       reload: "Rescan & reload",
       openFolder: "Open plugins folder",
@@ -618,11 +735,7 @@ export default {
       marketRefresh: "Refresh market",
       marketSearch: "Search plugins",
       marketAll: "All",
-      marketEmpty: "No plugins in the market",
-      marketEmptyHint:
-        "The registry has no installable plugins yet — try again later.",
       marketNoMatch: "No matching plugins — try another category or keyword.",
-      marketError: "Failed to load the market: {error}",
       install: "Install",
       update: "Update",
       uninstall: "Uninstall",

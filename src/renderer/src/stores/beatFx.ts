@@ -9,7 +9,7 @@ export function beatFxSelected(id: BeatFxId): boolean {
 
 /**
  * Flip one effect's selection; applies immediately, persists debounced. The
- * session master switch (`ui.fxMasterOn`) decides whether the selected
+ * persisted master switch (`beatFxMaster`) decides whether the selected
  * effects actually render.
  */
 export function toggleBeatFxSelected(id: BeatFxId): void {

@@ -1,14 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref } from "vue";
+import { onBeforeUnmount, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
 import { Info } from "@lucide/vue";
 import { useSettingsStore } from "@renderer/stores/settings";
-import { appDisplayName } from "@renderer/services/settingsEffects";
-import {
-  importSettings,
-  patchSettings,
-  resetSettings,
-} from "@renderer/services/settingsPersistence";
+import { patchSettings } from "@renderer/services/settingsPersistence";
 import { toast } from "@renderer/ui/toast";
 import UiButton from "../../ui/UiButton.vue";
 import UiInput from "../../ui/UiInput.vue";
@@ -17,6 +12,23 @@ const { t } = useI18n();
 const settings = useSettingsStore();
 
 const appVersion = __APP_VERSION__;
+
+// Edit a local draft and commit on blur / Enter so spaces can be typed and a
+// half-finished name is never persisted.
+const appNameDraft = ref(settings.settings.appName);
+watch(
+  () => settings.settings.appName,
+  (v) => {
+    appNameDraft.value = v;
+  },
+);
+function commitAppName(): void {
+  const next = appNameDraft.value.trim();
+  appNameDraft.value = next;
+  if (next !== settings.settings.appName) void patchSettings({ appName: next });
+}
+onBeforeUnmount(commitAppName);
+
 const pv =
   typeof process !== "undefined" && process.versions ? process.versions : null;
 const runtime = Object.freeze({
@@ -24,72 +36,6 @@ const runtime = Object.freeze({
   chrome: pv?.chrome ?? "--",
   electron: pv?.electron ?? "--",
 });
-
-const appName = computed<string>({
-  // Empty means "use the localized default"; show that default in the field.
-  get: () => settings.settings.appName.trim() || appDisplayName(),
-  set: (v) => void patchSettings({ appName: v.trim() }),
-});
-
-const resetArmed = ref(false);
-let resetTimer: number | undefined;
-
-/** Two-step reset: the first click arms it, the second click performs it. */
-function onResetSettings(): void {
-  if (!resetArmed.value) {
-    resetArmed.value = true;
-    clearTimeout(resetTimer);
-    resetTimer = window.setTimeout(() => {
-      resetArmed.value = false;
-    }, 4000);
-    return;
-  }
-  clearTimeout(resetTimer);
-  resetArmed.value = false;
-  resetSettings();
-  toast.success(t("settings.about.resetOk"));
-}
-onBeforeUnmount(() => clearTimeout(resetTimer));
-
-async function onExportSettings(): Promise<void> {
-  const res = await window.api.saveFileDialog(
-    t("settings.about.exportTitle"),
-    "beat-data-generator-settings.json",
-    [{ name: "JSON", extensions: ["json"] }],
-  );
-  if (res.canceled || !res.filePath) return;
-  const snapshot = JSON.parse(JSON.stringify(settings.settings)) as Record<
-    string,
-    unknown
-  >;
-  const ok = await window.api.writeTextFile(
-    res.filePath,
-    JSON.stringify(snapshot, null, 2),
-  );
-  if (ok) toast.success(t("settings.about.exportOk"));
-  else toast.error(t("settings.about.exportFail"));
-}
-
-async function onImportSettings(): Promise<void> {
-  const path = await window.api.pickFile(t("settings.about.importTitle"), [
-    { name: "JSON", extensions: ["json"] },
-  ]);
-  if (!path) return;
-  const file = await window.api.readTextFile(path);
-  if (file.canceled || typeof file.content !== "string") {
-    toast.error(t("settings.about.importInvalid"));
-    return;
-  }
-  let raw: unknown;
-  try {
-    raw = JSON.parse(file.content);
-  } catch {
-    toast.error(t("settings.about.importInvalid"));
-    return;
-  }
-  if (importSettings(raw)) toast.success(t("settings.about.importOk"));
-  else toast.error(t("settings.about.importInvalid"));
-}
 
 const checkUpdateBusy = ref(false);
 async function onCheckUpdates(): Promise<void> {
@@ -116,7 +62,14 @@ async function onCheckUpdates(): Promise<void> {
       <Info class="size-8" />
     </div>
     <div class="about-info">
-      <UiInput v-model="appName" size="sm" class="about-name-input" />
+      <UiInput
+        v-model="appNameDraft"
+        size="sm"
+        class="about-name-input"
+        :placeholder="t('app.name')"
+        @blur="commitAppName"
+        @keydown.enter="commitAppName"
+      />
       <div class="muted">{{ t("app.hint") }}</div>
     </div>
   </div>
@@ -130,34 +83,6 @@ async function onCheckUpdates(): Promise<void> {
       {{ t("settings.about.checkUpdates") }}
     </UiButton>
     <p class="muted">{{ t("settings.about.checkUpdatesDesc") }}</p>
-  </div>
-  <div class="about-manage">
-    <div class="about-manage-head">
-      <span class="field-name">{{ t("settings.about.manage") }}</span>
-      <span class="muted">{{ t("settings.about.manageDesc") }}</span>
-    </div>
-    <div class="about-manage-actions">
-      <UiButton size="sm" @click="onExportSettings()">
-        {{ t("settings.about.export") }}
-      </UiButton>
-      <UiButton size="sm" @click="onImportSettings()">
-        {{ t("settings.about.import") }}
-      </UiButton>
-      <UiButton
-        size="sm"
-        :variant="resetArmed ? 'danger' : 'soft'"
-        @click="onResetSettings()"
-      >
-        {{
-          resetArmed
-            ? t("settings.about.resetConfirm")
-            : t("settings.about.reset")
-        }}
-      </UiButton>
-    </div>
-    <p v-if="resetArmed" class="muted about-manage-note">
-      {{ t("settings.about.resetDesc") }}
-    </p>
   </div>
   <dl class="about-meta">
     <dt>{{ t("settings.about.version") }}</dt>
@@ -188,6 +113,21 @@ async function onCheckUpdates(): Promise<void> {
   border: 1px solid rgb(var(--bdg-accent-rgb) / 0.18);
   border-radius: calc(var(--bdg-radius, 6px) * 2);
 }
+.about-name-input {
+  font-size: var(--bdg-fs-16);
+  font-weight: 800;
+  height: auto;
+  padding-left: 0;
+  padding-right: 2px;
+  border-color: transparent;
+  background: transparent;
+  border-radius: var(--bdg-radius-sm);
+  cursor: text;
+}
+.about-name-input:focus {
+  border-color: var(--bdg-accent);
+  background: rgb(var(--bdg-accent-rgb) / 0.08);
+}
 .about-update {
   margin-top: 14px;
   display: flex;
@@ -196,28 +136,6 @@ async function onCheckUpdates(): Promise<void> {
   gap: 6px;
 }
 .about-update p {
-  margin: 0;
-  font-size: var(--bdg-fs-12);
-}
-.about-manage {
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px solid var(--bdg-border);
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.about-manage-head {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.about-manage-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.about-manage-note {
   margin: 0;
   font-size: var(--bdg-fs-12);
 }
@@ -232,21 +150,6 @@ async function onCheckUpdates(): Promise<void> {
   flex: 1;
   min-width: 0;
 }
-.about-name-input {
-  font-size: var(--bdg-fs-16);
-  font-weight: 800;
-  height: auto;
-  padding-left: 0px;
-  padding-right: 2px;
-  border-color: transparent;
-  background: transparent;
-  border-radius: var(--bdg-radius-sm);
-  cursor: text;
-}
-.about-name-input:focus {
-  border-color: var(--bdg-accent);
-  background: rgb(var(--bdg-accent-rgb) / 0.08);
-}
 .about-meta {
   display: grid;
   grid-template-columns: 96px 1fr;
@@ -260,5 +163,6 @@ async function onCheckUpdates(): Promise<void> {
   margin: 0;
   font-family: var(--bdg-font-mono);
   font-size: var(--bdg-fs-12);
+  overflow-wrap: anywhere;
 }
 </style>

@@ -42,6 +42,33 @@ describe("defaultSettings", () => {
     expect(s.backgroundBlur).toBe(0);
     expect(s.surfaceOpacity).toBe(90);
     expect(s.analysisWindowMinutes).toBe(3);
+    expect(s.animEnabled).toBe(true);
+    expect(s.followSmooth).toBe(true);
+    expect(s.uiMotion).toBe(true);
+    expect(s.themeCrossfade).toBe(true);
+    expect(s.menuMotion).toBe(true);
+    expect(s.beatFxMaster).toBe(true);
+    expect(s.beatPulse).toBe(true);
+    expect(s.motionSpeed).toBe("normal");
+    expect(s.reduceMotion).toBe("system");
+    expect(s.defaultGridDiv).toBe(4);
+    expect(s.snapByDefault).toBe(true);
+    expect(s.magnetByDefault).toBe(true);
+    expect(s.magnetThresholdPx).toBe(9);
+    expect(s.magnetMarkers).toBe(true);
+    expect(s.magnetPlayhead).toBe(true);
+    expect(s.magnetLoopEdges).toBe(true);
+    expect(s.magnetNotes).toBe(true);
+    expect(s.selectAfterPlace).toBe(false);
+    expect(s.openCardAfterPlace).toBe(false);
+    expect(s.quickPlaceByDefault).toBe(false);
+    expect(s.timeAlignByDefault).toBe(false);
+    expect(s.nudgeStep).toBe("grid");
+    expect(s.pitchFollowByDefault).toBe(true);
+    expect(s.defaultRate).toBe(1);
+    expect(s.defaultZoom).toBe(90);
+    expect(s.wheelZoomStep).toBe(1.25);
+    expect(s.undoLimit).toBe(100);
   });
 
   it("clamps the analysis window length into 1–60 minutes", () => {
@@ -85,6 +112,23 @@ describe("sanitizeSettings", () => {
     expect(low.autoSaveMinutes).toBe(1);
     expect(sanitizeSettings({ countInBars: 99 }).countInBars).toBe(4);
     expect(sanitizeSettings({ countInBars: -3 }).countInBars).toBe(0);
+
+    const edit = sanitizeSettings({
+      defaultGridDiv: 999,
+      magnetThresholdPx: 0,
+      defaultZoom: 1,
+      wheelZoomStep: 9,
+      undoLimit: 5,
+      defaultRate: 99,
+      nudgeStep: "3",
+    });
+    expect(edit.defaultGridDiv).toBe(64);
+    expect(edit.magnetThresholdPx).toBe(4);
+    expect(edit.defaultZoom).toBe(6);
+    expect(edit.wheelZoomStep).toBe(2);
+    expect(edit.undoLimit).toBe(20);
+    expect(edit.defaultRate).toBe(4);
+    expect(edit.nudgeStep).toBe("grid");
   });
 
   it("bypasses numeric ranges under free input", () => {
@@ -112,6 +156,30 @@ describe("sanitizeSettings", () => {
     expect(s.alignRounding).toBe("round");
     expect(s.devEnabled).toBe(false);
     expect(s.autoSave).toBe(true);
+  });
+
+  it("validates animation preferences", () => {
+    expect(sanitizeSettings({ motionSpeed: "fast" }).motionSpeed).toBe("fast");
+    expect(sanitizeSettings({ motionSpeed: "turbo" }).motionSpeed).toBe(
+      "normal",
+    );
+    expect(sanitizeSettings({ reduceMotion: "on" }).reduceMotion).toBe("on");
+    expect(sanitizeSettings({ reduceMotion: "off" }).reduceMotion).toBe("off");
+    expect(sanitizeSettings({ reduceMotion: "nope" }).reduceMotion).toBe(
+      "system",
+    );
+    const s = sanitizeSettings({
+      followSmooth: 0,
+      themeCrossfade: "no",
+      menuMotion: null,
+      beatPulse: "yes",
+      beatFxMaster: 1,
+    });
+    expect(s.followSmooth).toBe(true);
+    expect(s.themeCrossfade).toBe(true);
+    expect(s.menuMotion).toBe(true);
+    expect(s.beatPulse).toBe(true);
+    expect(s.beatFxMaster).toBe(true);
   });
 
   it("keeps only known boolean beat effects", () => {

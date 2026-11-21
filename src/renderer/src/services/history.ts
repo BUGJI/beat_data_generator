@@ -59,8 +59,19 @@ export function registerHistorySelectionClearer(fn: () => void): void {
 }
 
 /** Cap history by step count and, for large projects, by total serialized size. */
-const MAX_HISTORY_STEPS = 100;
+const DEFAULT_HISTORY_STEPS = 100;
+let maxHistorySteps = DEFAULT_HISTORY_STEPS;
 const MAX_HISTORY_CHARS = 8_000_000;
+
+/** Set the retained undo-step budget (clamped to a sane range). */
+export function setHistoryLimit(steps: number): void {
+  if (!Number.isFinite(steps)) {
+    maxHistorySteps = DEFAULT_HISTORY_STEPS;
+    return;
+  }
+  maxHistorySteps = Math.min(1000, Math.max(20, Math.round(steps)));
+  pruneHistory();
+}
 
 const undoStack: Snap[] = [];
 const redoStack: Snap[] = [];
@@ -80,7 +91,7 @@ function snapshotNow(): Snap | null {
 
 /** Drop the oldest entries once either the step or the size budget is exceeded. */
 function pruneHistory(): void {
-  while (undoStack.length > MAX_HISTORY_STEPS) undoStack.shift();
+  while (undoStack.length > maxHistorySteps) undoStack.shift();
   let total = 0;
   for (const s of undoStack) total += s.text.length;
   for (const s of redoStack) total += s.text.length;
