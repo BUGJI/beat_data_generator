@@ -301,6 +301,20 @@
 - 环境备注：`gh` 未安装，PR 通过 GitHub REST API 创建（凭据取自 `git credential fill`，
   临时凭据文件已删除，未在输出中打印令牌）。
 
+### 2026-11-22 · 打拍音爆音与不准（宿主音频）
+- 现象：同刻多个打拍音（甚至单个）很"炸"、计算慢有卡段、不卡在设定的点上。
+- 根因：
+  1. `engine.playMetronome(count)` 在**同一瞬间启动 count 个相同的 buffer** 叠加 ⇒ 削波；
+  2. 触发来自渲染帧回调（`engine.onTick` → `tickBeatFlash`），帧抖动/主线程卡顿直接反映到点击时刻。
+- 修复：
+  - 改为**只播 1 个源**（重叠数只用于视觉指示），新增 `scheduleMetronomeSample(delaySec)`
+    走 `AudioContext.currentTime + delay` 预排；
+  - `tickBeatFlash` 增加 **120ms lookahead**：提前把即将到来的点击排进音频时钟，
+    帧抖动不再影响听感；`schedIdx` 与 `flashIdx` 分离（音频领先、视觉按到达触发）；
+  - 挂起后跳过的旧事件**不补播**，避免一次性爆音；
+  - `scheduledClicks` 改为 `AudioScheduledSourceNode[]`，buffer 源与振荡器共用取消路径。
+- 验证：`typecheck` ✓、`test`(300) ✓、`lint` ✓、`build` ✓；改动已追加到宿主 PR #6。
+
 ---
 
 ## 四、待确认 / 风险
