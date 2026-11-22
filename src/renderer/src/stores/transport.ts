@@ -15,6 +15,8 @@ export const useTransportStore = defineStore("transport", () => {
   const volume = ref(0.85);
   const hasAudio = ref(false);
   const wave = ref<WaveData | null>(null);
+  /** True while an audio file is being decoded / peaks are being built. */
+  const audioLoading = ref(false);
   const audioMissing = ref(false);
   const audioConflict = ref(false);
   const rate = ref(1);
@@ -38,11 +40,15 @@ export const useTransportStore = defineStore("transport", () => {
     void wave.value;
     const map = p.tempoMap;
     const audioLen = hasAudio.value ? engine.durationMs() : 0;
-    let maxMarker = 0;
-    for (const m of p.markers) {
-      const tm = map.timeOfBeat(m.beat);
-      if (tm > maxMarker) maxMarker = tm;
+    // Per-track arrays are sorted by beat, so the latest beat is the last item
+    // of each list. This avoids converting every marker to a time (a tempo-map
+    // lookup each) on every edit — noticeable while dragging markers.
+    let maxBeat = -Infinity;
+    for (const arr of p.markersByTrack.values()) {
+      const last = arr[arr.length - 1];
+      if (last && last.beat > maxBeat) maxBeat = last.beat;
     }
+    let maxMarker = maxBeat === -Infinity ? 0 : map.timeOfBeat(maxBeat);
     for (const pt of p.bpmPoints) {
       const tm = map.timeOfBeat(pt.beat);
       if (tm > maxMarker) maxMarker = tm;
@@ -58,6 +64,7 @@ export const useTransportStore = defineStore("transport", () => {
     volume,
     hasAudio,
     wave,
+    audioLoading,
     audioMissing,
     audioConflict,
     rate,

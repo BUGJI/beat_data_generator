@@ -21,6 +21,8 @@ import type { AudioFileResultLike } from "../types";
  * while that load was still in flight.
  */
 let loadEpoch = 0;
+/** Number of decode/peak jobs in flight; the loading badge stays until all end. */
+let activeAudioLoads = 0;
 
 /** Abandon any in-flight audio load. Call when the project document is reset. */
 export function invalidateAudioLoad(): void {
@@ -60,12 +62,21 @@ async function decodeAndApply(
   const epoch = loadEpoch;
   const p = useProjectStore();
   const tr = useTransportStore();
-  const buffer = await engine.decode(bytes);
-  // A new project was opened while decoding: drop this load entirely.
-  if (epoch !== loadEpoch) return false;
-  if (!buffer) return false;
-  engine.load(buffer);
-  tr.wave = computePeaks(buffer);
+  // Surface decode / peak building in the timeline; large files can take a
+  // moment and previously left the UI looking frozen.
+  activeAudioLoads++;
+  tr.audioLoading = true;
+  try {
+    const buffer = await engine.decode(bytes);
+    // A new project was opened while decoding: drop this load entirely.
+    if (epoch !== loadEpoch) return false;
+    if (!buffer) return false;
+    engine.load(buffer);
+    tr.wave = computePeaks(buffer);
+  } finally {
+    activeAudioLoads = Math.max(0, activeAudioLoads - 1);
+    if (activeAudioLoads === 0) tr.audioLoading = false;
+  }
   tr.hasAudio = true;
   tr.audioMissing = false;
   p.audioPath = path;

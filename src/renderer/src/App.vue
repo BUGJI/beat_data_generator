@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from "vue";
+import { onBeforeUnmount, onMounted, ref } from "vue";
 import { TooltipProvider } from "reka-ui";
 import TopBar from "./components/TopBar.vue";
 import ProjectBar from "./components/ProjectBar.vue";
@@ -47,7 +47,7 @@ import {
   saveProject,
   saveProjectQuick,
 } from "./services/projectIO";
-import { openAudioDialog } from "./services/audioIO";
+import { loadAudioResult, openAudioDialog } from "./services/audioIO";
 import { redo, undo } from "./services/history";
 import { copyMarkerGroup, pasteMarkerGroup } from "./services/clipboard";
 import { resetTapTempo, tapTempo } from "./services/tapTempo";
@@ -122,6 +122,67 @@ function nudgeSelectedMarkers(delta: number): void {
 }
 
 let unbindWelcome: (() => void) | null = null;
+
+// ---- drag & drop: load audio / open a project by dropping it on the window ----
+const DROP_AUDIO_EXTS = new Set([
+  "mp3",
+  "wav",
+  "ogg",
+  "flac",
+  "m4a",
+  "aac",
+  "opus",
+]);
+const dragActive = ref(false);
+let dragDepth = 0;
+
+function isFileDrag(e: DragEvent): boolean {
+  const dt = e.dataTransfer;
+  if (!dt) return false;
+  return Array.from(dt.types).includes("Files");
+}
+
+function onWindowDragEnter(e: DragEvent): void {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  dragDepth++;
+  dragActive.value = true;
+}
+
+function onWindowDragOver(e: DragEvent): void {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+}
+
+function onWindowDragLeave(e: DragEvent): void {
+  if (!isFileDrag(e)) return;
+  dragDepth = Math.max(0, dragDepth - 1);
+  if (dragDepth === 0) dragActive.value = false;
+}
+
+async function onWindowDrop(e: DragEvent): Promise<void> {
+  if (!isFileDrag(e)) return;
+  e.preventDefault();
+  dragDepth = 0;
+  dragActive.value = false;
+  const file = e.dataTransfer?.files?.[0];
+  if (!file) return;
+  const ext = (file.name.split(".").pop() ?? "").toLowerCase();
+  const path = window.api.getPathForFile(file);
+  if (ext === "bdg" || ext === "json") {
+    if (path) await openProject(path);
+    return;
+  }
+  if (DROP_AUDIO_EXTS.has(ext)) {
+    if (!path) return;
+    const res = await window.api.readAudioFile(path);
+    if (res) await loadAudioResult(res);
+    else toast.error(t("dialogs.audioDecodeFail"));
+    return;
+  }
+  toast.error(t("dialogs.dropUnsupported"));
+}
 
 function onKeydown(e: KeyboardEvent): void {
   // Modal dialogs suspend all global shortcuts.
@@ -386,10 +447,18 @@ onMounted(() => {
   void initPlugins();
   void window.api.notifyAppReady();
   window.addEventListener("keydown", onKeydown);
+  window.addEventListener("dragenter", onWindowDragEnter);
+  window.addEventListener("dragover", onWindowDragOver);
+  window.addEventListener("dragleave", onWindowDragLeave);
+  window.addEventListener("drop", onWindowDrop);
 });
 onBeforeUnmount(() => {
   unbindWelcome?.();
   window.removeEventListener("keydown", onKeydown);
+  window.removeEventListener("dragenter", onWindowDragEnter);
+  window.removeEventListener("dragover", onWindowDragOver);
+  window.removeEventListener("dragleave", onWindowDragLeave);
+  window.removeEventListener("drop", onWindowDrop);
 });
 </script>
 
@@ -411,6 +480,32 @@ onBeforeUnmount(() => {
       <PluginPanels />
       <AnalysisPanel />
       <UiToaster />
+      <div v-if="dragActive" class="drop-overlay" aria-hidden="true">
+        <div class="drop-card">{{ t("dialogs.dropHint") }}</div>
+      </div>
     </TooltipProvider>
   </div>
 </template>
+
+<style scoped>
+.drop-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(var(--bdg-neutral) / 0.35);
+  backdrop-filter: blur(2px);
+  pointer-events: none;
+}
+.drop-card {
+  padding: 18px 26px;
+  border-radius: var(--bdg-radius, 10px);
+  border: 1px dashed rgb(var(--bdg-accent-rgb) / 0.7);
+  background: var(--bdg-bg-raised);
+  color: var(--bdg-text);
+  font-size: var(--bdg-fs-14);
+  box-shadow: 0 18px 50px var(--bdg-shadow);
+}
+</style>

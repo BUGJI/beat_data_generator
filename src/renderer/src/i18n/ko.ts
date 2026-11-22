@@ -189,6 +189,9 @@ export default {
     audioMismatch:
       "오디오가 프로젝트 MD5와 일치하지 않아요. 노래를 다시 선택하고 오프셋을 다시 보정하세요.",
     audioDecodeFail: "오디오 디코딩에 실패했어요. 다른 파일을 시도해 보세요.",
+    loadingAudio: "오디오를 불러오는 중…",
+    dropHint: "놓으면 오디오를 불러오거나 프로젝트를 엽니다",
+    dropUnsupported: "오디오 파일 또는 .bdg 프로젝트만 지원해요",
     analysisWindowLimited:
       "긴 오디오: 분석은 처음 {minutes}분만 적용돼요 (설정 → 오디오에서 조정).",
     deletedMarkers: "마커 {n}개를 삭제했어요",
@@ -457,6 +460,9 @@ export default {
       wheelZoomStep: "휠 확대 단계",
       wheelZoomStepDesc:
         "Ctrl / ⌘ + 휠 한 칸당 확대 비율. 클수록 빠르게 확대돼요.",
+      wheelSeek: "휠로 재생 위치 이동",
+      wheelSeekDesc:
+        "일반 휠로 재생 헤드를 옮겨요 (FL Studio 스타일). 끄면 타임라인 스크롤로 돌아가며, Ctrl / ⌘ 확대와 Shift 이동은 그대로예요.",
       undoLimit: "실행 취소 한도",
       undoLimitDesc:
         "메모리에 보관하는 실행 취소 단계 수 (20–1000). 초과하면 가장 오래된 기록부터 버려요.",

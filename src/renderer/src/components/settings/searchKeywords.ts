@@ -121,6 +121,7 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
   "edit.defaultRate": ["默认倍速", "播放速度", "rate", "speed"],
   "edit.defaultZoom": ["缩放", "默认", "px", "zoom", "default"],
   "edit.wheelZoomStep": ["滚轮", "缩放", "灵敏度", "wheel", "zoom"],
+  "edit.wheelSeek": ["滚轮", "播放头", "进度", "wheel", "seek", "playhead"],
   "edit.undoLimit": ["撤销", "历史", "步数", "undo", "history", "limit"],
   "audio.autoBpm": ["bpm", "速度", "节拍", "tempo", "detect"],
   "audio.autoBeats": ["节拍", "打点", "标记", "beat", "marker"],

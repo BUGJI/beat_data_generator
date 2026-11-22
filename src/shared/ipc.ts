@@ -172,6 +172,8 @@ export interface IpcApi {
   openWindow: (opts: IpcOpenWindowOptions) => Promise<void>;
   /** Copy plain text to the system clipboard. */
   writeClipboard: (text: string) => Promise<void>;
+  /** Resolve the absolute path of a File dropped onto the window (sync). */
+  getPathForFile: (file: unknown) => string;
   /** Report whether the project has unsaved edits (drives the quit guard). */
   setDirty: (dirty: boolean) => void;
   /** Allow the pending quit to proceed (after the renderer saved). */

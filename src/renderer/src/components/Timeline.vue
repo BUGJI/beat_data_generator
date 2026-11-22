@@ -41,6 +41,7 @@ const view = useViewStore();
 
 const rootEl = ref<HTMLElement | null>(null);
 const canvasEl = ref<HTMLCanvasElement | null>(null);
+const overlayEl = ref<HTMLCanvasElement | null>(null);
 
 // Where to anchor the property card (screen coords inside the editor). The card
 // component owns its own size clamping / dragging from this anchor.
@@ -74,8 +75,9 @@ const {
 const { markDirty } = useTimelineCanvas({
   rootEl,
   canvasEl,
+  overlayEl,
   getScene: () => ({
-    canvas: canvasEl.value,
+    overlay: overlayEl.value,
     boxRect: boxRect.value,
     ghost: ghostState.value,
     hover,
@@ -183,6 +185,11 @@ const selectionAnnounce = computed(() => {
     @contextmenu.prevent="onContext"
   >
     <canvas ref="canvasEl" class="editor-canvas" aria-hidden="true" />
+    <canvas
+      ref="overlayEl"
+      class="editor-canvas editor-overlay"
+      aria-hidden="true"
+    />
 
     <div class="sr-only" role="status" aria-live="polite">
       {{ selectionAnnounce }}
@@ -191,6 +198,11 @@ const selectionAnnounce = computed(() => {
     <TimelineNotes />
 
     <PluginTimelineOverlays />
+
+    <div v-if="transport.audioLoading" class="editor-loading" role="status">
+      <span class="editor-spinner" aria-hidden="true" />
+      <span>{{ t("dialogs.loadingAudio") }}</span>
+    </div>
 
     <div
       v-if="!transport.hasAudio && project.markers.length === 0"
@@ -262,6 +274,42 @@ const selectionAnnounce = computed(() => {
 .editor-hint-sub {
   font-size: var(--bdg-fs-12);
   opacity: 0.8;
+}
+.editor-loading {
+  position: absolute;
+  top: 58px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--bdg-bg-raised);
+  border: 1px solid var(--bdg-border-strong);
+  box-shadow: 0 6px 20px var(--bdg-shadow);
+  color: var(--bdg-text);
+  font-size: var(--bdg-fs-12);
+  pointer-events: none;
+  z-index: 5;
+}
+.editor-spinner {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid rgb(var(--bdg-accent-rgb) / 0.25);
+  border-top-color: var(--bdg-accent);
+  animation: editor-spin 0.7s linear infinite;
+}
+@keyframes editor-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .editor-spinner {
+    animation-duration: 1.6s;
+  }
 }
 .editor-statusbar {
   position: absolute;

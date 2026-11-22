@@ -189,6 +189,9 @@ export default {
     audioMismatch:
       "Audio does not match the project MD5. Please re-select the song and re-calibrate the offset.",
     audioDecodeFail: "Failed to decode audio. Try another file.",
+    loadingAudio: "Loading audio…",
+    dropHint: "Drop to load audio or open a project",
+    dropUnsupported: "Only audio files or .bdg projects are supported",
     analysisWindowLimited:
       "Long audio: analysis only covers the first {minutes} minutes (adjust in Settings → Audio).",
     deletedMarkers: "Deleted {n} markers",
@@ -464,6 +467,9 @@ export default {
       wheelZoomStep: "Wheel zoom step",
       wheelZoomStepDesc:
         "Zoom factor per Ctrl/⌘ + wheel notch; larger zooms faster.",
+      wheelSeek: "Wheel seeks the playhead",
+      wheelSeekDesc:
+        "Move the playhead with a plain wheel (FL Studio style). Turn off to scroll the timeline instead; Ctrl/⌘ zoom and Shift pan still work.",
       undoLimit: "Undo step limit",
       undoLimitDesc:
         "Undo steps kept in memory (20–1000); the oldest are dropped beyond that.",

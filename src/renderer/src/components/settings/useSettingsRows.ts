@@ -85,6 +85,7 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const defaultRate = settingModel("defaultRate");
   const defaultZoom = settingModel("defaultZoom");
   const wheelZoomStep = settingModel("wheelZoomStep");
+  const wheelSeek = settingModel("wheelSeek");
   const undoLimit = settingModel("undoLimit");
   const ctrlSpeedPlay = settingModel("ctrlSpeedPlay");
   const countInBars = settingModel("countInBars");
@@ -255,6 +256,7 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     defaultRate,
     defaultZoom,
     wheelZoomStep,
+    wheelSeek,
     undoLimit,
     audioAutoBpm,
     audioAutoBeats,
