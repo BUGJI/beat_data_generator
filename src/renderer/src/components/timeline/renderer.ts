@@ -44,9 +44,12 @@ import type { Marker } from "../../types";
  *    placement ghost and playback effects).
  *
  * During playback without follow-scroll the base is therefore painted once,
- * while only the cheap overlay is repainted each frame. Heavy repeated work
- * (grid lines, waveform columns, marker stems/diamonds) is also batched into a
- * single path/fill per style instead of one draw call per element.
+ * while only the cheap overlay is repainted each frame. Individual
+ * `fillRect`/`fill` calls are used per grid line, waveform column and marker
+ * instead of one giant `Path2D`: batching fewer JS calls looked good on paper
+ * but the general path rasterizer is several times slower on the GPU, and
+ * redrawing that base every frame while zooming or following was the real
+ * bottleneck.
  */
 export interface DrawScene {
   overlay: HTMLCanvasElement | null;
@@ -90,14 +93,16 @@ export function drawBase(cv: HTMLCanvasElement | null): void {
   const project = useProjectStore();
   const view = useViewStore();
 
-  const X = (tms: number): number => timeToScreenX(tms);
+  const x0 = view.x;
+  const pps = view.pxPerSec;
+  const X = (tms: number): number => (tms / 1000) * pps - x0;
 
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = COLORS.background;
   ctx.fillRect(0, 0, W, H);
 
-  const t0 = screenToTime(0);
-  const t1 = screenToTime(W);
+  const t0 = (x0 / pps) * 1000;
+  const t1 = ((x0 + W) / pps) * 1000;
   // Rows are shared by every lane painter; computing them once avoids a
   // separate full track walk per layer.
   const rows = visibleRows(H, view.y, project.tracks.length);
@@ -135,15 +140,15 @@ function drawRulers(
   ctx.font = "9px Consolas, monospace";
   const k0 = Math.floor(t0 / stepMs);
   const k1 = Math.ceil(t1 / stepMs);
-  // ticks share one fill; only the text needs a per-tick call
-  ctx.beginPath();
+  // Per-tick fillRect. A single batched `Path2D` / beginPath+fill uses the slow
+  // general path rasterizer and is ~5x slower on this GPU, which dominated
+  // frame time while zooming or following. Individual rects use the fast path.
+  ctx.fillStyle = COLORS.rulerTick;
   for (let k = k0; k <= k1; k++) {
     const x = X(k * stepMs);
     if (x < -2 || x > W + 2) continue;
-    ctx.rect(x, TIME_RULER_H - 6, 1, 6);
+    ctx.fillRect(x, TIME_RULER_H - 6, 1, 6);
   }
-  ctx.fillStyle = COLORS.rulerTick;
-  ctx.fill();
   ctx.fillStyle = COLORS.rulerText;
   for (let k = k0; k <= k1; k++) {
     const x = X(k * stepMs);
@@ -159,22 +164,24 @@ function drawRulers(
   const b1 = Math.ceil(map(t1)) + 1;
   const beatY = TIME_RULER_H;
   ctx.fillStyle = COLORS.gridBeat;
-  ctx.beginPath();
+  let lastBeatX = -Infinity;
   for (let b = b0; b <= b1; b++) {
     if (b < 0) continue;
     const x = X(timeOfBeat(b));
     if (x < -4 || x > W + 4) continue;
-    ctx.rect(x, beatY, 1, BEAT_RULER_H);
+    // Collapse beats that land on the same pixel column when zoomed out.
+    if (x - lastBeatX < 2) continue;
+    lastBeatX = x;
+    ctx.fillRect(x, beatY, 1, BEAT_RULER_H);
   }
-  ctx.fill();
   // bar lines and labels follow the active meter (BPM-point overrides allowed)
-  const barRects = new Path2D();
   for (const bar of barStartsInRange(segments, b0, b1)) {
     if (bar.beat < 0) continue;
     const tm = timeOfBeat(bar.beat);
     const x = X(tm);
     if (x < -4 || x > W + 4) continue;
-    barRects.rect(x, beatY, 1.5, BEAT_RULER_H);
+    ctx.fillStyle = COLORS.gridBar;
+    ctx.fillRect(x, beatY, 1.5, BEAT_RULER_H);
     const perBar = beatsPerBarAt(segments, bar.beat);
     if ((timeOfBeat(bar.beat + perBar) - tm) * pps > 44) {
       ctx.fillStyle = COLORS.barText;
@@ -183,8 +190,6 @@ function drawRulers(
       ctx.font = "9px Consolas, monospace";
     }
   }
-  ctx.fillStyle = COLORS.gridBar;
-  ctx.fill(barRects);
 }
 
 function drawLoopRegion(
@@ -305,18 +310,23 @@ function drawGridLines(
   const segments = project.meterSegments;
   const b0 = Math.max(0, Math.floor(beatOfTime(t0)) - 1);
   const b1 = Math.ceil(beatOfTime(t1)) + 1;
+  // Individual fillRect per line. Batched paths are ~5x slower to rasterize on
+  // the GPU; one line per pixel column is the fast path. The last-drawn-x guard
+  // collapses lines that would overlap when zoomed out.
   ctx.fillStyle = COLORS.gridBeat;
-  ctx.beginPath();
+  let lastBeatX = -Infinity;
   for (let b = b0; b <= b1; b++) {
     const x = X(timeOfBeat(b));
     if (x < -2 || x > W + 2) continue;
-    ctx.rect(x, RULER_H, 1, H - RULER_H);
+    if (x - lastBeatX < 2) continue;
+    lastBeatX = x;
+    ctx.fillRect(x, RULER_H, 1, H - RULER_H);
   }
-  ctx.fill();
   // subdivisions when zoomed & snap on. Each grid region can use a different
   // denominator (BPM-point overrides); auto-hide is applied per region.
   if (view.snapEnabled) {
-    ctx.beginPath();
+    ctx.fillStyle = COLORS.gridSub;
+    let lastSubX = -Infinity;
     for (const seg of project.gridSegments) {
       const lo = Math.max(seg.beatStart, b0);
       const hi = Math.min(seg.beatEnd ?? b1, b1);
@@ -332,22 +342,23 @@ function drawGridLines(
         if (Math.abs(beat - Math.round(beat)) < 1e-6) continue;
         const x = X(timeOfBeat(beat));
         if (x < -2 || x > W + 2) continue;
-        ctx.rect(x, RULER_H, 1, H - RULER_H);
+        if (x - lastSubX < 2) continue;
+        lastSubX = x;
+        ctx.fillRect(x, RULER_H, 1, H - RULER_H);
       }
     }
-    ctx.fillStyle = COLORS.gridSub;
-    ctx.fill();
   }
   // bar lines follow the active meter (BPM-point overrides allowed); drawn last
   // so they sit above the beat and subdivision lines.
   ctx.fillStyle = COLORS.gridBar;
-  ctx.beginPath();
+  let lastBarX = -Infinity;
   for (const bar of barStartsInRange(segments, b0, b1)) {
     const x = X(timeOfBeat(bar.beat));
     if (x < -2 || x > W + 2) continue;
-    ctx.rect(x, RULER_H, 1.25, H - RULER_H);
+    if (x - lastBarX < 1) continue;
+    lastBarX = x;
+    ctx.fillRect(x, RULER_H, 1.25, H - RULER_H);
   }
-  ctx.fill();
 }
 
 /** Subdivision denominator to draw for a given zoom and grid region.
@@ -407,8 +418,11 @@ function drawBpmLaneContent(
   // instead of sampling just one (no missed transients, same pixel cost).
   const wave = transport.wave;
   if (wave?.minMax.length) {
-    const len = wave.minMax.length;
-    const totalBlocks = len >> 1;
+    // Hoist the typed array out of the draw loop: `wave` is a reactive store
+    // value, so every `wave.minMax[i]` would otherwise go through Vue's proxy
+    // and dominate frame time when zoomed out (many blocks per pixel).
+    const minMax = wave.minMax;
+    const totalBlocks = minMax.length >> 1;
     const blocksPerMs = wave.sampleRate / wave.blockSamples / 1000;
     const msPerPx = 1000 / view.pxPerSec;
     const tAt0 = screenToTime(0);
@@ -417,7 +431,8 @@ function drawBpmLaneContent(
     const px0 = bBase < 0 ? Math.max(0, Math.ceil(-bBase / bStep)) : 0;
     ctx.fillStyle = COLORS.waveform;
     ctx.globalAlpha = 0.5;
-    ctx.beginPath();
+    // One fillRect per pixel column (fast raster path). A single Path2D with
+    // thousands of sub-rects is several times slower on the GPU.
     for (let pxX = px0; pxX < W; pxX++) {
       const startB = bBase + pxX * bStep;
       let i0 = Math.floor(startB);
@@ -429,15 +444,14 @@ function drawBpmLaneContent(
       let lo = Infinity;
       let hi = -Infinity;
       for (let bi = i0; bi <= i1; bi++) {
-        const a = wave.minMax[bi * 2]!;
-        const b = wave.minMax[bi * 2 + 1]!;
+        const a = minMax[bi * 2]!;
+        const b = minMax[bi * 2 + 1]!;
         if (a < lo) lo = a;
         if (b > hi) hi = b;
       }
       if (!Number.isFinite(lo)) continue;
-      ctx.rect(pxX, cy + lo * amp, 1, Math.max(1, (hi - lo) * amp));
+      ctx.fillRect(pxX, cy + lo * amp, 1, Math.max(1, (hi - lo) * amp));
     }
-    ctx.fill();
     ctx.globalAlpha = 1;
   }
 
@@ -532,64 +546,51 @@ function drawMarkerLanesContent(
     const list = markersInTrack(track.id);
     const baseColor = track.hidden ? COLORS.markerDim : track.color;
     const cy = r.y + r.h / 2;
-    const stems = new Path2D();
-    const selStems = new Path2D();
-    const diamonds = new Path2D();
-    const selDiamonds = new Path2D();
-    const rings = new Path2D();
-    const selected: Marker[] = [];
+    // Draw each marker with plain fillRect / fill instead of one big Path2D
+    // per style. The batched paths were several times slower to rasterize on
+    // the GPU, which is what made zooming/following stutter with many markers.
+    let lastX = -Infinity;
     for (let i = lowerBoundByBeat(list, bLo); i < list.length; i++) {
       const m = list[i]!;
       if (m.beat > bHi) break;
       const x = X(storeMarkerTime(m));
       if (x < -16 || x > W + 16) continue;
       const sel = selectedId !== null && selectedId === m.id;
+      const grouped = selGroup.has(m.id) && !sel;
+      // Collapse markers that share a pixel column when zoomed out, but keep
+      // the selected / selected-group ones so their highlight is never lost.
+      if (!sel && !grouped && x - lastX < 1.5) continue;
+      lastX = x;
+      const color = sel ? COLORS.markerSelected : baseColor;
       // faint vertical stem
-      if (sel) selStems.rect(x - 1, r.y + 4, 2, r.h - 8);
-      else stems.rect(x - 1, r.y + 4, 2, r.h - 8);
+      ctx.fillStyle = color;
+      ctx.globalAlpha = 0.35;
+      ctx.fillRect(x - 1, r.y + 4, 2, r.h - 8);
+      ctx.globalAlpha = 1;
       // big diamond marker
       const rr = sel ? 9 : 7;
-      const path = sel ? selDiamonds : diamonds;
-      path.moveTo(x, cy - rr);
-      path.lineTo(x + rr, cy);
-      path.lineTo(x, cy + rr);
-      path.lineTo(x - rr, cy);
-      path.closePath();
-      if (selGroup.has(m.id) && !sel) {
-        rings.moveTo(x + rr + 3.5, cy);
-        rings.arc(x, cy, rr + 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = color;
+      drawDiamond(ctx, x, cy, rr);
+      // multi-selection ring
+      if (grouped) {
+        ctx.strokeStyle = COLORS.markerSelected;
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        ctx.arc(x, cy, rr + 3.5, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
       }
-      if (sel) selected.push(m);
-    }
-    // stems (0.35 alpha) under the diamonds
-    ctx.globalAlpha = 0.35;
-    ctx.fillStyle = baseColor;
-    ctx.fill(stems);
-    ctx.fillStyle = COLORS.markerSelected;
-    ctx.fill(selStems);
-    ctx.globalAlpha = 1;
-    // diamonds
-    ctx.fillStyle = baseColor;
-    ctx.fill(diamonds);
-    ctx.fillStyle = COLORS.markerSelected;
-    ctx.fill(selDiamonds);
-    // multi-selection rings
-    ctx.strokeStyle = COLORS.markerSelected;
-    ctx.lineWidth = 1.5;
-    ctx.globalAlpha = 0.9;
-    ctx.stroke(rings);
-    ctx.globalAlpha = 1;
-    // time label beside each selected marker
-    for (const m of selected) {
-      const x = X(storeMarkerTime(m));
-      const rr = 9;
-      const label = formatTime(storeMarkerTime(m));
-      ctx.font = "10px Consolas, monospace";
-      const tw = ctx.measureText(label).width;
-      ctx.fillStyle = COLORS.labelBg;
-      ctx.fillRect(x + rr + 3, cy - 8, tw + 8, 15);
-      ctx.fillStyle = COLORS.markerSelected;
-      ctx.fillText(label, x + rr + 7, cy + 3);
+      // time label beside each selected marker
+      if (sel) {
+        const label = formatTime(storeMarkerTime(m));
+        ctx.font = "10px Consolas, monospace";
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = COLORS.labelBg;
+        ctx.fillRect(x + rr + 3, cy - 8, tw + 8, 15);
+        ctx.fillStyle = COLORS.markerSelected;
+        ctx.fillText(label, x + rr + 7, cy + 3);
+      }
     }
   }
 }

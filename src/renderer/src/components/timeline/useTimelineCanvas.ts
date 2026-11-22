@@ -30,8 +30,9 @@ import { drawBase, drawOverlay, hasActiveFx, type DrawScene } from "./renderer";
  *
  * The base layer is dependency-driven: it repaints only when the document,
  * viewport, theme or selection changes. The overlay (playhead, gestures,
- * playback effects) is repainted at most once per animation frame while
- * playback or an effect is active, or whenever its reactive inputs change.
+ * playback effects) is repainted synchronously whenever its reactive inputs
+ * change, and each frame while playback or an effect is active. Both layers
+ * paint in the same flush so their scroll offsets can never diverge.
  * `markDirty` is the escape hatch for render inputs that aren't reactive (the
  * box-selection rect).
  */
@@ -46,7 +47,6 @@ export function useTimelineCanvas(opts: {
   const settings = useSettingsStore();
 
   let raf = 0;
-  let overlayFrame = 0;
   let ro: ResizeObserver | null = null;
   let stopBase: (() => void) | null = null;
   let stopOverlay: (() => void) | null = null;
@@ -64,15 +64,6 @@ export function useTimelineCanvas(opts: {
 
   function paintOverlay(): void {
     drawOverlay(opts.getScene());
-  }
-
-  /** Coalesce overlay paints so several reactive updates per frame cost one draw. */
-  function scheduleOverlay(): void {
-    if (overlayFrame) return;
-    overlayFrame = requestAnimationFrame(() => {
-      overlayFrame = 0;
-      paintOverlay();
-    });
   }
 
   function setupCanvas(): void {
@@ -133,7 +124,7 @@ export function useTimelineCanvas(opts: {
     // drive those frames explicitly. One extra frame after they end clears the
     // residual animation.
     const fxActive = hasActiveFx();
-    if (transport.playing || fxActive || wasFxActive) scheduleOverlay();
+    if (transport.playing || fxActive || wasFxActive) paintOverlay();
     wasFxActive = fxActive;
     if (transport.playing || fxActive) raf = requestAnimationFrame(loop);
   }
@@ -151,8 +142,10 @@ export function useTimelineCanvas(opts: {
     stopBase = watchEffect(() => {
       paintBase();
     });
-    // Overlay: gesture state + position + palette/fx toggles. The actual paint
-    // is deferred to the next frame so a burst of updates draws once.
+    // Overlay: gesture state + position + palette/fx toggles. It is painted
+    // synchronously in the same flush as the base layer so the two canvases
+    // never show different scroll offsets (a deferred paint lagged the
+    // playhead/ghost one frame behind the grid during zoom and follow).
     stopOverlay = watchEffect(() => {
       void renderNonce.value;
       void transport.positionMs;
@@ -164,8 +157,8 @@ export function useTimelineCanvas(opts: {
       const scene = opts.getScene();
       void scene.boxRect;
       void scene.ghost;
-      // Palette / effect values are read inside the deferred paint, so touch
-      // them here to keep this effect subscribed to their changes.
+      // Palette / effect values are read inside the paint, so touch them here
+      // to keep this effect subscribed to their changes.
       void COLORS.playhead;
       void COLORS.markerSelected;
       void COLORS.markerGhostOk;
@@ -179,7 +172,7 @@ export function useTimelineCanvas(opts: {
       void useSelectionStore().selected;
       void useProjectStore().markers;
       void useProjectStore().tracks;
-      scheduleOverlay();
+      paintOverlay();
     });
     ro = new ResizeObserver(() => {
       setupCanvas();
@@ -192,8 +185,6 @@ export function useTimelineCanvas(opts: {
 
   onBeforeUnmount(() => {
     cancelAnimationFrame(raf);
-    cancelAnimationFrame(overlayFrame);
-    overlayFrame = 0;
     raf = 0;
     stopBase?.();
     stopBase = null;

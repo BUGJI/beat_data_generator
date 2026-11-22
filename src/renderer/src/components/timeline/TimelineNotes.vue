@@ -30,10 +30,18 @@ let dragTarget: { timeMs: number; y: number } | null = null;
 let dragRaf = 0;
 let stopDrag: (() => void) | null = null;
 
-const noteOf = (id: string): ProjectNote | undefined =>
-  project.notes.find((n) => n.id === id);
+const notesById = computed(() => new Map(project.notes.map((n) => [n.id, n])));
 
-const noteTextOf = (id: string): string => noteOf(id)?.text ?? "";
+const noteOf = (id: string): ProjectNote | undefined => notesById.value.get(id);
+
+// Pre-render markdown once per note text change. Previously this ran inside
+// the template, so every viewport tick (zoom / follow) re-parsed every note.
+const noteHtmlById = computed(() => {
+  const map = new Map<string, string>();
+  for (const n of project.notes)
+    map.set(n.id, n.text ? mdRender(escapeHtml(n.text)) : "");
+  return map;
+});
 
 const noteLayouts = computed(() =>
   project.notes.map((n) => ({
@@ -43,10 +51,6 @@ const noteLayouts = computed(() =>
     locked: n.locked === true,
   })),
 );
-
-function noteHtml(text: string): string {
-  return text ? mdRender(escapeHtml(text)) : "";
-}
 
 function onNoteDown(e: PointerEvent, note: ProjectNote | undefined): void {
   if (!note || note.locked) return;
@@ -180,7 +184,7 @@ function cancelNoteEdit(): void {
           class="note-body md"
           :title="t('note.editHint')"
           @dblclick.stop="startNoteEdit(noteOf(nl.id))"
-          v-html="noteHtml(noteTextOf(nl.id))"
+          v-html="noteHtmlById.get(nl.id) ?? ''"
         />
         <Pencil
           v-if="!nl.locked"
