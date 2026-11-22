@@ -25,6 +25,12 @@ export interface SettingsRowBindings {
   ctrlSpeedPlay: RefLike<boolean>;
   countInBars: RefLike<number>;
   gridMetronome: RefLike<boolean>;
+  beatOverlap: RefLike<string>;
+  beatOverlapOptions: RefLike<ColOption[]>;
+  beatOverlapHint: () => string;
+  beatAccent: RefLike<boolean>;
+  beatAccentGain: RefLike<number>;
+  outputProtection: RefLike<boolean>;
   alignDecimals: RefLike<number>;
   alignRounding: RefLike<string>;
   alignRoundingOptions: RefLike<ColOption[]>;
@@ -49,6 +55,7 @@ export interface SettingsRowBindings {
   defaultRate: RefLike<number>;
   defaultZoom: RefLike<number>;
   wheelZoomStep: RefLike<number>;
+  wheelSeek: RefLike<boolean>;
   undoLimit: RefLike<number>;
   audioAutoBpm: RefLike<boolean>;
   audioAutoBeats: RefLike<boolean>;
@@ -72,6 +79,8 @@ export interface SettingsRowBindings {
   menuMotion: RefLike<boolean>;
   beatFxMaster: RefLike<boolean>;
   beatPulse: RefLike<boolean>;
+  beatFxDensity: RefLike<string>;
+  beatFxDensityOptions: RefLike<ColOption[]>;
   laneGlow: RefLike<boolean>;
   markerFlash: RefLike<boolean>;
   motionSpeed: RefLike<string>;
@@ -109,6 +118,12 @@ export function buildFieldGroups(
     ctrlSpeedPlay,
     countInBars,
     gridMetronome,
+    beatOverlap,
+    beatOverlapOptions,
+    beatOverlapHint,
+    beatAccent,
+    beatAccentGain,
+    outputProtection,
     alignDecimals,
     alignRounding,
     alignRoundingOptions,
@@ -133,6 +148,7 @@ export function buildFieldGroups(
     defaultRate,
     defaultZoom,
     wheelZoomStep,
+    wheelSeek,
     undoLimit,
     audioAutoBpm,
     audioAutoBeats,
@@ -156,6 +172,8 @@ export function buildFieldGroups(
     menuMotion,
     beatFxMaster,
     beatPulse,
+    beatFxDensity,
+    beatFxDensityOptions,
     laneGlow,
     markerFlash,
     motionSpeed,
@@ -376,6 +394,11 @@ export function buildFieldGroups(
               step: 0.05,
             }),
           },
+          {
+            kind: "field",
+            key: "wheelSeek",
+            control: sw(wheelSeek),
+          },
         ],
       },
       {
@@ -467,6 +490,29 @@ export function buildFieldGroups(
         key: "metronome",
         rows: [
           { kind: "custom", id: "audio.metronome", searchKey: "metronome" },
+          {
+            kind: "field",
+            key: "beatOverlap",
+            col: true,
+            control: radio(
+              beatOverlap,
+              () => beatOverlapOptions.value,
+              beatOverlapHint,
+            ),
+          },
+          { kind: "field", key: "beatAccent", control: sw(beatAccent) },
+          {
+            kind: "field",
+            key: "beatAccentGain",
+            col: true,
+            showIf: () => beatAccent.value,
+            control: slider(beatAccentGain, 100, 200, "%"),
+          },
+          {
+            kind: "field",
+            key: "outputProtection",
+            control: sw(outputProtection),
+          },
         ],
       },
       {
@@ -542,10 +588,21 @@ export function buildFieldGroups(
             control: sw(menuMotion),
           },
           { kind: "subhead", key: "motionFx" },
+          {
+            kind: "custom",
+            id: "display.performancePreset",
+            searchKey: "performancePreset",
+          },
           { kind: "field", key: "beatFxMaster", control: sw(beatFxMaster) },
           { kind: "field", key: "laneGlow", control: sw(laneGlow) },
           { kind: "field", key: "markerFlash", control: sw(markerFlash) },
           { kind: "field", key: "beatPulse", control: sw(beatPulse) },
+          {
+            kind: "field",
+            key: "beatFxDensity",
+            expert: true,
+            control: radio(beatFxDensity, () => beatFxDensityOptions.value),
+          },
           { kind: "subhead", key: "motionFeel" },
           {
             kind: "field",

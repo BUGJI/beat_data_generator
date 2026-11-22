@@ -49,6 +49,7 @@ describe("defaultSettings", () => {
     expect(s.menuMotion).toBe(true);
     expect(s.beatFxMaster).toBe(true);
     expect(s.beatPulse).toBe(true);
+    expect(s.beatFxDensity).toBe("full");
     expect(s.motionSpeed).toBe("normal");
     expect(s.reduceMotion).toBe("system");
     expect(s.defaultGridDiv).toBe(4);
@@ -68,7 +69,13 @@ describe("defaultSettings", () => {
     expect(s.defaultRate).toBe(1);
     expect(s.defaultZoom).toBe(90);
     expect(s.wheelZoomStep).toBe(1.25);
+    expect(s.wheelSeek).toBe(false);
     expect(s.undoLimit).toBe(100);
+    expect(s.metronomeVolume).toBe(85);
+    expect(s.beatOverlap).toBe("limit");
+    expect(s.beatAccent).toBe(true);
+    expect(s.beatAccentGain).toBe(145);
+    expect(s.outputProtection).toBe(true);
   });
 
   it("clamps the analysis window length into 1–60 minutes", () => {
@@ -81,6 +88,19 @@ describe("defaultSettings", () => {
     expect(
       sanitizeSettings({ analysisWindowMinutes: 7 }).analysisWindowMinutes,
     ).toBe(7);
+  });
+
+  it("repairs the coincident-click policy and clamps the accent gain", () => {
+    expect(sanitizeSettings({ beatOverlap: "stack" }).beatOverlap).toBe(
+      "stack",
+    );
+    expect(sanitizeSettings({ beatOverlap: "nope" }).beatOverlap).toBe("limit");
+    expect(sanitizeSettings({ beatAccentGain: 999 }).beatAccentGain).toBe(200);
+    expect(sanitizeSettings({ beatAccentGain: 1 }).beatAccentGain).toBe(100);
+    expect(sanitizeSettings({ beatAccent: 0 }).beatAccent).toBe(true);
+    expect(sanitizeSettings({ outputProtection: 0 }).outputProtection).toBe(
+      true,
+    );
   });
 });
 

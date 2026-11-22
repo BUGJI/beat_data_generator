@@ -1,7 +1,8 @@
 import { app, BrowserWindow, Menu } from "electron";
+import { crashDumpsDir, installCrashReporter } from "./crash";
 import { installIpc } from "./ipc";
 import { loadLastDirs } from "./lastDirs";
-import { setFileLogging } from "./logger";
+import log, { setFileLogging } from "./logger";
 import { installMarketManager } from "./market";
 import { seedMetronomePresets } from "./metronome";
 import { applyProxyMode } from "./network";
@@ -23,10 +24,13 @@ import {
  * metronome / files / windows / ipc / updater), wired together below.
  */
 
+installCrashReporter();
+
 app.whenReady().then(() => {
   loadSettings();
   seedMetronomePresets();
   setFileLogging(getSettings().logToFile === true);
+  log.info(`[crash] dumps directory: ${crashDumpsDir()}`);
   loadLastDirs();
   loadRecents();
   installIpc();

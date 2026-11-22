@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { BEAT_FX_IDS } from "./beatFx";
+import { BEAT_OVERLAP_MODES } from "./beatClick";
 import { FREE_NUMBERS, STRICT_NUMBERS, type NumberPolicy } from "./limits";
 import { GH_PROXY_DEFAULT_HOST, normalizeProxyHost } from "./network";
 
@@ -117,6 +118,20 @@ export const StretchEngineSchema = z
   .default("signalsmith");
 export type StretchEngine = z.infer<typeof StretchEngineSchema>;
 
+/** How coincident marker clicks are mixed into one output. */
+export const BeatOverlapSchema = z
+  .enum(BEAT_OVERLAP_MODES)
+  .catch("limit")
+  .default("limit");
+export type BeatOverlap = z.infer<typeof BeatOverlapSchema>;
+
+/** How many playback effect targets may animate per instant. */
+export const BeatFxDensitySchema = z
+  .enum(["full", "light"])
+  .catch("full")
+  .default("full");
+export type BeatFxDensity = z.infer<typeof BeatFxDensitySchema>;
+
 /** Global animation duration tier (slow = longer, fast = shorter). */
 export const MotionSpeedSchema = z
   .enum(["slow", "normal", "fast"])
@@ -169,6 +184,8 @@ const createSettingsSchema = (policy: NumberPolicy) =>
     beatFxMaster: bool(true),
     /** pulse the project-bar beat / overlap indicator lights. */
     beatPulse: bool(true),
+    /** cap how many playback effect targets animate at once (light = fewer). */
+    beatFxDensity: BeatFxDensitySchema,
     /** global animation duration tier. */
     motionSpeed: MotionSpeedSchema,
     /** OS reduce-motion handling. */
@@ -284,6 +301,8 @@ const createSettingsSchema = (policy: NumberPolicy) =>
     defaultZoom: intInRange(policy, 90, 6, 4000),
     /** wheel zoom multiplier per notch (Ctrl/Cmd + wheel). */
     wheelZoomStep: numInRange(policy, 1.25, 1.05, 2),
+    /** ordinary wheel moves the playhead instead of scrolling (opt-in). */
+    wheelSeek: bool(false),
     /** maximum undo steps kept in memory. */
     undoLimit: intInRange(policy, 100, 20, 1000),
     /** hold Ctrl when pressing Space to play at the current rate; plain Space plays at 1x. */
@@ -321,6 +340,14 @@ const createSettingsSchema = (policy: NumberPolicy) =>
     metronomeFollowMaster: bool(true),
     /** independent metronome volume in percent (0–100). */
     metronomeVolume: intInRange(policy, 85, 0, 100),
+    /** loudness policy when several markers share one instant. */
+    beatOverlap: BeatOverlapSchema,
+    /** accent clicks that land on a bar start. */
+    beatAccent: bool(true),
+    /** accent click gain in percent (100–200, 145 = the old fixed 1.45×). */
+    beatAccentGain: intInRange(policy, 145, 100, 200),
+    /** soft-limit the master mix so stacked clicks / loud music do not clip. */
+    outputProtection: bool(true),
     settingsVersion: z.coerce.number().catch(0).default(0),
     /** On audio load, auto-detect BPM and apply to baseBpm (only when not locked). */
     audioAutoBpm: bool(false),

@@ -1,11 +1,17 @@
 import { getCurrentScope, onScopeDispose } from "vue";
 import { useSettingsStore } from "../../stores/settings";
+import { useTransportStore } from "../../stores/transport";
 import { setScroll, screenToTime, useViewStore } from "../../stores/view";
 import { MAX_PX_PER_SEC, MIN_PX_PER_SEC } from "../../metrics";
 import { holdFollow } from "../../services/follow";
 import { motionMs } from "../../services/motion";
+import { contentEndMs } from "../../services/timeline";
+import { seekTo } from "../../services/playback";
+import { engine } from "../../engine";
 
 const ANIM_MS = 100;
+/** Project milliseconds advanced per wheel notch (deltaY ≈ 100). */
+const WHEEL_SEEK_MS = 50;
 
 /** Zoom / scroll wheel handling with an interruptible ease-out animation. */
 export function useTimelineWheel() {
@@ -72,6 +78,18 @@ export function useTimelineWheel() {
     }
     const dx = e.deltaX !== 0 ? e.deltaX : e.shiftKey ? e.deltaY : 0;
     const dy = e.deltaX !== 0 || e.shiftKey ? 0 : e.deltaY;
+    // Opt-in FL Studio style: plain wheel moves the playhead instead of the
+    // viewport. Ctrl/⌘ zoom and Shift/horizontal pan keep their branches.
+    if (settings.settings.wheelSeek && dx === 0 && dy !== 0) {
+      const t = useTransportStore();
+      const limit = Math.max(engine.durationMs(), contentEndMs());
+      const next = Math.min(
+        limit,
+        Math.max(0, t.positionMs + (dy / 100) * WHEEL_SEEK_MS),
+      );
+      seekTo(next);
+      return;
+    }
     if (anim) {
       const x0 = view.x;
       const y0 = view.y;

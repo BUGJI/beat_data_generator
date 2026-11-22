@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { IPC, type WelcomeAction } from "../shared/ipc";
 import { isAllowedAppNavigation } from "../shared/navigation";
+import { logCrashDump } from "./crash";
 import { PROJECT_FILTERS } from "./files";
 import { mt } from "./i18n";
 import { lastDirDefault, rememberDir } from "./lastDirs";
@@ -349,6 +350,8 @@ export function createWindow(): void {
       log.error(
         `renderer gone: reason=${details.reason} exitCode=${details.exitCode}`,
       );
+      // Crashpad finishes writing the minidump just after the process exits.
+      setTimeout(logCrashDump, 1500);
     },
   );
 

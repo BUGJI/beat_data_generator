@@ -41,6 +41,7 @@ const view = useViewStore();
 
 const rootEl = ref<HTMLElement | null>(null);
 const canvasEl = ref<HTMLCanvasElement | null>(null);
+const overlayEl = ref<HTMLCanvasElement | null>(null);
 
 // Where to anchor the property card (screen coords inside the editor). The card
 // component owns its own size clamping / dragging from this anchor.
@@ -74,8 +75,9 @@ const {
 const { markDirty } = useTimelineCanvas({
   rootEl,
   canvasEl,
+  overlayEl,
   getScene: () => ({
-    canvas: canvasEl.value,
+    overlay: overlayEl.value,
     boxRect: boxRect.value,
     ghost: ghostState.value,
     hover,
@@ -183,6 +185,11 @@ const selectionAnnounce = computed(() => {
     @contextmenu.prevent="onContext"
   >
     <canvas ref="canvasEl" class="editor-canvas" aria-hidden="true" />
+    <canvas
+      ref="overlayEl"
+      class="editor-canvas editor-overlay"
+      aria-hidden="true"
+    />
 
     <div class="sr-only" role="status" aria-live="polite">
       {{ selectionAnnounce }}

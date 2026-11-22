@@ -9,8 +9,10 @@ import { useSettingsStore } from "../stores/settings";
 import { useTransportStore } from "../stores/transport";
 import { useUiStore } from "../stores/ui";
 import { lowerBound } from "../utils/search";
+import { isBarStartAt } from "../meter";
 import { motionMs } from "./motion";
-import { timeOfBeat } from "./timeline";
+import { meterSegments, timeOfBeat } from "./timeline";
+import { BeatClickScheduler } from "./beatClick";
 
 // ---- beat indicators: fire once per distinct marker time crossed while
 // playing. A single marker -> beat light; two or more coincident markers ->
@@ -19,11 +21,18 @@ import { timeOfBeat } from "./timeline";
 interface FlashEvent {
   t: number;
   n: number;
+  /** true when this instant lands on a bar line (accented click). */
+  accent: boolean;
   /** distinct tracks that have a marker at this instant. */
   trackIds: string[];
   /** every marker id at this instant (for per-marker effects). */
   markerIds: string[];
 }
+
+/** How far ahead clicks are handed to the audio clock. */
+const CLICK_LOOKAHEAD_SEC = 0.2;
+
+const clickScheduler = new BeatClickScheduler();
 
 let flashEvents: FlashEvent[] = [];
 let flashIdx = 0;
@@ -32,8 +41,8 @@ let flashReady = false;
 let lastPosMs = 0;
 // A forward jump larger than this means frames were suspended (the window was
 // hidden without background throttling disabled, or the machine slept). The
-// events we blew past are dropped instead of all firing at once as a burst of
-// overlapping metronome clicks (which clips / pops).
+// visual pulses we blew past are dropped instead of firing as one burst; the
+// audio scheduler independently skips overdue clicks.
 const SUSPEND_GAP_MS = 500;
 
 /**
@@ -77,10 +86,12 @@ export function refreshBeatFlash(posMs: number): void {
       });
     }
   }
+  const segments = meterSegments();
   flashEvents = [...groups.values()]
     .map((g) => ({
       t: timeOfBeat(g.beat),
       n: g.count,
+      accent: isBarStartAt(segments, g.beat),
       trackIds: g.trackIds,
       markerIds: g.markerIds,
     }))
@@ -88,15 +99,32 @@ export function refreshBeatFlash(posMs: number): void {
   flashIdx = firstEventAtOrAfter(flashEvents, posMs);
   flashReady = flashIdx < flashEvents.length;
   lastPosMs = posMs;
+  clickScheduler.invalidate();
 }
 
 export function tickBeatFlash(): void {
   const t = useTransportStore();
-  if (!t.playing || !flashReady) return;
+  if (!t.playing) return;
+  scheduleBeatClicks(t);
+  const pos = t.positionMs;
+  // A loop wrap moves the playhead backwards. Reset the visual cursor so the
+  // effects fire again on the next pass; clicks follow the engine clock epoch.
+  if (pos + 50 < lastPosMs) {
+    flashIdx = firstEventAtOrAfter(flashEvents, pos);
+    flashReady = flashIdx < flashEvents.length;
+    lastPosMs = pos;
+    return;
+  }
+  if (!flashReady) return;
   const ui = useUiStore();
   const settings = useSettingsStore().settings;
   const enabled = settings.beatFx;
-  const pos = t.positionMs;
+  const pulseOn = settings.beatPulse;
+  const fxOn = settings.beatFxMaster;
+  // In lightweight mode only a handful of entities animate per instant; this
+  // keeps dense multi-track projects from turning every crossing into a full
+  // canvas of blooms.
+  const maxTargets = settings.beatFxDensity === "light" ? 8 : Infinity;
   // Drop the events we jumped past after a stall rather than firing them all
   // together (that is what produced the overlapping-click burst / clipping).
   const suspended = pos - lastPosMs > SUSPEND_GAP_MS;
@@ -108,23 +136,50 @@ export function tickBeatFlash(): void {
     const ev = flashEvents[flashIdx] as FlashEvent;
     flashIdx++;
     if (suspended) continue;
-    ui.beatPulse++;
-    engine.playMetronome(ev.n);
-    if (ev.n >= 2) {
-      ui.overlapPulse++;
-      ui.overlapCount = ev.n;
+    // Nothing visual is enabled: the audio scheduler above already handled the
+    // click, so skip the pulse bookkeeping entirely.
+    if (!pulseOn && !fxOn) continue;
+    if (pulseOn) {
+      ui.beatPulse++;
+      if (ev.n >= 2) {
+        ui.overlapPulse++;
+        ui.overlapCount = ev.n;
+      }
     }
+    if (!fxOn) continue;
     const now = performance.now();
     for (const id of BEAT_FX_IDS) {
-      if (!settings.beatFxMaster || !enabled[id]) continue;
+      if (!enabled[id]) continue;
       const dur = motionMs(BEAT_FX_DURATION_MS[id]);
       if (dur <= 0) continue;
       const pulses = ui.fxPulses[id];
-      for (const key of FX_TARGETS[id](ev)) {
+      const targets = FX_TARGETS[id](ev);
+      const n = Math.min(targets.length, maxTargets);
+      for (let i = 0; i < n; i++) {
+        const key = targets[i]!;
         pulses[key] = { seq: (pulses[key]?.seq ?? 0) + 1, at: now, dur };
       }
       ui.fxUntil[id] = Math.max(ui.fxUntil[id], now + dur);
     }
   }
   if (flashIdx >= flashEvents.length) flashReady = false;
+}
+
+/**
+ * Hand upcoming clicks to the audio clock ahead of time. This is deliberately
+ * separate from the visual pulse loop: audio is scheduled early, effects fire
+ * when the playhead actually crosses the marker.
+ */
+function scheduleBeatClicks(t: ReturnType<typeof useTransportStore>): void {
+  if (!flashEvents.length) return;
+  const clock = engine.audioClock();
+  if (!clock) return;
+  const loopEnd =
+    t.loopEnabled && t.loopEndMs > t.loopStartMs + 1 ? t.loopEndMs : null;
+  clickScheduler.tick(clock, flashEvents, {
+    lookaheadSec: CLICK_LOOKAHEAD_SEC,
+    loopEndMs: loopEnd,
+    schedule: (when, count, accent) =>
+      engine.playMetronomeAt(when, count, accent),
+  });
 }

@@ -32,15 +32,26 @@ import {
 import { drawMarkerBloom } from "./bloom";
 import { BEAT_FX_DURATION_MS, BEAT_FX_IDS } from "@shared/beatFx";
 import type { Marker } from "../../types";
-import type { BoxRect, GhostState } from "./types";
+import type { BoxRect, GhostState, VisibleRow } from "./types";
 
 /**
- * All canvas painting for the timeline. The drawing reads the stores directly
- * (they are render-only inputs); the few non-reactive gesture values are passed
- * in through `DrawScene`, so no component-local state leaks in here.
+ * All canvas painting for the timeline, split across two stacked canvases:
+ *
+ *  - the **base** canvas holds everything that only changes with the document,
+ *    viewport, theme or selection (background, rulers, grid, waveform, markers);
+ *  - the **overlay** canvas holds the per-frame bits (playhead, selection box,
+ *    placement ghost and playback effects).
+ *
+ * Painting is dependency-driven: each layer's `watchEffect` subscribes to the
+ * stores it reads. During playback the expensive base layer therefore stays
+ * untouched unless the view actually scrolls.
+ *
+ * The drawing reads the stores directly (they are render-only inputs); the few
+ * non-reactive gesture values are passed in through `DrawScene`, so no
+ * component-local state leaks in here.
  */
 export interface DrawScene {
-  canvas: HTMLCanvasElement | null;
+  overlay: HTMLCanvasElement | null;
   boxRect: BoxRect | null;
   ghost: GhostState | null;
   hover: { x: number; y: number };
@@ -68,14 +79,17 @@ export function hasActiveFx(): boolean {
   return false;
 }
 
-export function draw(scene: DrawScene): void {
-  const cv = scene.canvas;
+/** Static scene: repainted only when the document, viewport or theme changes. */
+export function drawBase(cv: HTMLCanvasElement | null): void {
   if (!cv) return;
   const ctx = cv.getContext("2d");
   if (!ctx) return;
   const dpr = window.devicePixelRatio || 1;
   const W = cv.width / dpr;
   const H = cv.height / dpr;
+  const view = useViewStore();
+  const project = useProjectStore();
+  const rows = visibleRows(H, view.y, project.tracks.length);
   const endMs = contentEndMs();
 
   const X = (tms: number): number => timeToScreenX(tms);
@@ -88,17 +102,41 @@ export function draw(scene: DrawScene): void {
   const t1 = screenToTime(W);
 
   drawRulers(ctx, W, t0, t1, X, endMs);
-  drawLaneBacks(ctx, W, H);
-  drawLaneGlow(ctx, W, H);
-  drawBpmSegmentFills(ctx, W, H, X);
+  drawLaneBacks(ctx, W, rows, project);
+  drawBpmSegmentFills(ctx, W, X, rows);
   drawLoopRegion(ctx, W, H, X);
   drawGridLines(ctx, W, H, t0, t1, X, endMs);
-  drawBpmLaneContent(ctx, W, H, t0, X);
-  drawMarkerLanesContent(ctx, W, H, t0, t1, X);
+  drawBpmLaneContent(ctx, W, t0, X, rows);
+  drawMarkerLanesContent(ctx, W, t0, t1, X, rows);
+}
+
+/** Per-frame layer: playhead, gesture overlays and decaying playback effects. */
+export function drawOverlay(scene: DrawScene): void {
+  const cv = scene.overlay;
+  if (!cv) return;
+  const ctx = cv.getContext("2d");
+  if (!ctx) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = cv.width / dpr;
+  const H = cv.height / dpr;
+  const view = useViewStore();
+  const project = useProjectStore();
+  const rows = visibleRows(H, view.y, project.tracks.length);
+
+  const X = (tms: number): number => timeToScreenX(tms);
+  const t0 = screenToTime(0);
+  const t1 = screenToTime(W);
+
+  // Transparent layer: clear the previous frame before drawing the new one.
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, cv.width, cv.height);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+  drawLaneGlow(ctx, W, rows);
+  drawMarkerFlash(ctx, W, t0, t1, X, rows);
   drawGhost(ctx, W, H, X, scene.ghost, scene.hover);
   drawSelectionBox(ctx, scene.boxRect);
   drawPlayhead(ctx, W, H, X);
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 
 function drawRulers(
@@ -197,11 +235,9 @@ function drawLoopRegion(
 function drawLaneBacks(
   ctx: CanvasRenderingContext2D,
   W: number,
-  H: number,
+  rows: readonly VisibleRow[],
+  project: ReturnType<typeof useProjectStore>,
 ): void {
-  const view = useViewStore();
-  const project = useProjectStore();
-  const rows = visibleRows(H, view.y, project.tracks.length);
   for (const r of rows) {
     ctx.fillStyle = r.bpm
       ? COLORS.laneBpmBg
@@ -222,15 +258,13 @@ function drawLaneBacks(
 function drawLaneGlow(
   ctx: CanvasRenderingContext2D,
   W: number,
-  H: number,
+  rows: readonly VisibleRow[],
 ): void {
-  const view = useViewStore();
   const project = useProjectStore();
   const ui = useUiStore();
   const settings = useSettingsStore().settings;
   if (!settings.beatFxMaster || !settings.beatFx.laneGlow) return;
   const now = performance.now();
-  const rows = visibleRows(H, view.y, project.tracks.length);
   const pulses = ui.fxPulses.laneGlow;
   for (const r of rows) {
     if (r.bpm) continue;
@@ -253,8 +287,8 @@ function drawLaneGlow(
 function drawBpmSegmentFills(
   ctx: CanvasRenderingContext2D,
   W: number,
-  H: number,
   X: (t: number) => number,
+  rows: readonly VisibleRow[],
 ): void {
   const settings = useSettingsStore();
   if (!settings.settings.bpmSegmentColors) return;
@@ -262,8 +296,7 @@ function drawBpmSegmentFills(
   if (!project.bpmPoints.length) return;
   const segs = project.tempoMap.segments;
   if (segs.length <= 1) return;
-  const view = useViewStore();
-  const row = visibleRows(H, view.y, project.tracks.length).find((r) => r.bpm);
+  const row = rows.find((r) => r.bpm);
   if (!row) return;
   const intensity = settings.settings.bpmSegmentIntensity;
   const theme = bpmSegmentTheme(
@@ -396,16 +429,15 @@ function gridSubDivFor(actual: number, loBeat: number, hiBeat: number): number {
 function drawBpmLaneContent(
   ctx: CanvasRenderingContext2D,
   W: number,
-  H: number,
   t0: number,
   X: (t: number) => number,
+  rows: readonly VisibleRow[],
 ): void {
   const view = useViewStore();
   const project = useProjectStore();
   const transport = useTransportStore();
   const selection = useSelectionStore();
   const settings = useSettingsStore();
-  const rows = visibleRows(H, view.y, project.tracks.length);
   const row = rows.find((r) => r.bpm);
   if (!row) return;
   const y0 = row.y;
@@ -417,8 +449,12 @@ function drawBpmLaneContent(
   // starting block and per-pixel step are hoisted out of the loop instead of
   // reading the view store and dividing per pixel. Global alpha is set once.
   const wave = transport.wave;
-  if (wave?.minMax.length) {
-    const len = wave.minMax.length;
+  // `wave` comes from a reactive store, so every `wave.minMax` read would go
+  // through the Vue proxy (allocate/wrap checks) inside the per-pixel loop.
+  // Take the raw typed array once; the loop then touches plain numbers.
+  const peaks = wave?.minMax ?? null;
+  if (wave && peaks?.length) {
+    const len = peaks.length;
     const blocksPerMs = wave.sampleRate / wave.blockSamples / 1000;
     const msPerPx = 1000 / view.pxPerSec;
     const tAt0 = screenToTime(0);
@@ -428,12 +464,12 @@ function drawBpmLaneContent(
     ctx.fillStyle = COLORS.waveform;
     ctx.globalAlpha = 0.5;
     for (let pxX = px0; pxX < W; pxX++) {
-      const bIdx = Math.floor(bBase + pxX * bStep);
-      if (bIdx < 0 || bIdx * 2 + 1 >= len) continue;
-      const lo =
-        Math.min(wave.minMax[bIdx * 2], wave.minMax[bIdx * 2 + 1]) * amp;
-      const hi =
-        Math.max(wave.minMax[bIdx * 2], wave.minMax[bIdx * 2 + 1]) * amp;
+      const bIdx = Math.floor(bBase + pxX * bStep) * 2;
+      if (bIdx < 0 || bIdx + 1 >= len) continue;
+      const a = peaks[bIdx];
+      const b = peaks[bIdx + 1];
+      const lo = Math.min(a, b) * amp;
+      const hi = Math.max(a, b) * amp;
       ctx.fillRect(pxX, cy + lo, 1, Math.max(1, hi - lo));
     }
     ctx.globalAlpha = 1;
@@ -502,22 +538,14 @@ function drawBpmLaneContent(
 function drawMarkerLanesContent(
   ctx: CanvasRenderingContext2D,
   W: number,
-  H: number,
   t0: number,
   t1: number,
   X: (t: number) => number,
+  allRows: readonly VisibleRow[],
 ): void {
-  const view = useViewStore();
   const project = useProjectStore();
   const selection = useSelectionStore();
-  const ui = useUiStore();
-  const settings = useSettingsStore().settings;
-  const markerFlashOn = settings.beatFxMaster && settings.beatFx.markerFlash;
-  const reduced = reduceMotionActive();
-  const now = performance.now();
-  const rows = visibleRows(H, view.y, project.tracks.length).filter(
-    (r) => !r.bpm,
-  );
+  const rows = allRows.filter((r) => !r.bpm);
   // highlight set: every selected main marker lights up together with its
   // children. Built in a single pass over markers (O(markers)) rather than
   // scanning all markers once per selected id (O(selected x markers)).
@@ -559,30 +587,6 @@ function drawMarkerLanesContent(
       // big diamond marker
       const rr = sel ? 9 : 7;
       drawDiamond(ctx, x, cy, rr);
-      // playback flash: additive brightness over the normal diamond, no scaling.
-      if (markerFlashOn) {
-        const pulse = ui.fxPulses.markerFlash[m.id];
-        const dur = pulse?.dur ?? MARKER_FLASH_MS;
-        const left = pulse && dur > 0 ? pulse.at + dur - now : 0;
-        if (left > 0) {
-          // Hit first, decay after: alpha peaks on the crossing frame and only
-          // falls, and the bloom starts at its widest so nothing ramps up. The
-          // slight inward settle keeps the hit from feeling like a static blob.
-          const p = 1 - left / dur;
-          const fade = (1 - p) ** 1.15;
-          const coreR = reduced ? rr : rr * (1 + 0.25 * (1 - p));
-          const bloomPx = reduced
-            ? MARKER_BLOOM_PX
-            : MARKER_BLOOM_PX * (1.25 - 0.2 * p);
-          drawMarkerBloom(ctx, x, cy, bloomPx, color, fade);
-          ctx.save();
-          ctx.globalCompositeOperation = "lighter";
-          ctx.globalAlpha = fade;
-          ctx.fillStyle = "#ffffff";
-          drawDiamond(ctx, x, cy, coreR);
-          ctx.restore();
-        }
-      }
       if (inGroup) {
         ctx.strokeStyle = COLORS.markerSelected;
         ctx.lineWidth = 1.5;
@@ -601,6 +605,75 @@ function drawMarkerLanesContent(
         ctx.fillStyle = COLORS.markerSelected;
         ctx.fillText(label, x + rr + 7, cy + 3);
       }
+    }
+  }
+}
+
+/**
+ * Playback flash for markers: an additive brightness/bloom over the static
+ * diamond drawn on the base layer. Kept on the overlay so a dense section only
+ * repaints this cheap layer, and capped in the lightweight density mode.
+ */
+function drawMarkerFlash(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  t0: number,
+  t1: number,
+  X: (t: number) => number,
+  allRows: readonly VisibleRow[],
+): void {
+  const project = useProjectStore();
+  const selection = useSelectionStore();
+  const ui = useUiStore();
+  const settings = useSettingsStore().settings;
+  if (!settings.beatFxMaster || !settings.beatFx.markerFlash) return;
+  const reduced = reduceMotionActive();
+  const now = performance.now();
+  const maxDraws = settings.beatFxDensity === "light" ? 16 : Infinity;
+  const rows = allRows.filter((r) => !r.bpm);
+  const bLo = beatOfTime(t0);
+  const bHi = beatOfTime(t1);
+  let drawn = 0;
+  for (const r of rows) {
+    const track = project.tracks[r.i];
+    if (!track) continue;
+    const list = markersInTrack(track.id);
+    for (let i = lowerBoundByBeat(list, bLo); i < list.length; i++) {
+      const m = list[i]!;
+      if (m.beat > bHi) break;
+      const pulse = ui.fxPulses.markerFlash[m.id];
+      const dur = pulse?.dur ?? MARKER_FLASH_MS;
+      const left = pulse && dur > 0 ? pulse.at + dur - now : 0;
+      if (left <= 0) continue;
+      const x = X(storeMarkerTime(m));
+      if (x < -16 || x > W + 16) continue;
+      if (drawn >= maxDraws) return;
+      drawn++;
+      const sel =
+        selection.selected.kind === "marker" && selection.selected.id === m.id;
+      const rr = sel ? 9 : 7;
+      const cy = r.y + r.h / 2;
+      const color = sel
+        ? COLORS.markerSelected
+        : track.hidden
+          ? COLORS.markerDim
+          : track.color;
+      // Hit first, decay after: alpha peaks on the crossing frame and only
+      // falls, and the bloom starts at its widest so nothing ramps up. The
+      // slight inward settle keeps the hit from feeling like a static blob.
+      const p = 1 - left / dur;
+      const fade = (1 - p) ** 1.15;
+      const coreR = reduced ? rr : rr * (1 + 0.25 * (1 - p));
+      const bloomPx = reduced
+        ? MARKER_BLOOM_PX
+        : MARKER_BLOOM_PX * (1.25 - 0.2 * p);
+      drawMarkerBloom(ctx, x, cy, bloomPx, color, fade);
+      ctx.save();
+      ctx.globalCompositeOperation = "lighter";
+      ctx.globalAlpha = fade;
+      ctx.fillStyle = "#ffffff";
+      drawDiamond(ctx, x, cy, coreR);
+      ctx.restore();
     }
   }
 }

@@ -1,5 +1,6 @@
 import type { WaveData } from "./types";
 import { StretchCache } from "./stretch/cache";
+import { totalClickGain, type BeatOverlapMode } from "@shared/beatClick";
 
 const PEAK_BLOCK_SAMPLES = 512;
 
@@ -75,9 +76,22 @@ export class PlaybackEngine {
   private metronome: AudioBuffer | null = null;
   /** Own gain so the metronome can bypass the master volume. */
   private metronomeGain: GainNode | null = null;
+  /** Shared peak protection for the music + click mix. */
+  private limiter: DynamicsCompressorNode | null = null;
   private metronomeVolume = 0.85;
   private metronomeFollowsMaster = true;
+  private overlapMode: BeatOverlapMode = "limit";
+  private accentEnabled = true;
+  private accentGain = 1.45;
+  private outputProtection = true;
   private scheduledClicks: OscillatorNode[] = [];
+  /**
+   * Click samples scheduled ahead of time, keyed by their optional gain node so
+   * both can be disconnected when they finish or when playback is interrupted.
+   */
+  private scheduledSamples = new Map<AudioBufferSourceNode, GainNode | null>();
+  /** Bumped whenever the audio clock is restarted; dependent schedulers reset. */
+  private clockEpoch = 0;
   private loopEnabled = false;
   private loopStartMs = 0;
   private loopEndMs = 0;
@@ -87,15 +101,52 @@ export class PlaybackEngine {
   private ensureCtx(): AudioContext {
     if (!this.ctx) {
       this.ctx = new AudioContext();
+      // Both buses meet at one limiter so music + clicks cannot clip the output
+      // whatever the overlap count or volume. Disabling protection makes the
+      // limiter transparent instead of rewiring the graph mid-playback.
+      this.limiter = this.ctx.createDynamicsCompressor();
+      this.applyLimiter();
       this.gain = this.ctx.createGain();
       this.gain.gain.value = this.volume;
-      this.gain.connect(this.ctx.destination);
+      this.gain.connect(this.limiter);
       this.metronomeGain = this.ctx.createGain();
       this.metronomeGain.gain.value = this.effectiveMetronomeVolume();
-      this.metronomeGain.connect(this.ctx.destination);
+      this.metronomeGain.connect(this.limiter);
+      this.limiter.connect(this.ctx.destination);
     }
     if (this.ctx.state === "suspended") void this.ctx.resume();
     return this.ctx;
+  }
+
+  /** Push the peak-protection curve; ratio 1 / knee 0 is effectively bypassed. */
+  private applyLimiter(): void {
+    const limiter = this.limiter;
+    if (!limiter) return;
+    const on = this.outputProtection;
+    // Only catch peaks close to full scale so normal playback keeps its
+    // dynamics; 1.5 dB of headroom is enough for the click bus.
+    limiter.threshold.value = on ? -1.5 : 0;
+    limiter.knee.value = on ? 3 : 0;
+    limiter.ratio.value = on ? 20 : 1;
+    limiter.attack.value = 0.002;
+    limiter.release.value = 0.2;
+  }
+
+  /** Toggle the master peak protection (default on). */
+  setOutputProtection(on: boolean): void {
+    this.outputProtection = on;
+    this.applyLimiter();
+  }
+
+  /** Loudness policy for coincident marker clicks. */
+  setBeatOverlap(mode: BeatOverlapMode): void {
+    this.overlapMode = mode;
+  }
+
+  /** Accent clicks that land on a bar start, and how much louder they are. */
+  setBeatAccent(enabled: boolean, gain: number): void {
+    this.accentEnabled = enabled;
+    this.accentGain = Number.isFinite(gain) ? Math.max(1, gain) : 1.45;
   }
 
   private effectiveMetronomeVolume(): number {
@@ -179,24 +230,52 @@ export class PlaybackEngine {
     }
   }
 
-  /** play the metronome click `count` times simultaneously (overlapping markers). */
+  /** Play the click for `count` coincident markers immediately. */
   playMetronome(count: number, accent = false): void {
     if (!this.metronome || count < 1) return;
     const ctx = this.ensureCtx();
-    if (!ctx || !this.metronomeGain) return;
-    for (let i = 0; i < count; i++) {
-      const src = ctx.createBufferSource();
-      src.buffer = this.metronome;
-      if (accent) {
-        const gain = ctx.createGain();
-        gain.gain.value = 1.45;
-        src.connect(gain);
-        gain.connect(this.metronomeGain);
-      } else {
-        src.connect(this.metronomeGain);
-      }
-      src.start();
+    if (!ctx) return;
+    this.playMetronomeAt(ctx.currentTime, count, accent);
+  }
+
+  /**
+   * Schedule one click at an absolute AudioContext time.
+   *
+   * All coincident markers sum to a single source with one computed gain
+   * (`totalClickGain`), which is mathematically identical to starting N
+   * identical buffers together but avoids N node allocations, N starts and an
+   * unbounded amplitude that clipped the output.
+   */
+  playMetronomeAt(whenSec: number, count: number, accent = false): void {
+    if (!this.metronome || count < 1) return;
+    const ctx = this.ensureCtx();
+    const dest = this.metronomeGain;
+    if (!ctx || !dest) return;
+    const total = totalClickGain(count, this.overlapMode);
+    const gainValue =
+      total * (accent && this.accentEnabled ? this.accentGain : 1);
+    const src = ctx.createBufferSource();
+    src.buffer = this.metronome;
+    let gain: GainNode | null = null;
+    if (Math.abs(gainValue - 1) > 1e-6) {
+      gain = ctx.createGain();
+      gain.gain.value = gainValue;
+      src.connect(gain);
+      gain.connect(dest);
+    } else {
+      src.connect(dest);
     }
+    src.start(Math.max(ctx.currentTime, whenSec));
+    this.scheduledSamples.set(src, gain);
+    src.onended = () => {
+      this.scheduledSamples.delete(src);
+      try {
+        src.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+      gain?.disconnect();
+    };
   }
 
   /** Play a grid/beat click; falls back to the oscillator when no sample is set. */
@@ -214,12 +293,16 @@ export class PlaybackEngine {
     const dest = this.metronomeGain ?? this.gain;
     if (!ctx || !dest) return;
     const when = ctx.currentTime + Math.max(0, delaySec);
+    // Accent strength is user-tunable (and can be switched off entirely); the
+    // sample-based click applies the same factor in `playMetronomeAt`.
+    const accentOn = accent && this.accentEnabled;
+    const peak = 0.18 * (accentOn ? this.accentGain : 1);
     const osc = ctx.createOscillator();
     const env = ctx.createGain();
     osc.type = "sine";
-    osc.frequency.value = accent ? 1568 : 1046;
+    osc.frequency.value = accentOn ? 1568 : 1046;
     env.gain.setValueAtTime(0.0001, when);
-    env.gain.exponentialRampToValueAtTime(accent ? 0.3 : 0.18, when + 0.004);
+    env.gain.exponentialRampToValueAtTime(peak, when + 0.004);
     env.gain.exponentialRampToValueAtTime(0.0001, when + 0.08);
     osc.connect(env);
     env.connect(dest);
@@ -232,6 +315,7 @@ export class PlaybackEngine {
     };
   }
 
+  /** Drop every future count-in / beat click (oscillator and sample based). */
   cancelScheduledClicks(): void {
     for (const osc of this.scheduledClicks) {
       try {
@@ -242,6 +326,21 @@ export class PlaybackEngine {
       osc.disconnect();
     }
     this.scheduledClicks = [];
+    for (const [src, gain] of this.scheduledSamples) {
+      try {
+        src.onended = null;
+        src.stop();
+      } catch {
+        /* already stopped */
+      }
+      try {
+        src.disconnect();
+      } catch {
+        /* already disconnected */
+      }
+      gain?.disconnect();
+    }
+    this.scheduledSamples.clear();
   }
 
   setLoop(enabled: boolean, startMs: number, endMs: number): void {
@@ -303,6 +402,8 @@ export class PlaybackEngine {
     if (!this.playing) return;
     this.posMs = this.positionMs();
     this.playing = false;
+    this.clockEpoch++;
+    this.cancelScheduledClicks();
     this.stopSource();
     cancelAnimationFrame(this.raf);
     this.onTick?.();
@@ -325,6 +426,28 @@ export class PlaybackEngine {
     this.onTick?.();
   }
 
+  /**
+   * Audio-clock anchor for the current play run, or null when paused. Callers
+   * map project time to an absolute AudioContext time with
+   * `startCtxTime + (projectMs - startPosMs) / 1000 / speed`.
+   */
+  audioClock(): {
+    ctxTime: number;
+    startCtxTime: number;
+    startPosMs: number;
+    speed: number;
+    epoch: number;
+  } | null {
+    if (!this.playing || !this.ctx) return null;
+    return {
+      ctxTime: this.ctx.currentTime,
+      startCtxTime: this.startCtxTime,
+      startPosMs: this.posMs,
+      speed: this.speed > 1e-6 ? this.speed : 1,
+      epoch: this.clockEpoch,
+    };
+  }
+
   positionMs(): number {
     if (!this.playing || !this.ctx) return this.posMs;
     const live =
@@ -334,6 +457,10 @@ export class PlaybackEngine {
       const dur = this.durationMs();
       this.posMs = dur;
       this.playing = false;
+      // Clicks queued up to the lookahead horizon must not sound after the
+      // audio has already ended.
+      this.clockEpoch++;
+      this.cancelScheduledClicks();
       this.stopSource();
       cancelAnimationFrame(this.raf);
       return dur;
@@ -354,6 +481,10 @@ export class PlaybackEngine {
       start = Math.max(0, Math.min(this.loopStartMs, dur));
     }
     this.stopSource();
+    // Any click scheduled against the previous run is now stale (seek, loop
+    // wrap, speed change or a fresh start), so drop it and reset the epoch.
+    this.cancelScheduledClicks();
+    this.clockEpoch++;
     this.posMs = start;
     this.playing = true;
     this.startCtxTime = ctx.currentTime;

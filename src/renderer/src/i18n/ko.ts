@@ -457,6 +457,9 @@ export default {
       wheelZoomStep: "휠 확대 단계",
       wheelZoomStepDesc:
         "Ctrl / ⌘ + 휠 한 칸당 확대 비율. 클수록 빠르게 확대돼요.",
+      wheelSeek: "휠로 재생 위치 이동",
+      wheelSeekDesc:
+        "켜면 일반 휠이 재생 헤드를 이동해요(FL Studio 방식); 기본은 타임라인 스크롤이에요. Ctrl / ⌘ 확대와 Shift 이동은 항상 동작해요.",
       undoLimit: "실행 취소 한도",
       undoLimitDesc:
         "메모리에 보관하는 실행 취소 단계 수 (20–1000). 초과하면 가장 오래된 기록부터 버려요.",
@@ -508,7 +511,7 @@ export default {
         "오디오 시작부터 이 길이만큼만 분석해요 (BPM / 박자 / 루프 / 스펙트럼). 긴 오디오의 전체 스펙트럼 분석은 메모리를 많이 사용하므로 창을 제한해 멈춤이나 충돌을 막아요. 재생과 파형은 영향을 받지 않아요.",
       metronome: "메트로놈 클릭",
       metronomeDesc:
-        "메트로놈 폴더에 소리를 넣고 여기서 하나를 고르세요 (없음 = 비활성). 마커를 지날 때마다 클릭음이 울리고, 여러 마커가 겹치면 동시에 여러 번 울려요.",
+        "메트로놈 폴더에 소리를 넣고 여기서 하나를 고르세요 (없음 = 비활성). 마커를 지날 때마다 클릭음이 울리며, 동시에 겹친 마커는 아래 “동시 클릭” 정책으로 섞여 개수만큼 커지지 않아요.",
       metronomeOpenFolder: "메트로놈 폴더 열기",
       metronomeRefresh: "목록 새로 고침",
       metronomeNone: "메트로놈 없음",
@@ -517,6 +520,26 @@ export default {
       metronomeFollowMaster: "마스터 볼륨 따르기",
       metronomeVolume: "메트로놈 볼륨",
       metronomePreview: "미리듣기",
+      beatOverlap: "동시 클릭",
+      beatOverlapDesc:
+        "여러 트랙의 마커가 같은 순간에 있을 때 한 번의 클릭으로 어떻게 섞을지 정해요.",
+      beatOverlapMerge: "하나로 합치기",
+      beatOverlapMergeHint: "한 번만 일정한 크기로 울려요 — 가장 조용해요.",
+      beatOverlapLimit: "게인 제한",
+      beatOverlapLimitHint:
+        "개수에 따라 조금 커지다가 상한에 걸려 출력 여유를 남겨요.",
+      beatOverlapStack: "그대로 겹치기",
+      beatOverlapStackHint:
+        "마커마다 그대로 더해요(이전 동작). 출력 보호가 최대치를 제한해요.",
+      beatAccent: "마디 첫 박 강조",
+      beatAccentDesc:
+        "마디선에 놓인 클릭과 그리드 메트로놈의 첫 박이 더 크게 울려요.",
+      beatAccentGain: "강조 세기",
+      beatAccentGainDesc:
+        "일반 클릭 대비 마디 첫 박의 게인 (100% = 강조 없음).",
+      outputProtection: "출력 보호",
+      outputProtectionDesc:
+        "음악과 클릭의 최종 믹스를 소프트 리미팅해 높은 볼륨이나 겹침에서도 클리핑·팝이 나지 않게 해요.",
       reanalyze: "다시 분석",
       applyBpm: "BPM 적용",
       genBeats: "자동 비트 트랙 생성",
@@ -574,6 +597,19 @@ export default {
       menuMotion: "메뉴 / 알림 모션",
       menuMotionDesc:
         "메뉴, 알림, 플로팅 카드의 등장 / 퇴장 전환을 애니메이션으로 처리해요",
+      performancePreset: "성능 프리셋",
+      performancePresetDesc:
+        "화면 비용을 한 번에 전환해요; 오디오, 그리드 메트로놈, 마커 클릭은 그대로예요.",
+      performanceStandard: "표준",
+      performanceLight: "경량",
+      performanceActive: "사용 중",
+      performancePresetHint:
+        "경량은 레인 글로우, 마커 빛무리, 부드러운 따라가기를 끄고 동시 효과 수를 제한해요; 재생과 클릭은 정상 동작해요.",
+      beatFxDensity: "효과 밀도",
+      beatFxDensityDesc:
+        "한 순간에 그릴 수 있는 글로우 / 점등 대상 수예요; 경량은 상한이 더 낮아 밀집 프로젝트에서 안정적이에요.",
+      beatFxDensityFull: "전체",
+      beatFxDensityLight: "간소",
       beatFxMaster: "재생 효과 마스터",
       beatFxMasterDesc:
         "선택한 재생 효과의 총 스위치예요; 끄면 \u2728 버튼도 활성 상태로 보이지 않아요",

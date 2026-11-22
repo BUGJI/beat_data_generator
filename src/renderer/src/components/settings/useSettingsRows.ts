@@ -59,6 +59,7 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const menuMotion = settingModel("menuMotion");
   const beatFxMaster = settingModel("beatFxMaster");
   const beatPulse = settingModel("beatPulse");
+  const beatFxDensity = settingModel("beatFxDensity");
   const motionSpeed = settingModel("motionSpeed");
   const reduceMotion = settingModel("reduceMotion");
   const followScroll = settingModel("followScroll");
@@ -85,10 +86,15 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const defaultRate = settingModel("defaultRate");
   const defaultZoom = settingModel("defaultZoom");
   const wheelZoomStep = settingModel("wheelZoomStep");
+  const wheelSeek = settingModel("wheelSeek");
   const undoLimit = settingModel("undoLimit");
   const ctrlSpeedPlay = settingModel("ctrlSpeedPlay");
   const countInBars = settingModel("countInBars");
   const gridMetronome = settingModel("gridMetronome");
+  const beatOverlap = settingModel("beatOverlap");
+  const beatAccent = settingModel("beatAccent");
+  const beatAccentGain = settingModel("beatAccentGain");
+  const outputProtection = settingModel("outputProtection");
   const alignDecimals = settingModel("alignDecimals");
   const alignRounding = settingModel("alignRounding");
   const audioAutoBpm = settingModel("audioAutoBpm");
@@ -113,6 +119,11 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const laneGlow = beatFxModel("laneGlow");
   const markerFlash = beatFxModel("markerFlash");
 
+  const beatFxDensityOptions = computed<ColOption[]>(() => [
+    { value: "full", label: t("settings.display.beatFxDensityFull") },
+    { value: "light", label: t("settings.display.beatFxDensityLight") },
+  ]);
+
   const motionSpeedOptions = computed<ColOption[]>(() => [
     { value: "slow", label: t("settings.display.motionSlow") },
     { value: "normal", label: t("settings.display.motionNormal") },
@@ -124,6 +135,22 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     { value: "on", label: t("settings.display.reduceMotionOn") },
     { value: "off", label: t("settings.display.reduceMotionOff") },
   ]);
+
+  const beatOverlapOptions = computed<ColOption[]>(() => [
+    { value: "merge", label: t("settings.audio.beatOverlapMerge") },
+    { value: "limit", label: t("settings.audio.beatOverlapLimit") },
+    { value: "stack", label: t("settings.audio.beatOverlapStack") },
+  ]);
+
+  /** One-line explanation of what the selected mixing mode does. */
+  const beatOverlapHint = (): string =>
+    t(
+      beatOverlap.value === "merge"
+        ? "settings.audio.beatOverlapMergeHint"
+        : beatOverlap.value === "stack"
+          ? "settings.audio.beatOverlapStackHint"
+          : "settings.audio.beatOverlapLimitHint",
+    );
 
   const nudgeStepOptions = computed<ColOption[]>(() => [
     { value: "grid", label: t("settings.edit.nudgeGrid") },
@@ -231,6 +258,12 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     ctrlSpeedPlay,
     countInBars,
     gridMetronome,
+    beatOverlap,
+    beatOverlapOptions,
+    beatOverlapHint,
+    beatAccent,
+    beatAccentGain,
+    outputProtection,
     alignDecimals,
     alignRounding,
     alignRoundingOptions,
@@ -255,6 +288,7 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     defaultRate,
     defaultZoom,
     wheelZoomStep,
+    wheelSeek,
     undoLimit,
     audioAutoBpm,
     audioAutoBeats,
@@ -278,6 +312,8 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     menuMotion,
     beatFxMaster,
     beatPulse,
+    beatFxDensity,
+    beatFxDensityOptions,
     laneGlow,
     markerFlash,
     motionSpeed,
@@ -441,6 +477,11 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     ctrlSpeedPlay,
     countInBars,
     gridMetronome,
+    beatOverlap,
+    beatAccent,
+    beatAccentGain,
+    outputProtection,
+    beatFxDensity,
     alignDecimals,
     alignRounding,
     audioAutoBpm,

@@ -14,19 +14,24 @@ describe("useSettingsRowsStore / search index", () => {
     expect(keys).toContain("audio.autoBpm");
     expect(keys).toContain("audio.stretchCacheMb");
     expect(keys).toContain("audio.metronome"); // custom row searchKey
+    expect(keys).toContain("audio.beatOverlap");
+    expect(keys).toContain("audio.outputProtection");
     expect(keys).toContain("general.simpleMode");
     expect(keys).toContain("edit.defaultGridDiv");
     expect(keys).toContain("edit.snapByDefault");
     expect(keys).toContain("edit.selectAfterPlace");
     expect(keys).toContain("edit.nudgeStep");
     expect(keys).toContain("edit.defaultZoom");
+    expect(keys).toContain("edit.wheelSeek");
     expect(keys).toContain("edit.undoLimit");
     expect(keys.some((k) => k.startsWith("theme.tokens."))).toBe(true);
     expect(keys).toContain("network.proxy"); // hand-written extra entry
     expect(keys).toContain("theme.appearance.bgImage");
     expect(keys).toContain("theme.appearance.surfaceOpacity");
     expect(keys).toContain("display.followSmooth");
+    expect(keys).toContain("display.performancePreset");
     expect(keys).toContain("display.beatFxMaster");
+    expect(keys).toContain("display.beatFxDensity");
     expect(keys).toContain("display.motionSpeed");
     expect(keys).toContain("general.settingsData");
     expect(keys).toContain("shortcuts.page");

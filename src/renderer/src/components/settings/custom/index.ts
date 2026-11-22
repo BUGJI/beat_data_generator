@@ -3,6 +3,7 @@ import AudioTagline from "./AudioTagline.vue";
 import MetronomeBlock from "./MetronomeBlock.vue";
 import DevToolsBlock from "./DevToolsBlock.vue";
 import SettingsDataBlock from "./SettingsDataBlock.vue";
+import PerformancePresetBlock from "./PerformancePresetBlock.vue";
 
 /** Declarative custom rows (`{ kind: "custom", id }`) → their component. */
 const CUSTOM_ROW_COMPONENTS: Record<string, Component> = {
@@ -10,6 +11,7 @@ const CUSTOM_ROW_COMPONENTS: Record<string, Component> = {
   "audio.metronome": MetronomeBlock,
   "advanced.devTools": DevToolsBlock,
   "general.data": SettingsDataBlock,
+  "display.performancePreset": PerformancePresetBlock,
 };
 
 export function customRowComponent(id: string): Component | null {

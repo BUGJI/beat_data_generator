@@ -158,11 +158,14 @@ export function applyAppName(): void {
   document.title = appDisplayName();
 }
 
-/** Push metronome volume / follow-master settings into the audio engine. */
+/** Push metronome volume / mixing settings into the audio engine. */
 export function applyMetronomeSettings(): void {
   const s = useSettingsStore().settings;
   engine.setMetronomeFollowsMaster(s.metronomeFollowMaster);
   engine.setMetronomeVolume(s.metronomeVolume / 100);
+  engine.setBeatOverlap(s.beatOverlap);
+  engine.setBeatAccent(s.beatAccent, s.beatAccentGain / 100);
+  engine.setOutputProtection(s.outputProtection);
 }
 
 /**

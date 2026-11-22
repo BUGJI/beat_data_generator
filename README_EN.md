@@ -48,8 +48,9 @@ See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
 - **Grid metronome & count-in**: click every beat (accented downbeat) with an optional 1–4 bar count-in, independent of marker clicks.
 - **Tap tempo**: click Tap or press T to tap the tempo into the base BPM.
 - **Quick navigation**: click the transport time or press Ctrl+G to jump with `1:23.456`, `83.456` or `b12.3`; reset speed to 1× and mute from the transport.
-- **Metronome click**: plays a tick each time a marker is passed; a custom audio file can be selected (empty disables it).
-- **Auto-follow**: the timeline scrolls once the playhead passes a configurable threshold.
+- **Metronome click**: plays a tick each time a marker is passed; a custom audio file can be selected (empty disables it). Coincident markers can be merged, gain-limited or stacked, with a bar-start accent and output protection. Clicks are scheduled ahead on the audio clock, so pause, seek, loop and speed changes leave no stale or duplicated clicks.
+- **Auto-follow**: the timeline scrolls once the playhead passes a configurable threshold. The plain wheel scrolls by default; an option makes it move the playhead instead (FL Studio style).
+- **Performance presets**: switch between Standard and Light in one click; Light disables lane glow, marker bloom and smooth follow and caps effects per instant, while playback and clicks are untouched. The timeline uses layered canvases, so a static view is no longer repainted every frame.
 
 ### Project & export
 

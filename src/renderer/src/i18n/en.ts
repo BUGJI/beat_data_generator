@@ -464,6 +464,9 @@ export default {
       wheelZoomStep: "Wheel zoom step",
       wheelZoomStepDesc:
         "Zoom factor per Ctrl/⌘ + wheel notch; larger zooms faster.",
+      wheelSeek: "Wheel moves the playhead",
+      wheelSeekDesc:
+        "When on, a plain wheel seeks like FL Studio; off (default) scrolls the timeline. Ctrl/⌘ zoom and Shift pan always work.",
       undoLimit: "Undo step limit",
       undoLimitDesc:
         "Undo steps kept in memory (20–1000); the oldest are dropped beyond that.",
@@ -516,7 +519,7 @@ export default {
         "Analyse only this much from the start of the audio (BPM / beats / loop / spectrum). Whole-track spectral analysis uses a lot of memory on long audio, so limiting the window prevents stalls or crashes; playback and the waveform are unaffected.",
       metronome: "Metronome click",
       metronomeDesc:
-        "Drop sounds into the metronome folder, then pick one here (none = disabled). A click plays each time a marker is passed; when several markers coincide, several clicks play at once.",
+        "Drop sounds into the metronome folder, then pick one here (none = disabled). A click plays each time a marker is passed; coincident markers are mixed by the “Coincident clicks” policy below instead of getting louder per marker.",
       metronomeOpenFolder: "Open metronome folder",
       metronomeRefresh: "Refresh list",
       metronomeNone: "No metronome",
@@ -525,6 +528,27 @@ export default {
       metronomeFollowMaster: "Follow master volume",
       metronomeVolume: "Metronome volume",
       metronomePreview: "Preview",
+      beatOverlap: "Coincident clicks",
+      beatOverlapDesc:
+        "How one instant with markers on several tracks is mixed into a single click.",
+      beatOverlapMerge: "Merge to one",
+      beatOverlapMergeHint:
+        "Plays once at a constant level — the quietest option.",
+      beatOverlapLimit: "Limited gain",
+      beatOverlapLimitHint:
+        "Gets slightly louder with the count, then caps, keeping output headroom.",
+      beatOverlapStack: "Stack",
+      beatOverlapStackHint:
+        "Adds every marker (old behaviour); peak protection limits the result.",
+      beatAccent: "Bar-start accent",
+      beatAccentDesc:
+        "Clicks on a bar line (and grid metronome downbeats) play louder.",
+      beatAccentGain: "Accent strength",
+      beatAccentGainDesc:
+        "Gain of a bar-start click relative to a normal click (100% = none).",
+      outputProtection: "Output protection",
+      outputProtectionDesc:
+        "Soft-limits the final music + click mix so loud volume or stacked clicks cannot clip or pop.",
       reanalyze: "Re-analyze",
       applyBpm: "Apply BPM",
       genBeats: "Generate Auto Beat track",
@@ -583,6 +607,19 @@ export default {
       menuMotion: "Menu / toast motion",
       menuMotionDesc:
         "Enter and exit transitions for menus, notifications and floating cards",
+      performancePreset: "Performance preset",
+      performancePresetDesc:
+        "One-click visual cost switch; audio, grid metronome and marker clicks are untouched.",
+      performanceStandard: "Standard",
+      performanceLight: "Light",
+      performanceActive: "Active",
+      performancePresetHint:
+        "Light turns off lane glow, marker bloom and smooth follow, and caps effects per instant; playback and clicks keep working.",
+      beatFxDensity: "Effect density",
+      beatFxDensityDesc:
+        "How many glow / flash targets may draw at once; light caps it lower for dense projects.",
+      beatFxDensityFull: "Full",
+      beatFxDensityLight: "Reduced",
       beatFxMaster: "Playback FX master",
       beatFxMasterDesc:
         "Master switch for the checked playback effects; the \u2728 button also stops showing active",

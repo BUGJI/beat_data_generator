@@ -62,6 +62,10 @@ const SETTINGS_EFFECTS: Partial<
     engine.setStretchBudget(s.stretchCacheMb * 1024 * 1024),
   metronomeVolume: () => applyMetronomeSettings(),
   metronomeFollowMaster: () => applyMetronomeSettings(),
+  beatOverlap: () => applyMetronomeSettings(),
+  beatAccent: () => applyMetronomeSettings(),
+  beatAccentGain: () => applyMetronomeSettings(),
+  outputProtection: () => applyMetronomeSettings(),
 };
 
 /** Merge a patch and run its side effects without scheduling a persist. */
