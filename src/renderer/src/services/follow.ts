@@ -70,12 +70,13 @@ export function smoothScrollX(
   targetX: number,
   dtMs: number,
   animEnabled: boolean,
+  tauMs = FOLLOW_TAU_MS,
 ): number {
-  if (!animEnabled) return targetX;
+  if (!animEnabled || tauMs <= 0) return targetX;
   if (dtMs <= 0) return currentX;
   const dx = targetX - currentX;
   if (Math.abs(dx) <= FOLLOW_SNAP_PX) return targetX;
-  const k = 1 - Math.exp(-dtMs / FOLLOW_TAU_MS);
+  const k = 1 - Math.exp(-dtMs / tauMs);
   return currentX + dx * k;
 }
 

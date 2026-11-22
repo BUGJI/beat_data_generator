@@ -31,6 +31,25 @@ export interface SettingsRowBindings {
   alignRoundingHint: () => string;
   autoSave: RefLike<boolean>;
   autoSaveMinutes: RefLike<number>;
+  defaultGridDiv: RefLike<number>;
+  snapByDefault: RefLike<boolean>;
+  magnetByDefault: RefLike<boolean>;
+  magnetThresholdPx: RefLike<number>;
+  magnetMarkers: RefLike<boolean>;
+  magnetPlayhead: RefLike<boolean>;
+  magnetLoopEdges: RefLike<boolean>;
+  magnetNotes: RefLike<boolean>;
+  selectAfterPlace: RefLike<boolean>;
+  openCardAfterPlace: RefLike<boolean>;
+  quickPlaceByDefault: RefLike<boolean>;
+  timeAlignByDefault: RefLike<boolean>;
+  nudgeStep: RefLike<string>;
+  nudgeStepOptions: RefLike<ColOption[]>;
+  pitchFollowByDefault: RefLike<boolean>;
+  defaultRate: RefLike<number>;
+  defaultZoom: RefLike<number>;
+  wheelZoomStep: RefLike<number>;
+  undoLimit: RefLike<number>;
   audioAutoBpm: RefLike<boolean>;
   audioAutoBeats: RefLike<boolean>;
   audioLoopDetect: RefLike<boolean>;
@@ -47,7 +66,18 @@ export interface SettingsRowBindings {
   bpmSegmentIntensity: RefLike<number>;
   quickBarLabels: RefLike<boolean>;
   animEnabled: RefLike<boolean>;
+  followSmooth: RefLike<boolean>;
   uiMotion: RefLike<boolean>;
+  themeCrossfade: RefLike<boolean>;
+  menuMotion: RefLike<boolean>;
+  beatFxMaster: RefLike<boolean>;
+  beatPulse: RefLike<boolean>;
+  laneGlow: RefLike<boolean>;
+  markerFlash: RefLike<boolean>;
+  motionSpeed: RefLike<string>;
+  motionSpeedOptions: RefLike<ColOption[]>;
+  reduceMotion: RefLike<string>;
+  reduceMotionOptions: RefLike<ColOption[]>;
   devEnabled: RefLike<boolean>;
   devFreeInput: RefLike<boolean>;
   logToFile: RefLike<boolean>;
@@ -85,6 +115,25 @@ export function buildFieldGroups(
     alignRoundingHint,
     autoSave,
     autoSaveMinutes,
+    defaultGridDiv,
+    snapByDefault,
+    magnetByDefault,
+    magnetThresholdPx,
+    magnetMarkers,
+    magnetPlayhead,
+    magnetLoopEdges,
+    magnetNotes,
+    selectAfterPlace,
+    openCardAfterPlace,
+    quickPlaceByDefault,
+    timeAlignByDefault,
+    nudgeStep,
+    nudgeStepOptions,
+    pitchFollowByDefault,
+    defaultRate,
+    defaultZoom,
+    wheelZoomStep,
+    undoLimit,
     audioAutoBpm,
     audioAutoBeats,
     audioLoopDetect,
@@ -101,7 +150,18 @@ export function buildFieldGroups(
     bpmSegmentIntensity,
     quickBarLabels,
     animEnabled,
+    followSmooth,
     uiMotion,
+    themeCrossfade,
+    menuMotion,
+    beatFxMaster,
+    beatPulse,
+    laneGlow,
+    markerFlash,
+    motionSpeed,
+    motionSpeedOptions,
+    reduceMotion,
+    reduceMotionOptions,
     devEnabled,
     devFreeInput,
     logToFile,
@@ -141,6 +201,12 @@ export function buildFieldGroups(
           { kind: "field", key: "checkUpdates", control: sw(checkUpdates) },
         ],
       },
+      {
+        key: "data",
+        rows: [
+          { kind: "custom", id: "general.data", searchKey: "settingsData" },
+        ],
+      },
     ],
     edit: [
       {
@@ -154,6 +220,94 @@ export function buildFieldGroups(
             showIf: () => followScroll.value,
             expert: true,
             control: slider(followPercent, 0, 100, "%"),
+          },
+        ],
+      },
+      {
+        key: "grid",
+        rows: [
+          {
+            kind: "field",
+            key: "defaultGridDiv",
+            control: num(defaultGridDiv, {
+              min: freeMin(1),
+              max: freeMax(64),
+              step: 1,
+            }),
+          },
+          { kind: "field", key: "snapByDefault", control: sw(snapByDefault) },
+          {
+            kind: "field",
+            key: "magnetByDefault",
+            control: sw(magnetByDefault),
+          },
+          {
+            kind: "field",
+            key: "magnetThresholdPx",
+            expert: true,
+            control: num(magnetThresholdPx, {
+              min: freeMin(4),
+              max: freeMax(24),
+              step: 1,
+              unitKey: "magnetThresholdPxUnit",
+            }),
+          },
+        ],
+      },
+      {
+        key: "magnet",
+        expert: true,
+        rows: [
+          {
+            kind: "field",
+            key: "magnetMarkers",
+            control: sw(magnetMarkers),
+          },
+          {
+            kind: "field",
+            key: "magnetPlayhead",
+            control: sw(magnetPlayhead),
+          },
+          {
+            kind: "field",
+            key: "magnetLoopEdges",
+            control: sw(magnetLoopEdges),
+          },
+          {
+            kind: "field",
+            key: "magnetNotes",
+            control: sw(magnetNotes),
+          },
+        ],
+      },
+      {
+        key: "placement",
+        rows: [
+          {
+            kind: "field",
+            key: "selectAfterPlace",
+            control: sw(selectAfterPlace),
+          },
+          {
+            kind: "field",
+            key: "openCardAfterPlace",
+            control: sw(openCardAfterPlace),
+          },
+          {
+            kind: "field",
+            key: "quickPlaceByDefault",
+            control: sw(quickPlaceByDefault),
+          },
+          {
+            kind: "field",
+            key: "timeAlignByDefault",
+            control: sw(timeAlignByDefault),
+          },
+          {
+            kind: "field",
+            key: "nudgeStep",
+            col: true,
+            control: radio(nudgeStep, () => nudgeStepOptions.value),
           },
         ],
       },
@@ -180,6 +334,63 @@ export function buildFieldGroups(
             key: "ctrlSpeedPlay",
             expert: true,
             control: sw(ctrlSpeedPlay),
+          },
+          {
+            kind: "field",
+            key: "pitchFollowByDefault",
+            expert: true,
+            control: sw(pitchFollowByDefault),
+          },
+          {
+            kind: "field",
+            key: "defaultRate",
+            expert: true,
+            control: num(defaultRate, {
+              min: freeMin(0.05),
+              max: freeMax(4),
+              step: 0.05,
+            }),
+          },
+        ],
+      },
+      {
+        key: "viewport",
+        expert: true,
+        rows: [
+          {
+            kind: "field",
+            key: "defaultZoom",
+            control: num(defaultZoom, {
+              min: freeMin(6),
+              max: freeMax(4000),
+              step: 1,
+              unitKey: "defaultZoomUnit",
+            }),
+          },
+          {
+            kind: "field",
+            key: "wheelZoomStep",
+            control: num(wheelZoomStep, {
+              min: freeMin(1.05),
+              max: freeMax(2),
+              step: 0.05,
+            }),
+          },
+        ],
+      },
+      {
+        key: "history",
+        expert: true,
+        rows: [
+          {
+            kind: "field",
+            key: "undoLimit",
+            control: num(undoLimit, {
+              min: freeMin(20),
+              max: freeMax(1000),
+              step: 10,
+              unitKey: "undoLimitUnit",
+            }),
           },
         ],
       },
@@ -309,10 +520,44 @@ export function buildFieldGroups(
       },
       {
         key: "motion",
-        expert: true,
         rows: [
+          { kind: "subhead", key: "motionEditor" },
           { kind: "field", key: "editor", control: sw(animEnabled) },
+          {
+            kind: "field",
+            key: "followSmooth",
+            control: sw(followSmooth),
+          },
+          { kind: "subhead", key: "motionInterface" },
           { kind: "field", key: "uiMotion", control: sw(uiMotion) },
+          {
+            kind: "field",
+            key: "themeCrossfade",
+            control: sw(themeCrossfade),
+          },
+          {
+            kind: "field",
+            key: "menuMotion",
+            expert: true,
+            control: sw(menuMotion),
+          },
+          { kind: "subhead", key: "motionFx" },
+          { kind: "field", key: "beatFxMaster", control: sw(beatFxMaster) },
+          { kind: "field", key: "laneGlow", control: sw(laneGlow) },
+          { kind: "field", key: "markerFlash", control: sw(markerFlash) },
+          { kind: "field", key: "beatPulse", control: sw(beatPulse) },
+          { kind: "subhead", key: "motionFeel" },
+          {
+            kind: "field",
+            key: "motionSpeed",
+            expert: true,
+            control: radio(motionSpeed, () => motionSpeedOptions.value),
+          },
+          {
+            kind: "field",
+            key: "reduceMotion",
+            control: radio(reduceMotion, () => reduceMotionOptions.value),
+          },
         ],
       },
     ],
@@ -330,12 +575,6 @@ export function buildFieldGroups(
           { kind: "field", key: "logToFile", control: sw(logToFile, devOnly) },
           { kind: "custom", id: "advanced.devTools", searchKey: "openTools" },
         ],
-      },
-    ],
-    about: [
-      {
-        key: "about",
-        rows: [{ kind: "custom", id: "about.about" }],
       },
     ],
   };

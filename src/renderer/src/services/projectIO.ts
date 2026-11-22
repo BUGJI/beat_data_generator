@@ -1,6 +1,5 @@
 import { toast } from "../ui/toast";
 import { t } from "../utils/text";
-import { DEFAULT_DIV } from "../metrics";
 import {
   addTrack,
   refreshChildren,
@@ -94,7 +93,7 @@ function freshProject(): void {
   p.baseBpm = 120;
   p.offsetMs = 0;
   p.beatsPerBar = 4;
-  p.gridDiv = DEFAULT_DIV;
+  p.gridDiv = useSettingsStore().settings.defaultGridDiv;
   p.audioPath = null;
   p.audioName = null;
   p.audioMd5 = null;
@@ -110,7 +109,7 @@ function freshProject(): void {
   sel.selected = { kind: null, id: null };
   sel.multi = [];
   sel.cardOpen = false;
-  useUiStore().timeAlign = false;
+  useUiStore().timeAlign = useSettingsStore().settings.timeAlignByDefault;
   resetHistory();
   resetAnalysis();
   markSaved();

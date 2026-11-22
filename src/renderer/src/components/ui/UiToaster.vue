@@ -72,7 +72,7 @@ const COLOR: Record<ToastType, string> = {
 <style scoped>
 .toast-enter-active,
 .toast-leave-active {
-  transition: all 0.18s ease;
+  transition: all calc(0.18s * var(--bdg-menu-motion-scale, 1)) ease;
 }
 .toast-enter-from,
 .toast-leave-to {

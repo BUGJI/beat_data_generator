@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createPinia, setActivePinia } from "pinia";
 import { useProjectStore } from "../../stores/project";
+import { useSettingsStore } from "../../stores/settings";
 import { useTransportStore } from "../../stores/transport";
 import { useViewStore } from "../../stores/view";
 import { magnetBeat } from "./magnet";
@@ -33,5 +34,22 @@ describe("magnetBeat", () => {
   it("snaps to the playhead", () => {
     useTransportStore().positionMs = 2000;
     expect(magnetBeat(202)).toBe(4);
+  });
+
+  it("honours the configured magnet distance", () => {
+    useSettingsStore().settings.magnetThresholdPx = 3;
+    expect(magnetBeat(205)).toBeNull();
+    expect(magnetBeat(201)).toBe(4);
+  });
+
+  it("respects disabled magnet targets", () => {
+    const s = useSettingsStore().settings;
+    s.magnetMarkers = false;
+    expect(magnetBeat(205)).toBeNull();
+
+    s.magnetMarkers = true;
+    s.magnetPlayhead = false;
+    useTransportStore().positionMs = 2000;
+    expect(magnetBeat(205)).toBe(4);
   });
 });

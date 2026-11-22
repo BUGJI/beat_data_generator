@@ -23,4 +23,6 @@ export const BEAT_FX_DURATION_MS: Record<BeatFxId, number> = {
 export interface BeatFxPulse {
   seq: number;
   at: number;
+  /** Effective duration in ms at fire time (speed / reduce-motion aware). */
+  dur?: number;
 }

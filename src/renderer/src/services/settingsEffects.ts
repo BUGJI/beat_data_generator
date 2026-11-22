@@ -5,6 +5,10 @@ import { resetStretchFallback } from "../stretch";
 import { applyTheme, resolveTheme, type ThemeOverrides } from "../theme";
 import { useSettingsStore } from "../stores/settings";
 import { useTransportStore } from "../stores/transport";
+import { useUiStore } from "../stores/ui";
+import { useViewStore } from "../stores/view";
+import { setHistoryLimit } from "./history";
+import { applyMotionPreferences, reduceMotionActive } from "./motion";
 import type { StretchEngine } from "@shared/settings";
 
 /**
@@ -38,7 +42,7 @@ function triggerThemeTransition(): void {
  */
 export function applyThemeFromSettings(animate = false): void {
   const s = useSettingsStore().settings;
-  if (animate && themeAppliedOnce && s.uiMotion !== false)
+  if (animate && themeAppliedOnce && s.themeCrossfade && !reduceMotionActive())
     triggerThemeTransition();
   applyTheme(resolveTheme(s.themePreset, s.themeOverrides as ThemeOverrides));
   themeAppliedOnce = true;
@@ -109,6 +113,8 @@ export function applyUiPreferences(): void {
   // Page zoom is applied in the main process; skip the IPC when it is unchanged
   // so text-scale drags don't trigger a full reflow on every tick.
   applyPageZoom(s.uiZoom / 100);
+  // Motion speed / reduce-motion / per-surface switches become CSS variables.
+  applyMotionPreferences();
 }
 
 let bgLoadToken = 0;
@@ -185,4 +191,25 @@ export function applyAllSettingsEffects(
   applyMetronomeSettings();
   applyAppName();
   useTransportStore().followManual = s.followPreset;
+}
+
+/**
+ * Seed the editor's session-only state from the "startup default" settings.
+ * Called once after settings load: changing these preferences later affects the
+ * next session, not the current one. Live parameters (magnet distance, undo
+ * limit, …) are read directly where they are used instead.
+ */
+export function applyEditorSessionDefaults(): void {
+  const s = useSettingsStore().settings;
+  const view = useViewStore();
+  const ui = useUiStore();
+  const transport = useTransportStore();
+  view.snapEnabled = s.snapByDefault;
+  view.magnetEnabled = s.magnetByDefault;
+  view.pxPerSec = s.defaultZoom;
+  ui.quickPlace = s.quickPlaceByDefault;
+  ui.timeAlign = s.timeAlignByDefault;
+  transport.pitchFollow = s.pitchFollowByDefault;
+  transport.rate = s.defaultRate;
+  setHistoryLimit(s.undoLimit);
 }

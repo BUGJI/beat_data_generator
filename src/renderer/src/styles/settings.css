@@ -6,19 +6,53 @@
  * into the rest of the app.
  */
 
-.settings-panel .content h3 {
-  margin: 0 0 14px;
-  font-size: var(--bdg-fs-15);
-}
-
-.settings-panel .content section {
+.settings-panel .content .settings-page {
   max-width: 768px;
   margin: 0 auto;
   padding: 0 10px;
 }
 /* Categories with a live preview pane get a wider, two-column canvas. */
-.settings-panel .content section.has-preview {
+.settings-panel .content .settings-page.wide {
   max-width: 940px;
+}
+
+.settings-panel .settings-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.settings-panel .content h3 {
+  margin: 0;
+  font-size: var(--bdg-fs-15);
+}
+.settings-panel .settings-page-actions {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-page-split.split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 20px;
+}
+.settings-page-main {
+  flex: 1 1 380px;
+  min-width: 0;
+}
+.settings-page-split:not(.split) .settings-page-main {
+  width: 100%;
+}
+.settings-page-aside {
+  flex: 1 1 220px;
+  max-width: 320px;
+  min-width: 0;
+  position: sticky;
+  top: 0;
 }
 
 .settings-panel .sub-head {
@@ -82,8 +116,10 @@
 }
 .settings-panel .field-info {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   gap: 3px;
+  min-width: 0;
 }
 .settings-panel .field-name {
   font-weight: 600;
@@ -93,6 +129,7 @@
   font-size: var(--bdg-fs-12);
   color: var(--bdg-text-dim);
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 /* A radio group plus its optional hint line; the hint sits under the control. */
@@ -101,6 +138,7 @@
   flex-direction: column;
   align-items: flex-end;
   gap: 4px;
+  min-width: 0;
 }
 .settings-panel .field-row.col .radio-cell {
   align-items: flex-start;
@@ -114,6 +152,13 @@
   display: flex;
   align-items: center;
   gap: 14px;
+  /* Keep the slider track usable and the unit label on one line even when the
+     row's text column is squeezed by a narrow panel or the preview aside. */
+  min-width: 150px;
+}
+.settings-panel .pct-row > .muted {
+  flex: none;
+  white-space: nowrap;
 }
 .settings-panel .pct-slider {
   flex: 1 1 0%;
@@ -128,4 +173,22 @@
 .settings-panel .decimals-input {
   width: 84px;
   flex: none;
+}
+/* Theme color rows live inside a card; the card already draws its own border. */
+.settings-panel .theme-card .field-row:last-child {
+  border-bottom: none;
+}
+/* The final row on a page would otherwise leave a dangling separator line. */
+.settings-panel .settings-page-main > .field-row:last-child {
+  border-bottom: none;
+}
+
+/* Narrow panels (typically the docked drawer): stack the two-column pages and
+   stop the preview column from sticking to the scrollport. */
+@container (max-width: 720px) {
+  .settings-panel .settings-page-aside {
+    position: static;
+    flex-basis: 100%;
+    max-width: none;
+  }
 }

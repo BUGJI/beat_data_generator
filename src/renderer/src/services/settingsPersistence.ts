@@ -6,6 +6,7 @@ import {
   applyAllSettingsEffects,
   applyAppName,
   applyBackgroundImage,
+  applyEditorSessionDefaults,
   applyMetronomeSettings,
   applyThemeFromSettings,
   applyUiPreferences,
@@ -38,6 +39,11 @@ const SETTINGS_EFFECTS: Partial<
   themeOverrides: () => applyThemeFromSettings(true),
   uiZoom: () => applyUiPreferences(),
   uiFontScale: () => applyUiPreferences(),
+  uiMotion: () => applyUiPreferences(),
+  menuMotion: () => applyUiPreferences(),
+  themeCrossfade: () => applyUiPreferences(),
+  motionSpeed: () => applyUiPreferences(),
+  reduceMotion: () => applyUiPreferences(),
   uiBlur: () => applyUiPreferences(),
   uiBlurAmount: () => applyUiPreferences(),
   uiRadius: () => applyUiPreferences(),
@@ -117,6 +123,7 @@ export async function loadSettings(): Promise<void> {
     /* fallback defaults */
   }
   applyAllSettingsEffects(false);
+  applyEditorSessionDefaults();
 
   // One-shot notice when the main process had to recover a corrupt file.
   try {

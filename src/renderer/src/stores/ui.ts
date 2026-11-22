@@ -30,11 +30,6 @@ export const useUiStore = defineStore("ui", () => {
     laneGlow: 0,
     markerFlash: 0,
   });
-  /**
-   * Session master switch for the checked effects. Left-clicking the toolbar
-   * icon toggles this without changing which effects are checked.
-   */
-  const fxMasterOn = ref(true);
   /** quick draw/erase mode: press-drag places/deletes markers under the cursor. */
   const quickPlace = ref(false);
   /** session-only: pin markers to absolute time so BPM/offset edits don't move them. */
@@ -62,7 +57,6 @@ export const useUiStore = defineStore("ui", () => {
     overlapCount,
     fxPulses,
     fxUntil,
-    fxMasterOn,
     quickPlace,
     timeAlign,
     activeTrackId,

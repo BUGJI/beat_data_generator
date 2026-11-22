@@ -6,6 +6,7 @@ import {
   MAX_PX_PER_SEC,
   MIN_PX_PER_SEC,
 } from "../metrics";
+import { motionMs } from "../services/motion";
 import { contentEndMs } from "../services/timeline";
 import { useSettingsStore } from "./settings";
 import { useProjectStore } from "./project";
@@ -148,8 +149,10 @@ function animateZoomTo(target: number, anchorSec: number | null): void {
   } else {
     zoomAnchorSec = null;
   }
+  const duration = motionMs(ZOOM_ANIM_MS);
   if (
     !useSettingsStore().settings.animEnabled ||
+    duration <= 0 ||
     Math.abs(target - from) < 0.001
   ) {
     view.pxPerSec = target;
@@ -161,7 +164,7 @@ function animateZoomTo(target: number, anchorSec: number | null): void {
   zoom1 = target;
   zoomStart = performance.now();
   const step = (): void => {
-    const k = Math.min(1, (performance.now() - zoomStart) / ZOOM_ANIM_MS);
+    const k = Math.min(1, (performance.now() - zoomStart) / duration);
     view.pxPerSec = zoom0 + (zoom1 - zoom0) * easeOutCubic(k);
     keepZoomAnchor();
     if (k < 1) {

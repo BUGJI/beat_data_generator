@@ -6,7 +6,8 @@ import { patchSettings } from "../../services/settingsPersistence";
 import { i18n, isLocale, LOCALES, setLocale } from "../../i18n";
 import { THEME_PRESETS, THEME_TOKEN_ORDER } from "../../theme";
 import type { SettingsData } from "@shared/settings";
-import type { CatKey, GroupDef, RowDef, SearchEntry } from "./types";
+import type { BeatFxId } from "@shared/beatFx";
+import type { CatKey, ColOption, GroupDef, RowDef, SearchEntry } from "./types";
 import { EXTRA_SEARCH, SEARCH_KEYWORDS } from "./searchKeywords";
 import { buildFieldGroups } from "./rowDefinitions";
 
@@ -48,11 +49,18 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const stretchCacheMb = settingModel("stretchCacheMb");
   const closeMode = settingModel("closeMode");
   const animEnabled = settingModel("animEnabled");
+  const followSmooth = settingModel("followSmooth");
   const gridAutoHide = settingModel("gridAutoHide");
   const bpmSegmentColors = settingModel("bpmSegmentColors");
   const bpmSegmentIntensity = settingModel("bpmSegmentIntensity");
   const quickBarLabels = settingModel("quickBarLabels");
   const uiMotion = settingModel("uiMotion");
+  const themeCrossfade = settingModel("themeCrossfade");
+  const menuMotion = settingModel("menuMotion");
+  const beatFxMaster = settingModel("beatFxMaster");
+  const beatPulse = settingModel("beatPulse");
+  const motionSpeed = settingModel("motionSpeed");
+  const reduceMotion = settingModel("reduceMotion");
   const followScroll = settingModel("followScroll");
   const followPercent = settingModel("followPercent");
   const rememberWindow = settingModel("rememberWindow");
@@ -60,6 +68,24 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const autoSave = settingModel("autoSave");
   const checkUpdates = settingModel("checkUpdates");
   const autoSaveMinutes = settingModel("autoSaveMinutes");
+  const defaultGridDiv = settingModel("defaultGridDiv");
+  const snapByDefault = settingModel("snapByDefault");
+  const magnetByDefault = settingModel("magnetByDefault");
+  const magnetThresholdPx = settingModel("magnetThresholdPx");
+  const magnetMarkers = settingModel("magnetMarkers");
+  const magnetPlayhead = settingModel("magnetPlayhead");
+  const magnetLoopEdges = settingModel("magnetLoopEdges");
+  const magnetNotes = settingModel("magnetNotes");
+  const selectAfterPlace = settingModel("selectAfterPlace");
+  const openCardAfterPlace = settingModel("openCardAfterPlace");
+  const quickPlaceByDefault = settingModel("quickPlaceByDefault");
+  const timeAlignByDefault = settingModel("timeAlignByDefault");
+  const nudgeStep = settingModel("nudgeStep");
+  const pitchFollowByDefault = settingModel("pitchFollowByDefault");
+  const defaultRate = settingModel("defaultRate");
+  const defaultZoom = settingModel("defaultZoom");
+  const wheelZoomStep = settingModel("wheelZoomStep");
+  const undoLimit = settingModel("undoLimit");
   const ctrlSpeedPlay = settingModel("ctrlSpeedPlay");
   const countInBars = settingModel("countInBars");
   const gridMetronome = settingModel("gridMetronome");
@@ -72,6 +98,42 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const audioSpectrum = settingModel("audioSpectrum");
   const audioPanel = settingModel("audioPanel");
   const analysisWindowMinutes = settingModel("analysisWindowMinutes");
+
+  /** Nested beat-effect flags live in one map; replace it to keep patches atomic. */
+  function beatFxModel(id: BeatFxId) {
+    return computed<boolean>({
+      get: () => settings.settings.beatFx[id] === true,
+      set: (value) => {
+        void patchSettings({
+          beatFx: { ...settings.settings.beatFx, [id]: value },
+        });
+      },
+    });
+  }
+  const laneGlow = beatFxModel("laneGlow");
+  const markerFlash = beatFxModel("markerFlash");
+
+  const motionSpeedOptions = computed<ColOption[]>(() => [
+    { value: "slow", label: t("settings.display.motionSlow") },
+    { value: "normal", label: t("settings.display.motionNormal") },
+    { value: "fast", label: t("settings.display.motionFast") },
+  ]);
+
+  const reduceMotionOptions = computed<ColOption[]>(() => [
+    { value: "system", label: t("settings.display.reduceMotionSystem") },
+    { value: "on", label: t("settings.display.reduceMotionOn") },
+    { value: "off", label: t("settings.display.reduceMotionOff") },
+  ]);
+
+  const nudgeStepOptions = computed<ColOption[]>(() => [
+    { value: "grid", label: t("settings.edit.nudgeGrid") },
+    { value: "1", label: "1/1" },
+    { value: "2", label: "1/2" },
+    { value: "4", label: "1/4" },
+    { value: "8", label: "1/8" },
+    { value: "16", label: "1/16" },
+    { value: "32", label: "1/32" },
+  ]);
 
   const stretchEngineOptions = computed<
     Array<{ value: string; label: string }>
@@ -175,6 +237,25 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     alignRoundingHint,
     autoSave,
     autoSaveMinutes,
+    defaultGridDiv,
+    snapByDefault,
+    magnetByDefault,
+    magnetThresholdPx,
+    magnetMarkers,
+    magnetPlayhead,
+    magnetLoopEdges,
+    magnetNotes,
+    selectAfterPlace,
+    openCardAfterPlace,
+    quickPlaceByDefault,
+    timeAlignByDefault,
+    nudgeStep,
+    nudgeStepOptions,
+    pitchFollowByDefault,
+    defaultRate,
+    defaultZoom,
+    wheelZoomStep,
+    undoLimit,
     audioAutoBpm,
     audioAutoBeats,
     audioLoopDetect,
@@ -191,7 +272,18 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     bpmSegmentIntensity,
     quickBarLabels,
     animEnabled,
+    followSmooth,
     uiMotion,
+    themeCrossfade,
+    menuMotion,
+    beatFxMaster,
+    beatPulse,
+    laneGlow,
+    markerFlash,
+    motionSpeed,
+    motionSpeedOptions,
+    reduceMotion,
+    reduceMotionOptions,
     devEnabled,
     devFreeInput,
     logToFile,
@@ -279,11 +371,46 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     });
   }
   searchIndex.push(...EXTRA_SEARCH);
+  // Whole-page targets: these switch category without scrolling to a row.
+  searchIndex.push(
+    {
+      cat: "shortcuts",
+      key: "page",
+      page: true,
+      keywords: ["快捷键", "按键", "shortcut", "shortcuts", "keys", "keyboard"],
+    },
+    {
+      cat: "plugins",
+      key: "page",
+      page: true,
+      keywords: ["插件", "扩展", "plugin", "plugins", "market", "marketplace"],
+    },
+    {
+      cat: "about",
+      key: "page",
+      page: true,
+      keywords: [
+        "关于",
+        "版本",
+        "更新",
+        "应用名称",
+        "标题",
+        "about",
+        "version",
+        "update",
+        "license",
+        "app name",
+        "title",
+      ],
+    },
+  );
 
   return {
     // reactive field bindings
     simpleMode,
     uiMotion,
+    themeCrossfade,
+    menuMotion,
     devEnabled,
     closeMode,
     devFreeInput,
@@ -292,9 +419,18 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     stretchCacheMb,
     language,
     animEnabled,
+    followSmooth,
     gridAutoHide,
     bpmSegmentColors,
     bpmSegmentIntensity,
+    beatFxMaster,
+    beatPulse,
+    laneGlow,
+    markerFlash,
+    motionSpeed,
+    motionSpeedOptions,
+    reduceMotion,
+    reduceMotionOptions,
     followScroll,
     followPercent,
     rememberWindow,

@@ -28,35 +28,68 @@ import {
 } from "@lucide/vue";
 import { setSettingsOpen, useSettingsStore } from "../stores/settings";
 import SettingsCategorySection from "./settings/SettingsCategorySection.vue";
+import SettingsPage from "./settings/SettingsPage.vue";
 import ShortcutsPanel from "./settings/ShortcutsPanel.vue";
 import NetworkPanel from "./settings/NetworkPanel.vue";
 import PluginsPanel from "./settings/PluginsPanel.vue";
 import ThemePanel from "./settings/ThemePanel.vue";
+import AboutBlock from "./settings/custom/AboutBlock.vue";
 import { useSettingsRowsStore } from "./settings/useSettingsRows";
 import { useSettingsLayout } from "./settings/useSettingsLayout";
 import { useSettingsSearch } from "./settings/useSettingsSearch";
+import { animationsEnabled } from "../services/motion";
 import type { CatKey } from "./settings/types";
 import UiButton from "./ui/UiButton.vue";
 
 const settings = useSettingsStore();
 const rows = useSettingsRowsStore();
 const { simpleMode, uiMotion } = storeToRefs(rows);
+const panelMotion = computed(() => uiMotion.value && animationsEnabled());
 const { groupsOf, rowsInGroup, activeGroup, setSubCat, fieldCats } = rows;
 const { t } = useI18n();
 const cat = ref<CatKey>("general");
 
-const cats: Array<{ key: CatKey; icon: Component }> = [
-  { key: "general", icon: SlidersHorizontal },
-  { key: "edit", icon: Pencil },
-  { key: "audio", icon: Music },
-  { key: "display", icon: Monitor },
-  { key: "theme", icon: Palette },
-  { key: "plugins", icon: Blocks },
-  { key: "shortcuts", icon: Keyboard },
-  { key: "network", icon: Network },
-  { key: "advanced", icon: Wrench },
-  { key: "about", icon: Info },
+type NavSection = "app" | "edit" | "extras";
+type NavCat = CatKey;
+type NavItem = { key: NavCat; icon: Component };
+
+/** Every navigable category; the record makes a new category fail to compile. */
+const NAV_ICONS: Record<NavCat, Component> = {
+  general: SlidersHorizontal,
+  display: Monitor,
+  theme: Palette,
+  edit: Pencil,
+  audio: Music,
+  shortcuts: Keyboard,
+  plugins: Blocks,
+  network: Network,
+  advanced: Wrench,
+  about: Info,
+};
+const NAV_GROUP_OF: Record<NavCat, NavSection> = {
+  general: "app",
+  display: "app",
+  theme: "app",
+  edit: "edit",
+  audio: "edit",
+  shortcuts: "edit",
+  plugins: "extras",
+  network: "extras",
+  advanced: "extras",
+  about: "extras",
+};
+const NAV_SECTIONS: Array<{ key: NavSection; titleKey: string }> = [
+  { key: "app", titleKey: "settings.nav.app" },
+  { key: "edit", titleKey: "settings.nav.edit" },
+  { key: "extras", titleKey: "settings.nav.extras" },
 ];
+const NAV_GROUPS: Array<{ titleKey: string; items: NavItem[] }> =
+  NAV_SECTIONS.map((section) => ({
+    titleKey: section.titleKey,
+    items: (Object.keys(NAV_ICONS) as NavCat[])
+      .filter((key) => NAV_GROUP_OF[key] === section.key)
+      .map((key) => ({ key, icon: NAV_ICONS[key] })),
+  }));
 
 /** Whole categories hidden while simple mode is on. */
 const SIMPLE_HIDDEN_CATS: CatKey[] = ["advanced"];
@@ -76,6 +109,7 @@ watch(
   () => settings.settingsOpen,
   async (open) => {
     if (!open) {
+      search.value = "";
       // hand focus back to whatever opened the dialog
       lastFocused?.focus?.();
       lastFocused = null;
@@ -90,11 +124,14 @@ watch(
   },
 );
 
-/** Categories shown in the nav; expert categories are hidden in simple mode. */
-const visibleCats = computed(() =>
-  simpleMode.value
-    ? cats.filter((c) => !SIMPLE_HIDDEN_CATS.includes(c.key))
-    : cats,
+/** Navigation groups with expert categories dropped in simple mode. */
+const navGroups = computed(() =>
+  NAV_GROUPS.map((group) => ({
+    ...group,
+    items: simpleMode.value
+      ? group.items.filter((c) => !SIMPLE_HIDDEN_CATS.includes(c.key))
+      : group.items,
+  })).filter((group) => group.items.length > 0),
 );
 
 // Never leave the user stranded on a category that simple mode just hid.
@@ -110,23 +147,40 @@ const searchEl = ref<HTMLInputElement | null>(null);
 const panelEl = ref<HTMLElement | null>(null);
 let lastFocused: HTMLElement | null = null;
 
+// Switching categories starts the new page at the top. Search-driven jumps
+// still scroll to their target afterwards.
+watch(cat, () => {
+  if (contentEl.value) contentEl.value.scrollTop = 0;
+});
+
 const {
   search,
   searchQuery,
   searchResults,
+  searchGroups,
+  activeIndex,
   highlightParts,
   goToSetting,
-  onSearchEnter,
+  onSearchKeydown,
   catLabel,
 } = useSettingsSearch({ cat, contentEl, searchEl });
+
+const searching = computed(() => search.value.trim().length > 0);
+
+/** Clear the query and keep focus in the search box (the clear button vanishes). */
+function clearSearch(): void {
+  search.value = "";
+  void nextTick(() => searchEl.value?.focus());
+}
 
 /** Escape closes the dialog (or clears an active search first). Handled on the
  *  window so it works regardless of which element currently holds focus. */
 function onWindowKeydown(e: KeyboardEvent): void {
   if (!settings.settingsOpen || e.key !== "Escape") return;
+  if (e.isComposing) return;
   e.preventDefault();
-  if (document.activeElement === searchEl.value && search.value.trim()) {
-    search.value = "";
+  if (search.value.trim()) {
+    clearSearch();
     return;
   }
   setSettingsOpen(false);
@@ -141,7 +195,7 @@ function onPanelKeydown(e: KeyboardEvent): void {
     panel.querySelectorAll<HTMLElement>(
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
     ),
-  ).filter((el) => el.offsetParent !== null);
+  ).filter((el) => el.offsetParent !== null && !el.closest("[inert]"));
   if (!items.length) return;
   const first = items[0]!;
   const last = items[items.length - 1]!;
@@ -163,7 +217,7 @@ function onPanelKeydown(e: KeyboardEvent): void {
 
 <template>
   <teleport to="body">
-    <Transition :name="transitionName" :css="uiMotion">
+    <Transition :name="transitionName" :css="panelMotion">
       <div
         v-if="settings.settingsOpen"
         class="mask"
@@ -194,16 +248,27 @@ function onPanelKeydown(e: KeyboardEvent): void {
                 ref="searchEl"
                 v-model="search"
                 class="search-input"
+                role="combobox"
+                aria-autocomplete="list"
+                :aria-expanded="searching"
+                :aria-controls="
+                  searching ? 'settings-search-results' : undefined
+                "
+                :aria-activedescendant="
+                  searching && searchResults.length
+                    ? `settings-hit-${activeIndex}`
+                    : undefined
+                "
                 :placeholder="t('settings.searchPlaceholder')"
                 :aria-label="t('settings.searchPlaceholder')"
-                @keydown.enter.prevent="onSearchEnter()"
+                @keydown="onSearchKeydown"
               />
               <button
                 v-if="search"
                 class="search-clear"
                 :title="t('settings.searchClear')"
                 :aria-label="t('settings.searchClear')"
-                @click="search = ''"
+                @click="clearSearch()"
               >
                 <X class="size-3.5" />
               </button>
@@ -237,53 +302,83 @@ function onPanelKeydown(e: KeyboardEvent): void {
           </header>
 
           <div class="body">
-            <div v-if="search.trim()" class="search-results">
-              <button
-                v-for="hit in searchResults"
-                :key="`${hit.cat}.${hit.key}`"
-                class="search-result"
-                @click="goToSetting(hit)"
-              >
-                <span class="sr-head">
-                  <span class="sr-label">
+            <div
+              v-if="searching"
+              id="settings-search-results"
+              class="search-results"
+              role="listbox"
+              :aria-label="t('settings.searchResults')"
+            >
+              <template v-for="group in searchGroups" :key="group.cat">
+                <div class="sr-group" role="presentation">
+                  <span>{{ group.label }}</span>
+                  <span class="sr-count">{{ group.hits.length }}</span>
+                </div>
+                <button
+                  v-for="{ hit, index } in group.hits"
+                  :id="`settings-hit-${index}`"
+                  :key="`${hit.cat}.${hit.key}`"
+                  type="button"
+                  role="option"
+                  class="search-result"
+                  :class="{ active: index === activeIndex }"
+                  :aria-selected="index === activeIndex"
+                  @click="goToSetting(hit)"
+                  @mouseenter="activeIndex = index"
+                >
+                  <span class="sr-head">
+                    <span class="sr-label">
+                      <template
+                        v-for="(p, pi) in highlightParts(
+                          hit.label,
+                          searchQuery,
+                        )"
+                        :key="pi"
+                      >
+                        <mark v-if="p.hit">{{ p.text }}</mark>
+                        <template v-else>{{ p.text }}</template>
+                      </template>
+                    </span>
+                    <span class="sr-cat">{{ catLabel(hit.cat) }}</span>
+                  </span>
+                  <span v-if="hit.desc" class="sr-desc">
                     <template
-                      v-for="(p, pi) in highlightParts(hit.label, searchQuery)"
+                      v-for="(p, pi) in highlightParts(hit.desc, searchQuery)"
                       :key="pi"
                     >
                       <mark v-if="p.hit">{{ p.text }}</mark>
                       <template v-else>{{ p.text }}</template>
                     </template>
                   </span>
-                  <span class="sr-cat">{{ catLabel(hit.cat) }}</span>
-                </span>
-                <span v-if="hit.desc" class="sr-desc">
-                  <template
-                    v-for="(p, pi) in highlightParts(hit.desc, searchQuery)"
-                    :key="pi"
-                  >
-                    <mark v-if="p.hit">{{ p.text }}</mark>
-                    <template v-else>{{ p.text }}</template>
-                  </template>
-                </span>
-              </button>
+                </button>
+              </template>
               <div v-if="searchResults.length === 0" class="search-empty">
                 {{ t("settings.searchNoResults") }}
               </div>
             </div>
 
-            <nav class="nav" :aria-label="t('settings.title')">
-              <button
-                v-for="c in visibleCats"
-                :key="c.key"
-                class="nav-item"
-                :class="{ active: cat === c.key }"
-                @click="cat = c.key"
-              >
-                <span class="nav-icon">
-                  <component :is="c.icon" class="size-3.5" />
-                </span>
-                <span class="nav-label">{{ catLabel(c.key) }}</span>
-              </button>
+            <nav
+              class="nav"
+              :aria-label="t('settings.navLabel')"
+              :inert="searching"
+              :aria-hidden="searching || undefined"
+            >
+              <template v-for="group in navGroups" :key="group.titleKey">
+                <div class="nav-group-title">{{ t(group.titleKey) }}</div>
+                <button
+                  v-for="c in group.items"
+                  :key="c.key"
+                  class="nav-item"
+                  :class="{ active: cat === c.key }"
+                  :aria-current="cat === c.key ? 'page' : undefined"
+                  @click="cat = c.key"
+                >
+                  <span class="nav-icon">
+                    <component :is="c.icon" class="size-3.5" />
+                  </span>
+                  <span class="nav-label">{{ catLabel(c.key) }}</span>
+                </button>
+              </template>
               <button
                 v-if="simpleMode"
                 class="nav-note"
@@ -293,7 +388,12 @@ function onPanelKeydown(e: KeyboardEvent): void {
               </button>
             </nav>
 
-            <main ref="contentEl" class="content">
+            <main
+              ref="contentEl"
+              class="content"
+              :inert="searching"
+              :aria-hidden="searching || undefined"
+            >
               <!-- 由 FIELD_GROUPS 声明的分类 -->
               <template v-for="key in fieldCats" :key="key">
                 <SettingsCategorySection
@@ -317,6 +417,14 @@ function onPanelKeydown(e: KeyboardEvent): void {
 
               <!-- 网络 -->
               <NetworkPanel v-if="cat === 'network'" />
+
+              <!-- 关于 -->
+              <SettingsPage
+                v-if="cat === 'about'"
+                :title="t('settings.cats.about')"
+              >
+                <AboutBlock />
+              </SettingsPage>
             </main>
           </div>
 
@@ -360,17 +468,18 @@ function onPanelKeydown(e: KeyboardEvent): void {
    the duration from the root element and wait for the child/pseudo animations. */
 .settings-drawer-enter-active,
 .settings-drawer-leave-active {
-  transition: opacity 0.28s ease;
+  transition: opacity calc(0.28s * var(--bdg-panel-motion-scale, 1)) ease;
 }
 .settings-drawer-enter-active::before,
 .settings-drawer-leave-active::before {
   transition:
-    opacity 0.24s ease,
-    backdrop-filter 0.24s ease;
+    opacity calc(0.24s * var(--bdg-panel-motion-scale, 1)) ease,
+    backdrop-filter calc(0.24s * var(--bdg-panel-motion-scale, 1)) ease;
 }
 .settings-drawer-enter-active .panel,
 .settings-drawer-leave-active .panel {
-  transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: transform calc(0.28s * var(--bdg-panel-motion-scale, 1))
+    cubic-bezier(0.22, 1, 0.36, 1);
 }
 .settings-drawer-enter-from::before,
 .settings-drawer-leave-to::before {
@@ -384,19 +493,19 @@ function onPanelKeydown(e: KeyboardEvent): void {
 
 .settings-full-enter-active,
 .settings-full-leave-active {
-  transition: opacity 0.22s ease;
+  transition: opacity calc(0.22s * var(--bdg-panel-motion-scale, 1)) ease;
 }
 .settings-full-enter-active::before,
 .settings-full-leave-active::before {
   transition:
-    opacity 0.2s ease,
-    backdrop-filter 0.2s ease;
+    opacity calc(0.2s * var(--bdg-panel-motion-scale, 1)) ease,
+    backdrop-filter calc(0.2s * var(--bdg-panel-motion-scale, 1)) ease;
 }
 .settings-full-enter-active .panel,
 .settings-full-leave-active .panel {
   transition:
-    transform 0.22s ease,
-    opacity 0.22s ease;
+    transform calc(0.22s * var(--bdg-panel-motion-scale, 1)) ease,
+    opacity calc(0.22s * var(--bdg-panel-motion-scale, 1)) ease;
 }
 .settings-full-enter-from::before,
 .settings-full-leave-to::before {
@@ -415,6 +524,7 @@ function onPanelKeydown(e: KeyboardEvent): void {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  container-type: inline-size;
 }
 .panel.full {
   width: min(1200px, 96vw);
@@ -535,8 +645,29 @@ function onPanelKeydown(e: KeyboardEvent): void {
   font-family: inherit;
   font-size: var(--bdg-fs-13);
 }
-.search-result:hover {
+.search-result:hover,
+.search-result.active {
   background: rgb(var(--bdg-accent-rgb) / 0.12);
+}
+.sr-group {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 18px 4px;
+  background: var(--bdg-bg-raised);
+  border-bottom: 1px solid var(--bdg-border);
+  font-size: var(--bdg-fs-10);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bdg-text-faint);
+}
+.sr-count {
+  font-variant-numeric: tabular-nums;
 }
 .search-result mark {
   background: rgb(var(--bdg-accent-rgb) / 0.3);
@@ -573,7 +704,7 @@ function onPanelKeydown(e: KeyboardEvent): void {
   color: var(--bdg-text-dim);
 }
 .search-hit {
-  animation: searchHit 1.6s ease;
+  animation: searchHit calc(1.6s * var(--bdg-menu-motion-scale, 1)) ease;
 }
 @keyframes searchHit {
   0% {
@@ -631,11 +762,24 @@ function onPanelKeydown(e: KeyboardEvent): void {
 .nav {
   flex: none;
   width: 168px;
+  min-height: 0;
+  overflow-y: auto;
   border-right: 1px solid var(--bdg-border);
   padding: 10px 8px;
   display: flex;
   flex-direction: column;
   gap: 2px;
+}
+.nav-group-title {
+  padding: 10px 12px 4px;
+  font-size: var(--bdg-fs-10);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--bdg-text-faint);
+}
+.nav-group-title:first-child {
+  padding-top: 2px;
 }
 .nav-label {
   white-space: nowrap;
@@ -715,6 +859,57 @@ function onPanelKeydown(e: KeyboardEvent): void {
 .panel button {
   word-break: keep-all;
 }
+/* Narrow panels: the side navigation turns into a horizontal strip so the
+   content keeps the full panel width. */
+@container (max-width: 640px) {
+  .body {
+    flex-direction: column;
+  }
+  .nav {
+    width: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 2px;
+    border-right: none;
+    border-bottom: 1px solid var(--bdg-border);
+    padding: 6px 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .nav-group-title {
+    display: none;
+  }
+  .nav-item {
+    flex: none;
+    padding: 7px 10px;
+  }
+  .nav-note {
+    margin-top: 0;
+    margin-left: auto;
+    flex: none;
+    white-space: nowrap;
+  }
+  .content {
+    padding: 14px;
+  }
+}
+@container (max-width: 480px) {
+  .head {
+    gap: 6px;
+    padding: 10px 12px;
+  }
+  .title {
+    display: none;
+  }
+  .search {
+    margin: 0 8px 0 0;
+  }
+  .foot {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
+
 /* Honour the OS "reduce motion" preference for the panel animations and the
    search-hit flash, independently of the in-app Interface motion setting. */
 @media (prefers-reduced-motion: reduce) {

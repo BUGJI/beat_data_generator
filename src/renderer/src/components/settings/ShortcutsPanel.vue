@@ -9,23 +9,47 @@ import {
   eventCombo,
   matchesBinding,
   SHORTCUT_DEFS,
+  SHORTCUT_GROUP,
+  SHORTCUT_GROUP_ORDER,
   type ShortcutAction,
 } from "../../utils/shortcuts";
+import SettingsPage from "./SettingsPage.vue";
+import UiInput from "../ui/UiInput.vue";
 
 const { t } = useI18n();
 const settings = useSettingsStore();
 
 const recording = ref<ShortcutAction | null>(null);
 const conflict = ref<string | null>(null);
+const filter = ref("");
 
 const rows = computed(() =>
   SHORTCUT_DEFS.map((def) => ({
     action: def.action,
+    group: SHORTCUT_GROUP[def.action],
     label: t(`settings.shortcuts.${def.labelKey}`),
     binding: bindingFor(def.action, settings.settings.shortcuts),
     custom: !!settings.settings.shortcuts[def.action],
   })),
 );
+
+const filteredRows = computed(() => {
+  const q = filter.value.trim().toLowerCase();
+  if (!q) return rows.value;
+  return rows.value.filter((row) =>
+    [row.label, row.binding].join(" ").toLowerCase().includes(q),
+  );
+});
+
+const groups = computed(() =>
+  SHORTCUT_GROUP_ORDER.map((key) => ({
+    key,
+    label: t(`settings.shortcuts.groups.${key}`),
+    rows: filteredRows.value.filter((row) => row.group === key),
+  })).filter((group) => group.rows.length > 0),
+);
+
+const filterActive = computed(() => filter.value.trim().length > 0);
 const hasCustom = computed(
   () => Object.keys(settings.settings.shortcuts).length > 0,
 );
@@ -90,75 +114,102 @@ onBeforeUnmount(stopRecord);
 </script>
 
 <template>
-  <section>
-    <div class="head-row">
-      <h3>{{ t("settings.cats.shortcuts") }}</h3>
+  <SettingsPage :title="t('settings.cats.shortcuts')">
+    <template #actions>
       <button v-if="hasCustom" class="reset-all" @click="resetAll">
         {{ t("settings.shortcuts.resetAll") }}
       </button>
+    </template>
+
+    <p class="muted shortcut-note">{{ t("settings.shortcuts.note") }}</p>
+
+    <div class="shortcut-toolbar">
+      <UiInput
+        v-model="filter"
+        size="sm"
+        class="shortcut-filter"
+        :placeholder="t('settings.shortcuts.filter')"
+      />
+      <span v-if="filterActive" class="muted shortcut-count">
+        {{
+          t("settings.shortcuts.filterCount", {
+            count: filteredRows.length,
+            total: rows.length,
+          })
+        }}
+      </span>
     </div>
-    <p class="muted">{{ t("settings.shortcuts.note") }}</p>
-    <table class="keys-table">
-      <tbody>
-        <tr
-          v-for="row in rows"
-          :key="row.action"
-          :class="{ recording: recording === row.action }"
-        >
-          <td class="act">{{ row.label }}</td>
-          <td class="keys">
-            <span v-if="recording === row.action" class="recording">
-              {{ t("settings.shortcuts.recording") }}
-            </span>
-            <template v-else-if="row.binding">
-              <span
-                v-for="(combo, ci) in comboParts(row.binding)"
-                :key="ci"
-                class="combo"
-              >
-                <span v-for="(k, ki) in combo" :key="ki" class="kbd">{{
-                  k
-                }}</span>
+
+    <div v-if="groups.length === 0" class="shortcut-empty muted">
+      {{ t("settings.shortcuts.filterEmpty") }}
+    </div>
+
+    <section
+      v-for="group in groups"
+      :key="group.key"
+      class="shortcut-group"
+      :aria-labelledby="`shortcut-group-${group.key}`"
+    >
+      <div :id="`shortcut-group-${group.key}`" class="shortcut-group-title">
+        {{ group.label }}
+      </div>
+      <table class="keys-table">
+        <tbody>
+          <tr
+            v-for="row in group.rows"
+            :key="row.action"
+            :class="{ recording: recording === row.action }"
+          >
+            <th scope="row" class="act">{{ row.label }}</th>
+            <td class="keys">
+              <span v-if="recording === row.action" class="recording">
+                {{ t("settings.shortcuts.recording") }}
               </span>
-            </template>
-            <span v-else class="unbound">{{
-              t("settings.shortcuts.unbound")
-            }}</span>
-          </td>
-          <td class="ops">
-            <button
-              class="op"
-              :class="{ on: recording === row.action }"
-              @click="
-                recording === row.action
-                  ? stopRecord()
-                  : beginRecord(row.action)
-              "
-            >
-              {{ t("settings.shortcuts.rebind") }}
-            </button>
-            <button
-              v-if="row.custom"
-              class="op"
-              @click="resetAction(row.action)"
-            >
-              {{ t("settings.shortcuts.reset") }}
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+              <template v-else-if="row.binding">
+                <span
+                  v-for="(combo, ci) in comboParts(row.binding)"
+                  :key="ci"
+                  class="combo"
+                >
+                  <span v-for="(k, ki) in combo" :key="ki" class="kbd">{{
+                    k
+                  }}</span>
+                </span>
+              </template>
+              <span v-else class="unbound">{{
+                t("settings.shortcuts.unbound")
+              }}</span>
+            </td>
+            <td class="ops">
+              <button
+                class="op"
+                :class="{ on: recording === row.action }"
+                @click="
+                  recording === row.action
+                    ? stopRecord()
+                    : beginRecord(row.action)
+                "
+              >
+                {{ t("settings.shortcuts.rebind") }}
+              </button>
+              <button
+                v-if="row.custom"
+                class="op"
+                @click="resetAction(row.action)"
+              >
+                {{ t("settings.shortcuts.reset") }}
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <div v-if="conflict" class="conflict">{{ conflict }}</div>
-  </section>
+  </SettingsPage>
 </template>
 
 <style scoped>
-.head-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
 .reset-all {
   border: 1px solid var(--bdg-border-strong);
   background: transparent;
@@ -172,24 +223,71 @@ onBeforeUnmount(stopRecord);
   color: var(--bdg-text);
   background: rgb(var(--bdg-neutral) / 0.1);
 }
+.shortcut-note {
+  margin: 0 0 12px;
+}
+.shortcut-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.shortcut-filter {
+  max-width: 260px;
+  min-width: 160px;
+}
+.shortcut-count {
+  flex: none;
+  font-size: var(--bdg-fs-11);
+}
+.shortcut-empty {
+  padding: 16px 0;
+  font-size: var(--bdg-fs-12);
+}
+.shortcut-group {
+  margin-top: 8px;
+}
+.shortcut-group-title {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 4px;
+  background: var(--bdg-bg-panel);
+  border-bottom: 1px solid var(--bdg-border);
+  font-size: var(--bdg-fs-11);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--bdg-text-dim);
+}
 .keys-table {
   width: 100%;
   border-collapse: collapse;
+  table-layout: fixed;
 }
+.keys-table .act,
 .keys-table td {
   padding: 6px 4px;
   border-bottom: 1px solid var(--bdg-border);
   font-size: var(--bdg-fs-13);
   vertical-align: middle;
+  font-weight: 400;
+  text-align: left;
 }
 .keys-table tr.recording {
   background: rgb(var(--bdg-accent-rgb) / 0.08);
 }
-.act {
+.keys-table .act {
   color: var(--bdg-text-dim);
+  overflow-wrap: anywhere;
 }
 .keys {
   text-align: right;
+  white-space: nowrap;
+}
+/* Wrap whole combos as units; never split a combo's keycaps across lines. */
+.combo {
+  display: inline-block;
   white-space: nowrap;
 }
 .combo + .combo::before {
@@ -215,8 +313,10 @@ onBeforeUnmount(stopRecord);
   color: var(--bdg-text-faint);
   font-size: var(--bdg-fs-11);
 }
+/* Wide enough for the two action buttons (Rebind + Reset) so the last column's
+   content cannot spill past the page edge. Narrow panels switch to auto below. */
 .ops {
-  width: 1%;
+  width: 128px;
   text-align: right;
   white-space: nowrap;
 }
@@ -238,5 +338,18 @@ onBeforeUnmount(stopRecord);
   margin-top: 8px;
   color: var(--bdg-danger);
   font-size: var(--bdg-fs-12);
+}
+
+@container (max-width: 560px) {
+  .keys {
+    white-space: normal;
+  }
+  .keys-table .act,
+  .keys-table td {
+    padding: 6px 2px;
+  }
+  .ops {
+    width: auto;
+  }
 }
 </style>

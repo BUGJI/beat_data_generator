@@ -25,6 +25,7 @@ import {
 import { useSettingsRowsStore } from "./useSettingsRows";
 import ThemePreview from "../ThemePreview.vue";
 import ThemeAppearancePanel from "./ThemeAppearancePanel.vue";
+import SettingsPage from "./SettingsPage.vue";
 import SettingsSubnav from "./SettingsSubnav.vue";
 import UiButton from "../ui/UiButton.vue";
 import UiColorField from "../ui/UiColorField.vue";
@@ -136,221 +137,188 @@ function onImportTheme(): void {
 </script>
 
 <template>
-  <section class="theme-section">
-    <h3>{{ t("settings.cats.theme") }}</h3>
-    <SettingsSubnav
-      :items="themeSubs"
-      :model-value="themeSub"
-      :aria-label="t('settings.cats.theme')"
-      @update:model-value="setThemeSub"
-    />
-
-    <div class="theme-split">
-      <div class="theme-main">
-        <template v-if="themeSub === 'preset'">
-          <div class="sub-head">{{ t("settings.theme.preset") }}</div>
-          <div class="theme-presets">
-            <button
-              v-for="p in THEME_PRESETS"
-              :key="p.id"
-              class="theme-preset"
-              :class="{ active: settings.settings.themePreset === p.id }"
-              :data-search="t(`settings.theme.presets.${p.name}`)"
-              @click="setThemePreset(p.id)"
+  <SettingsPage :title="t('settings.cats.theme')" wide has-aside>
+    <template #subnav>
+      <SettingsSubnav
+        :items="themeSubs"
+        :model-value="themeSub"
+        :aria-label="t('settings.cats.theme')"
+        @update:model-value="setThemeSub"
+      />
+    </template>
+    <template v-if="themeSub === 'preset'">
+      <div class="sub-head">{{ t("settings.theme.preset") }}</div>
+      <div class="theme-presets">
+        <button
+          v-for="p in THEME_PRESETS"
+          :key="p.id"
+          class="theme-preset"
+          :class="{ active: settings.settings.themePreset === p.id }"
+          :data-search="t(`settings.theme.presets.${p.name}`)"
+          @click="setThemePreset(p.id)"
+        >
+          <ThemePreview
+            :spec="p.spec"
+            variant="card"
+            class="theme-preset-preview"
+          />
+          <span class="theme-preset-meta">
+            <span class="theme-preset-name">{{
+              t(`settings.theme.presets.${p.name}`)
+            }}</span>
+            <span
+              class="theme-preset-badge"
+              :class="isLightPreset(p.spec) ? 'light' : 'dark'"
             >
-              <ThemePreview
-                :spec="p.spec"
-                variant="card"
-                class="theme-preset-preview"
-              />
-              <span class="theme-preset-meta">
-                <span class="theme-preset-name">{{
-                  t(`settings.theme.presets.${p.name}`)
-                }}</span>
-                <span
-                  class="theme-preset-badge"
-                  :class="isLightPreset(p.spec) ? 'light' : 'dark'"
-                >
-                  {{
-                    isLightPreset(p.spec)
-                      ? t("settings.theme.modeLight")
-                      : t("settings.theme.modeDark")
-                  }}
-                </span>
-              </span>
-              <span
-                v-if="settings.settings.themePreset === p.id"
-                class="theme-preset-check"
-              >
-                <Check class="size-3" />
-              </span>
-            </button>
-          </div>
-        </template>
+              {{
+                isLightPreset(p.spec)
+                  ? t("settings.theme.modeLight")
+                  : t("settings.theme.modeDark")
+              }}
+            </span>
+          </span>
+          <span
+            v-if="settings.settings.themePreset === p.id"
+            class="theme-preset-check"
+          >
+            <Check class="size-3" />
+          </span>
+        </button>
+      </div>
+    </template>
 
-        <template v-else-if="themeSub === 'custom'">
-          <div class="sub-head">{{ t("settings.theme.accentPick") }}</div>
-          <div class="accent-pick">
-            <button
-              v-for="c in ACCENT_SWATCHES"
-              :key="c"
-              type="button"
-              class="accent-swatch"
-              :class="{ active: themeSpec.accent.toLowerCase() === c }"
-              :style="{ background: c }"
-              :title="c"
-              :aria-label="c"
-              @click="setThemeToken('accent', c)"
-            />
-            <UiColorField
-              :model-value="themeSpec.accent"
-              @update:model-value="
-                (v: string) => previewThemeToken('accent', v)
-              "
-              @commit="(v: string) => setThemeToken('accent', v)"
-            />
-          </div>
-
-          <div class="sub-head">{{ t("settings.theme.share") }}</div>
-          <div class="theme-share">
-            <UiButton size="sm" @click="onExportTheme()">
-              {{ t("settings.theme.export") }}
-            </UiButton>
-            <div class="theme-code-wrap">
-              <UiInput
-                v-model="themeCode"
-                size="sm"
-                :placeholder="t('settings.theme.importPlaceholder')"
-              />
-            </div>
-            <UiButton
-              size="sm"
-              variant="soft"
-              :disabled="!themeCode.trim()"
-              @click="onImportTheme()"
-            >
-              {{ t("settings.theme.importBtn") }}
-            </UiButton>
-          </div>
-
-          <div class="sub-head theme-custom-head">
-            <span>{{ t("settings.theme.custom") }}</span>
-            <UiButton
-              size="sm"
-              :disabled="Object.keys(themeOverrides).length === 0"
-              @click="resetThemeTokens()"
-            >
-              {{ t("settings.theme.reset") }}
-            </UiButton>
-          </div>
-          <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
-
-          <div v-if="contrastIssues.length" class="contrast-warn">
-            <div class="contrast-warn-title">
-              {{ t("settings.theme.contrastTitle") }}
-            </div>
-            <ul class="contrast-warn-list">
-              <li v-for="(i, idx) in contrastIssues" :key="idx">
-                {{
-                  t("settings.theme.contrastIssue", {
-                    fg: t(`settings.theme.tokens.${i.fg}`),
-                    bg: t(`settings.theme.tokens.${i.bg}`),
-                    ratio: i.ratio.toFixed(2),
-                  })
-                }}
-              </li>
-            </ul>
-          </div>
-
-          <div v-for="g in themeGroups" :key="g.key" class="theme-card">
-            <div class="theme-card-head">
-              <span class="theme-card-title">{{
-                t(`settings.theme.groups.${g.key}`)
-              }}</span>
-              <span class="theme-card-swatches">
-                <i
-                  v-for="tk in g.tokens.slice(0, 5)"
-                  :key="tk"
-                  :style="{ background: themeSpec[tk] }"
-                />
-              </span>
-              <button
-                class="theme-group-reset"
-                :class="{ on: groupOverridden(g.tokens) }"
-                :disabled="!groupOverridden(g.tokens)"
-                :title="t('settings.theme.resetGroup')"
-                :aria-label="t('settings.theme.resetGroup')"
-                @click="resetThemeGroup(g.tokens)"
-              >
-                <RotateCcw class="size-3" />
-              </button>
-            </div>
-            <div
-              v-for="token in g.tokens"
-              :key="token"
-              class="field-row theme-row"
-            >
-              <div class="field-info">
-                <span class="field-name">{{
-                  t(`settings.theme.tokens.${token}`)
-                }}</span>
-              </div>
-              <div class="theme-token-ctrl">
-                <UiColorField
-                  :model-value="themeSpec[token]"
-                  @update:model-value="
-                    (v: string) => previewThemeToken(token, v)
-                  "
-                  @commit="(v: string) => setThemeToken(token, v)"
-                />
-                <button
-                  class="theme-token-reset"
-                  :class="{ on: tokenOverridden(token) }"
-                  :title="t('settings.theme.reset')"
-                  :aria-label="t('settings.theme.reset')"
-                  @click="onThemeToken(token, null)"
-                >
-                  ↺
-                </button>
-              </div>
-            </div>
-          </div>
-        </template>
-
-        <ThemeAppearancePanel v-else-if="themeSub === 'appearance'" />
+    <template v-else-if="themeSub === 'custom'">
+      <div class="sub-head">{{ t("settings.theme.accentPick") }}</div>
+      <div class="accent-pick">
+        <button
+          v-for="c in ACCENT_SWATCHES"
+          :key="c"
+          type="button"
+          class="accent-swatch"
+          :class="{ active: themeSpec.accent.toLowerCase() === c }"
+          :style="{ background: c }"
+          :title="c"
+          :aria-label="c"
+          @click="setThemeToken('accent', c)"
+        />
+        <UiColorField
+          :model-value="themeSpec.accent"
+          @update:model-value="(v: string) => previewThemeToken('accent', v)"
+          @commit="(v: string) => setThemeToken('accent', v)"
+        />
       </div>
 
-      <aside class="theme-preview">
-        <div class="sub-head">{{ t("settings.theme.preview") }}</div>
-        <ThemePreview :spec="themeSpec" variant="panel" />
-        <p class="muted theme-hint">{{ t("settings.theme.previewHint") }}</p>
-      </aside>
-    </div>
-  </section>
+      <div class="sub-head">{{ t("settings.theme.share") }}</div>
+      <div class="theme-share">
+        <UiButton size="sm" @click="onExportTheme()">
+          {{ t("settings.theme.export") }}
+        </UiButton>
+        <div class="theme-code-wrap">
+          <UiInput
+            v-model="themeCode"
+            size="sm"
+            :placeholder="t('settings.theme.importPlaceholder')"
+          />
+        </div>
+        <UiButton
+          size="sm"
+          variant="soft"
+          :disabled="!themeCode.trim()"
+          @click="onImportTheme()"
+        >
+          {{ t("settings.theme.importBtn") }}
+        </UiButton>
+      </div>
+
+      <div class="sub-head theme-custom-head">
+        <span>{{ t("settings.theme.custom") }}</span>
+        <UiButton
+          size="sm"
+          :disabled="Object.keys(themeOverrides).length === 0"
+          @click="resetThemeTokens()"
+        >
+          {{ t("settings.theme.reset") }}
+        </UiButton>
+      </div>
+      <p class="muted theme-hint">{{ t("settings.theme.hint") }}</p>
+
+      <div v-if="contrastIssues.length" class="contrast-warn">
+        <div class="contrast-warn-title">
+          {{ t("settings.theme.contrastTitle") }}
+        </div>
+        <ul class="contrast-warn-list">
+          <li v-for="(i, idx) in contrastIssues" :key="idx">
+            {{
+              t("settings.theme.contrastIssue", {
+                fg: t(`settings.theme.tokens.${i.fg}`),
+                bg: t(`settings.theme.tokens.${i.bg}`),
+                ratio: i.ratio.toFixed(2),
+              })
+            }}
+          </li>
+        </ul>
+      </div>
+
+      <div v-for="g in themeGroups" :key="g.key" class="theme-card">
+        <div class="theme-card-head">
+          <span class="theme-card-title">{{
+            t(`settings.theme.groups.${g.key}`)
+          }}</span>
+          <span class="theme-card-swatches">
+            <i
+              v-for="tk in g.tokens.slice(0, 5)"
+              :key="tk"
+              :style="{ background: themeSpec[tk] }"
+            />
+          </span>
+          <button
+            class="theme-group-reset"
+            :class="{ on: groupOverridden(g.tokens) }"
+            :disabled="!groupOverridden(g.tokens)"
+            :title="t('settings.theme.resetGroup')"
+            :aria-label="t('settings.theme.resetGroup')"
+            @click="resetThemeGroup(g.tokens)"
+          >
+            <RotateCcw class="size-3" />
+          </button>
+        </div>
+        <div v-for="token in g.tokens" :key="token" class="field-row theme-row">
+          <div class="field-info">
+            <span class="field-name">{{
+              t(`settings.theme.tokens.${token}`)
+            }}</span>
+          </div>
+          <div class="theme-token-ctrl">
+            <UiColorField
+              :model-value="themeSpec[token]"
+              @update:model-value="(v: string) => previewThemeToken(token, v)"
+              @commit="(v: string) => setThemeToken(token, v)"
+            />
+            <button
+              class="theme-token-reset"
+              :class="{ on: tokenOverridden(token) }"
+              :title="t('settings.theme.reset')"
+              :aria-label="t('settings.theme.reset')"
+              @click="onThemeToken(token, null)"
+            >
+              <RotateCcw class="size-3" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </template>
+
+    <ThemeAppearancePanel v-else-if="themeSub === 'appearance'" />
+
+    <template #aside>
+      <div class="sub-head">{{ t("settings.theme.preview") }}</div>
+      <ThemePreview :spec="themeSpec" variant="panel" />
+      <p class="muted theme-hint">{{ t("settings.theme.previewHint") }}</p>
+    </template>
+  </SettingsPage>
 </template>
 
 <style scoped>
-/* Theme page: content column + sticky live-preview column. */
-.theme-section {
-  max-width: 940px;
-}
-.theme-split {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  gap: 20px;
-}
-.theme-main {
-  flex: 2 1 380px;
-  min-width: 0;
-}
-.theme-preview {
-  flex: 1 1 220px;
-  max-width: 320px;
-  min-width: 0;
-  position: sticky;
-  top: 0;
-}
 .theme-presets {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -371,9 +339,9 @@ function onImportTheme(): void {
   font-family: inherit;
   font-size: var(--bdg-fs-12);
   transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    box-shadow 0.16s ease;
+    transform calc(0.16s * var(--bdg-motion-scale, 1)) ease,
+    border-color calc(0.16s * var(--bdg-motion-scale, 1)) ease,
+    box-shadow calc(0.16s * var(--bdg-motion-scale, 1)) ease;
 }
 .theme-preset:hover {
   border-color: var(--bdg-border-strong);
@@ -439,7 +407,7 @@ function onImportTheme(): void {
   padding: 0;
   cursor: pointer;
   box-shadow: 0 0 0 1px var(--bdg-border-strong) inset;
-  transition: transform 0.14s ease;
+  transition: transform calc(0.14s * var(--bdg-motion-scale, 1)) ease;
 }
 .accent-swatch:hover {
   transform: scale(1.14);
@@ -452,11 +420,12 @@ function onImportTheme(): void {
 }
 .theme-share {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
 }
 .theme-code-wrap {
-  flex: 1 1 auto;
+  flex: 1 1 160px;
   min-width: 0;
 }
 .theme-custom-head {

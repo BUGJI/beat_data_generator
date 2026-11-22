@@ -17,6 +17,7 @@ import {
 } from "../stores/project";
 import { closeCard } from "../stores/selection";
 import { timeOfBeat, formatTime } from "../services/timeline";
+import { motionMs } from "../services/motion";
 import { undo } from "../services/history";
 import { toast } from "../ui/toast";
 import { lanesTotalH, useViewStore } from "../stores/view";
@@ -189,37 +190,39 @@ const glowAtSeen: Record<string, number> = {};
 const glowOn = reactive<Record<string, boolean>>({});
 const glowTimers: Record<string, number> = {};
 
-function pulseHeaderGlow(id: string): void {
+function pulseHeaderGlow(
+  id: string,
+  ms = motionMs(BEAT_FX_DURATION_MS.laneGlow) + 10,
+): void {
   glowOn[id] = true;
   const prev = glowTimers[id];
   if (prev) window.clearTimeout(prev);
   glowTimers[id] = window.setTimeout(() => {
     glowOn[id] = false;
     delete glowTimers[id];
-  }, 110);
+  }, ms);
 }
-
-/** A pulse this recent is still part of the animation that is starting now. */
-const GLOW_FRESH_MS = BEAT_FX_DURATION_MS.laneGlow + 10;
 
 watch(
   () => ui.fxPulses.laneGlow,
   (pulses) => {
     const now = performance.now();
     for (const id of Object.keys(pulses)) {
-      const at = pulses[id]?.at;
+      const pulse = pulses[id];
+      const at = pulse?.at;
       if (at === undefined) continue;
+      const ms = pulse?.dur ?? motionMs(BEAT_FX_DURATION_MS.laneGlow);
       if (glowAtSeen[id] === undefined) {
         glowAtSeen[id] = at;
         // The very first pulse after mount used to be swallowed by the
         // "prime the baseline" branch; pulse it while it is still fresh, but
         // don't replay old entries after a remount.
-        if (now - at <= GLOW_FRESH_MS) pulseHeaderGlow(id);
+        if (now - at <= ms + 10) pulseHeaderGlow(id, ms + 10);
         continue;
       }
       if (at !== glowAtSeen[id]) {
         glowAtSeen[id] = at;
-        pulseHeaderGlow(id);
+        pulseHeaderGlow(id, ms + 10);
       }
     }
   },
@@ -391,7 +394,7 @@ onBeforeUnmount(() => {
           </span>
           <span
             v-if="
-              ui.fxMasterOn &&
+              settings.settings.beatFxMaster &&
               settings.settings.beatFx.laneGlow &&
               glowOn[row.track.id]
             "
@@ -694,7 +697,8 @@ onBeforeUnmount(() => {
   inset: 0;
   pointer-events: none;
   opacity: 0;
-  animation: row-glow-fade 0.1s ease-out forwards;
+  animation: row-glow-fade calc(0.1s * var(--bdg-menu-motion-scale, 1)) ease-out
+    forwards;
   border-radius: 0;
 }
 @keyframes row-glow-fade {

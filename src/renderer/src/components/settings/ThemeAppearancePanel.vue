@@ -10,9 +10,9 @@ import {
 } from "../../services/settingsPersistence";
 import type { BackgroundFit } from "@shared/settings";
 import { useSettingsRowsStore } from "./useSettingsRows";
+import AppearanceSliderRow from "./AppearanceSliderRow.vue";
 import UiButton from "../ui/UiButton.vue";
 import UiRadioGroup from "../ui/UiRadioGroup.vue";
-import UiSlider from "../ui/UiSlider.vue";
 import UiSwitch from "../ui/UiSwitch.vue";
 
 const { t } = useI18n();
@@ -183,138 +183,68 @@ const uiShadow = computed({
       />
     </div>
 
-    <div
-      class="field-row col"
-      :data-search="t('settings.theme.appearance.bgBlur')"
-    >
-      <div class="field-info">
-        <span class="field-name">{{
-          t("settings.theme.appearance.bgBlur")
-        }}</span>
-        <span class="field-desc">{{
-          t("settings.theme.appearance.bgBlurDesc")
-        }}</span>
-      </div>
-      <div class="pct-row">
-        <UiSlider
-          :model-value="backgroundBlur"
-          :min="0"
-          :max="40"
-          :label="t('settings.theme.appearance.bgBlur')"
-          class="pct-slider"
-          @update:model-value="
-            (v: number) => previewSettings({ backgroundBlur: v })
-          "
-          @commit="(v: number) => patchSettings({ backgroundBlur: v })"
-        />
-        <span class="num pct-value">{{ backgroundBlur }}px</span>
-      </div>
-    </div>
+    <AppearanceSliderRow
+      :label="t('settings.theme.appearance.bgBlur')"
+      :desc="t('settings.theme.appearance.bgBlurDesc')"
+      :model-value="backgroundBlur"
+      :min="0"
+      :max="40"
+      suffix="px"
+      :search="t('settings.theme.appearance.bgBlur')"
+      @preview="(v: number) => previewSettings({ backgroundBlur: v })"
+      @commit="(v: number) => patchSettings({ backgroundBlur: v })"
+    />
 
-    <div
-      class="field-row col"
-      :data-search="t('settings.theme.appearance.bgDim')"
-    >
-      <div class="field-info">
-        <span class="field-name">{{
-          t("settings.theme.appearance.bgDim")
-        }}</span>
-        <span class="field-desc">{{
-          t("settings.theme.appearance.bgDimDesc")
-        }}</span>
-      </div>
-      <div class="pct-row">
-        <UiSlider
-          :model-value="backgroundDim"
-          :min="0"
-          :max="100"
-          :label="t('settings.theme.appearance.bgDim')"
-          class="pct-slider"
-          @update:model-value="
-            (v: number) => previewSettings({ backgroundDim: v })
-          "
-          @commit="(v: number) => patchSettings({ backgroundDim: v })"
-        />
-        <span class="num pct-value">{{ backgroundDim }}%</span>
-      </div>
-    </div>
+    <AppearanceSliderRow
+      :label="t('settings.theme.appearance.bgDim')"
+      :desc="t('settings.theme.appearance.bgDimDesc')"
+      :model-value="backgroundDim"
+      :min="0"
+      :max="100"
+      suffix="%"
+      :search="t('settings.theme.appearance.bgDim')"
+      @preview="(v: number) => previewSettings({ backgroundDim: v })"
+      @commit="(v: number) => patchSettings({ backgroundDim: v })"
+    />
   </template>
 
-  <div
-    class="field-row col"
-    :data-search="t('settings.theme.appearance.surfaceOpacity')"
-  >
-    <div class="field-info">
-      <span class="field-name">{{
-        t("settings.theme.appearance.surfaceOpacity")
-      }}</span>
-      <span class="field-desc">{{
-        t("settings.theme.appearance.surfaceOpacityDesc")
-      }}</span>
-    </div>
-    <div class="pct-row">
-      <UiSlider
-        :model-value="surfaceOpacity"
-        :min="20"
-        :max="100"
-        :label="t('settings.theme.appearance.surfaceOpacity')"
-        class="pct-slider"
-        @update:model-value="
-          (v: number) => previewSettings({ surfaceOpacity: v })
-        "
-        @commit="(v: number) => patchSettings({ surfaceOpacity: v })"
-      />
-      <span class="num pct-value">{{ surfaceOpacity }}%</span>
-    </div>
-  </div>
+  <AppearanceSliderRow
+    :label="t('settings.theme.appearance.surfaceOpacity')"
+    :desc="t('settings.theme.appearance.surfaceOpacityDesc')"
+    :model-value="surfaceOpacity"
+    :min="20"
+    :max="100"
+    suffix="%"
+    :search="t('settings.theme.appearance.surfaceOpacity')"
+    @preview="(v: number) => previewSettings({ surfaceOpacity: v })"
+    @commit="(v: number) => patchSettings({ surfaceOpacity: v })"
+  />
 
-  <div class="field-row col">
-    <div class="field-info">
-      <span class="field-name">{{
-        t("settings.theme.appearance.uiZoom")
-      }}</span>
-      <span class="field-desc">{{
-        t("settings.theme.appearance.uiZoomDesc")
-      }}</span>
-    </div>
-    <div class="pct-row">
-      <UiSlider
-        :model-value="uiZoomDraft"
-        :min="75"
-        :max="150"
-        :step="5"
-        :label="t('settings.theme.appearance.uiZoom')"
-        class="pct-slider"
-        @update:model-value="(v: number) => (uiZoomDraft = v)"
-        @commit="commitUiZoom"
-      />
-      <span class="num pct-value">{{ uiZoomDraft }}%</span>
-    </div>
-  </div>
+  <AppearanceSliderRow
+    :label="t('settings.theme.appearance.uiZoom')"
+    :desc="t('settings.theme.appearance.uiZoomDesc')"
+    :model-value="uiZoomDraft"
+    :min="75"
+    :max="150"
+    :step="5"
+    suffix="%"
+    :search="t('settings.theme.appearance.uiZoom')"
+    @update:model-value="(v: number) => (uiZoomDraft = v)"
+    @commit="commitUiZoom"
+  />
 
-  <div class="field-row col">
-    <div class="field-info">
-      <span class="field-name">{{
-        t("settings.theme.appearance.uiFontScale")
-      }}</span>
-      <span class="field-desc">{{
-        t("settings.theme.appearance.uiFontScaleDesc")
-      }}</span>
-    </div>
-    <div class="pct-row">
-      <UiSlider
-        :model-value="uiFontScale"
-        :min="85"
-        :max="150"
-        :step="5"
-        :label="t('settings.theme.appearance.uiFontScale')"
-        class="pct-slider"
-        @update:model-value="previewFontScale"
-        @commit="(v: number) => patchSettings({ uiFontScale: v })"
-      />
-      <span class="num pct-value">{{ uiFontScale }}%</span>
-    </div>
-  </div>
+  <AppearanceSliderRow
+    :label="t('settings.theme.appearance.uiFontScale')"
+    :desc="t('settings.theme.appearance.uiFontScaleDesc')"
+    :model-value="uiFontScale"
+    :min="85"
+    :max="150"
+    :step="5"
+    suffix="%"
+    :search="t('settings.theme.appearance.uiFontScale')"
+    @preview="previewFontScale"
+    @commit="(v: number) => patchSettings({ uiFontScale: v })"
+  />
 
   <div class="field-row">
     <div class="field-info">
@@ -332,76 +262,42 @@ const uiShadow = computed({
     />
   </div>
 
-  <div v-if="uiBlur && !simpleMode" class="field-row col">
-    <div class="field-info">
-      <span class="field-name">{{
-        t("settings.theme.appearance.uiBlurAmount")
-      }}</span>
-      <span class="field-desc">{{
-        t("settings.theme.appearance.uiBlurAmountDesc")
-      }}</span>
-    </div>
-    <div class="pct-row">
-      <UiSlider
-        :model-value="uiBlurAmount"
-        :min="0"
-        :max="24"
-        :label="t('settings.theme.appearance.uiBlurAmount')"
-        class="pct-slider"
-        @update:model-value="
-          (v: number) => previewSettings({ uiBlurAmount: v })
-        "
-        @commit="(v: number) => patchSettings({ uiBlurAmount: v })"
-      />
-      <span class="num pct-value">{{ uiBlurAmount }}px</span>
-    </div>
-  </div>
+  <AppearanceSliderRow
+    v-if="uiBlur && !simpleMode"
+    :label="t('settings.theme.appearance.uiBlurAmount')"
+    :desc="t('settings.theme.appearance.uiBlurAmountDesc')"
+    :model-value="uiBlurAmount"
+    :min="0"
+    :max="24"
+    suffix="px"
+    :search="t('settings.theme.appearance.uiBlurAmount')"
+    @preview="(v: number) => previewSettings({ uiBlurAmount: v })"
+    @commit="(v: number) => patchSettings({ uiBlurAmount: v })"
+  />
 
-  <div class="field-row col">
-    <div class="field-info">
-      <span class="field-name">{{
-        t("settings.theme.appearance.uiRadius")
-      }}</span>
-      <span class="field-desc">{{
-        t("settings.theme.appearance.uiRadiusDesc")
-      }}</span>
-    </div>
-    <div class="pct-row">
-      <UiSlider
-        :model-value="uiRadius"
-        :min="0"
-        :max="20"
-        :label="t('settings.theme.appearance.uiRadius')"
-        class="pct-slider"
-        @update:model-value="(v: number) => previewSettings({ uiRadius: v })"
-        @commit="(v: number) => patchSettings({ uiRadius: v })"
-      />
-      <span class="num pct-value">{{ uiRadius }}px</span>
-    </div>
-  </div>
+  <AppearanceSliderRow
+    :label="t('settings.theme.appearance.uiRadius')"
+    :desc="t('settings.theme.appearance.uiRadiusDesc')"
+    :model-value="uiRadius"
+    :min="0"
+    :max="20"
+    suffix="px"
+    :search="t('settings.theme.appearance.uiRadius')"
+    @preview="(v: number) => previewSettings({ uiRadius: v })"
+    @commit="(v: number) => patchSettings({ uiRadius: v })"
+  />
 
-  <div class="field-row col">
-    <div class="field-info">
-      <span class="field-name">{{
-        t("settings.theme.appearance.uiShadow")
-      }}</span>
-      <span class="field-desc">{{
-        t("settings.theme.appearance.uiShadowDesc")
-      }}</span>
-    </div>
-    <div class="pct-row">
-      <UiSlider
-        :model-value="uiShadow"
-        :min="0"
-        :max="100"
-        :label="t('settings.theme.appearance.uiShadow')"
-        class="pct-slider"
-        @update:model-value="(v: number) => previewSettings({ uiShadow: v })"
-        @commit="(v: number) => patchSettings({ uiShadow: v })"
-      />
-      <span class="num pct-value">{{ uiShadow }}%</span>
-    </div>
-  </div>
+  <AppearanceSliderRow
+    :label="t('settings.theme.appearance.uiShadow')"
+    :desc="t('settings.theme.appearance.uiShadowDesc')"
+    :model-value="uiShadow"
+    :min="0"
+    :max="100"
+    suffix="%"
+    :search="t('settings.theme.appearance.uiShadow')"
+    @preview="(v: number) => previewSettings({ uiShadow: v })"
+    @commit="(v: number) => patchSettings({ uiShadow: v })"
+  />
 </template>
 
 <style scoped>

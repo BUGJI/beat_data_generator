@@ -279,7 +279,7 @@ function cancelNoteEdit(): void {
   bottom: 5px;
   color: rgb(var(--bdg-neutral) / 0.55);
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity calc(0.12s * var(--bdg-menu-motion-scale, 1)) ease;
   pointer-events: none;
 }
 .note:hover .note-edit-hint {

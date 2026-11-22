@@ -9,6 +9,7 @@ import { useSettingsStore } from "../stores/settings";
 import { useTransportStore } from "../stores/transport";
 import { useUiStore } from "../stores/ui";
 import { lowerBound } from "../utils/search";
+import { motionMs } from "./motion";
 import { timeOfBeat } from "./timeline";
 
 // ---- beat indicators: fire once per distinct marker time crossed while
@@ -98,7 +99,8 @@ export function tickBeatFlash(): void {
   const t = useTransportStore();
   if (!t.playing || !flashReady) return;
   const ui = useUiStore();
-  const enabled = useSettingsStore().settings.beatFx;
+  const settings = useSettingsStore().settings;
+  const enabled = settings.beatFx;
   const pos = t.positionMs;
   // Drop the events we jumped past after a stall rather than firing them all
   // together (that is what produced the overlapping-click burst / clipping).
@@ -136,12 +138,14 @@ export function tickBeatFlash(): void {
     }
     const now = performance.now();
     for (const id of BEAT_FX_IDS) {
-      if (!ui.fxMasterOn || !enabled[id]) continue;
+      if (!settings.beatFxMaster || !enabled[id]) continue;
+      const dur = motionMs(BEAT_FX_DURATION_MS[id]);
+      if (dur <= 0) continue;
       const pulses = ui.fxPulses[id];
       for (const key of FX_TARGETS[id](ev)) {
-        pulses[key] = { seq: (pulses[key]?.seq ?? 0) + 1, at: now };
+        pulses[key] = { seq: (pulses[key]?.seq ?? 0) + 1, at: now, dur };
       }
-      ui.fxUntil[id] = Math.max(ui.fxUntil[id], now + BEAT_FX_DURATION_MS[id]);
+      ui.fxUntil[id] = Math.max(ui.fxUntil[id], now + dur);
     }
   }
   if (flashIdx >= flashEvents.length) flashReady = false;
