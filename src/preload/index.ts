@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import { IPC, type IpcApi, type WelcomeAction } from "../shared/ipc";
 import type { MarketProgress } from "../shared/market";
 
@@ -77,6 +77,15 @@ const api = {
   onMarketProgress,
   setDirty: (dirty: boolean) => ipcRenderer.send(IPC.setDirty, dirty),
   onQuitRequest,
+  // Local-only helper: a dropped File is resolved to its absolute path so the
+  // renderer can hand it to the normal read-audio / open-project IPC calls.
+  getPathForFile: (file: unknown): string => {
+    try {
+      return webUtils.getPathForFile(file as never);
+    } catch {
+      return "";
+    }
+  },
 } as unknown as IpcApi;
 
 contextBridge.exposeInMainWorld("api", api);

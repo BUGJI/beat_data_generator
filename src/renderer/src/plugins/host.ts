@@ -130,10 +130,11 @@ function disposeRenderer(id: string): void {
   actives.delete(id);
 }
 
-function replaceEntries(list: PluginEntry[]): void {
+function replaceEntries(list: PluginEntry[], force = false): void {
   for (const id of [...actives.keys()]) {
     const next = list.find((e) => e.id === id);
-    if (!next?.enabled || !next.renderer || !next.compatible) {
+    // force 时先销毁全部，再按新源码重新激活（用于热重载）
+    if (force || !next?.enabled || !next.renderer || !next.compatible) {
       disposeRenderer(id);
     }
   }
@@ -148,7 +149,8 @@ function replaceEntries(list: PluginEntry[]): void {
 export async function refreshPlugins(): Promise<void> {
   try {
     const list = await window.api.listPlugins();
-    replaceEntries(list);
+    // 强制重载：插件文件变化（含热重载）后需要重新执行新源码
+    replaceEntries(list, true);
   } catch (err) {
     console.error("[plugins] list failed", err);
   }
@@ -169,7 +171,7 @@ export async function setPluginEnabled(
 export async function reloadPlugins(): Promise<void> {
   try {
     const list = await window.api.reloadPlugins();
-    replaceEntries(list);
+    replaceEntries(list, true);
   } catch (err) {
     console.error("[plugins] reload failed", err);
   }

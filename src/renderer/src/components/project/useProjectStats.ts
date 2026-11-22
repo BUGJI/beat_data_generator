@@ -6,7 +6,7 @@ import {
   tempoMap,
   timeOfBeat,
 } from "../../services/timeline";
-import { markerCount, visibleMarkers } from "../../stores/project";
+import { markerCount, useProjectStore } from "../../stores/project";
 import { useSettingsStore } from "../../stores/settings";
 import { useTransportStore } from "../../stores/transport";
 import { useViewStore } from "../../stores/view";
@@ -40,13 +40,20 @@ export function useProjectStats() {
   });
 
   const lastBeatLabel = computed(() => {
-    const markers = visibleMarkers();
-    if (markers.length === 0) return "--:--.---";
-    const last = markers.reduce(
-      (max, m) => Math.max(max, timeOfBeat(m.beat)),
-      Number.NEGATIVE_INFINITY,
-    );
-    return formatTime(last);
+    // "Visible" markers are those on beat tracks that are not hidden. Each
+    // track list is sorted, so only the last entry per track can be the latest;
+    // this keeps the label cheap even with thousands of markers.
+    const project = useProjectStore();
+    let maxBeat = -Infinity;
+    for (const track of project.tracks) {
+      if (track.hidden) continue;
+      if (track.type && track.type !== "beat") continue;
+      const list = project.markersByTrack.get(track.id);
+      const last = list?.[list.length - 1];
+      if (last && last.beat > maxBeat) maxBeat = last.beat;
+    }
+    if (maxBeat === -Infinity) return "--:--.---";
+    return formatTime(timeOfBeat(maxBeat));
   });
 
   const markersLabel = computed(() => String(markerCount()));

@@ -5,6 +5,7 @@ import {
   readFileSync,
   readdirSync,
   statSync,
+  watch as fsWatch,
 } from "node:fs";
 import { join } from "node:path";
 import { readJson, writeJsonAtomic } from "./jsonStore";
@@ -343,8 +344,42 @@ export function rescanPlugins(): PluginEntry[] {
   return list.map((e) => ({ ...e }));
 }
 
+/**
+ * Watch the user plugins folder and hot-reload on change, so editing a
+ * plugin's renderer.js applies without restarting the app. Changes are
+ * debounced (editors often write several times per save).
+ */
+function installPluginWatcher(): void {
+  const dir = userPluginsDir();
+  let timer: NodeJS.Timeout | null = null;
+  const schedule = (): void => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timer = null;
+      try {
+        rescanPlugins();
+        log.info("plugins: hot reload triggered");
+      } catch (err) {
+        log.warn("plugins: hot reload failed", err);
+      }
+    }, 250);
+  };
+  try {
+    const watcher = fsWatch(dir, { recursive: true }, schedule);
+    watcher.on("error", (err) => log.warn("plugins: watcher error", err));
+    app.on("will-quit", () => {
+      if (timer) clearTimeout(timer);
+      watcher.close();
+    });
+  } catch (err) {
+    // Recursive watching is unsupported on some platforms/filesystems.
+    log.warn("plugins: watcher unavailable", err);
+  }
+}
+
 export function installPluginManager(): void {
   mkdirSync(userPluginsDir(), { recursive: true });
+  installPluginWatcher();
 
   handle("listPlugins", (): PluginEntry[] => scanAll().map((e) => ({ ...e })));
 

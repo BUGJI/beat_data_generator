@@ -6,30 +6,37 @@ import {
   watchEffect,
   type Ref,
 } from "vue";
+import { COLORS, RULER_H } from "../../metrics";
+import { useProjectStore } from "../../stores/project";
+import { useSelectionStore } from "../../stores/selection";
 import { useSettingsStore } from "../../stores/settings";
 import { useTransportStore } from "../../stores/transport";
+import { useUiStore } from "../../stores/ui";
 import { useViewStore, setScroll, setViewport } from "../../stores/view";
-import { RULER_H } from "../../metrics";
 import { engine } from "../../engine";
 import {
   followDecision,
   isFollowHeld,
   smoothScrollX,
 } from "../../services/follow";
-import { draw, hasActiveFx, type DrawScene } from "./renderer";
+import { drawBase, drawOverlay, hasActiveFx, type DrawScene } from "./renderer";
 
 /**
- * Owns the timeline canvas lifecycle: DPR sizing, the repaint effect, the
- * resize observer and the on-demand frame loop (playback follow + beat effects).
+ * Owns the timeline canvas lifecycle: DPR sizing of the base + overlay
+ * canvases, the repaint effects, the resize observer and the on-demand frame
+ * loop (playback follow + beat effects).
  *
- * Painting is dependency-driven instead of a constant 60fps redraw: the paint
- * effect re-runs only when reactive state the canvas reads changes, and the loop
- * stays alive solely for the two time-based cases. `markDirty` is the escape
- * hatch for render inputs that aren't reactive (the box-selection rect).
+ * The base layer is dependency-driven: it repaints only when the document,
+ * viewport, theme or selection changes. The overlay (playhead, gestures,
+ * playback effects) is repainted at most once per animation frame while
+ * playback or an effect is active, or whenever its reactive inputs change.
+ * `markDirty` is the escape hatch for render inputs that aren't reactive (the
+ * box-selection rect).
  */
 export function useTimelineCanvas(opts: {
   rootEl: Ref<HTMLElement | null>;
   canvasEl: Ref<HTMLCanvasElement | null>;
+  overlayEl: Ref<HTMLCanvasElement | null>;
   getScene: () => DrawScene;
 }) {
   const transport = useTransportStore();
@@ -37,8 +44,10 @@ export function useTimelineCanvas(opts: {
   const settings = useSettingsStore();
 
   let raf = 0;
+  let overlayFrame = 0;
   let ro: ResizeObserver | null = null;
-  let stopPaint: (() => void) | null = null;
+  let stopBase: (() => void) | null = null;
+  let stopOverlay: (() => void) | null = null;
   let wasFxActive = false;
   let lastTs = 0;
 
@@ -47,21 +56,36 @@ export function useTimelineCanvas(opts: {
     renderNonce.value++;
   }
 
-  function paint(): void {
-    draw(opts.getScene());
+  function paintBase(): void {
+    drawBase(opts.canvasEl.value);
+  }
+
+  function paintOverlay(): void {
+    drawOverlay(opts.getScene());
+  }
+
+  /** Coalesce overlay paints so several reactive updates per frame cost one draw. */
+  function scheduleOverlay(): void {
+    if (overlayFrame) return;
+    overlayFrame = requestAnimationFrame(() => {
+      overlayFrame = 0;
+      paintOverlay();
+    });
   }
 
   function setupCanvas(): void {
     const root = opts.rootEl.value;
-    const cv = opts.canvasEl.value;
-    if (!root || !cv) return;
+    if (!root) return;
     const dpr = window.devicePixelRatio || 1;
     const w = root.clientWidth;
     const h = root.clientHeight;
-    cv.width = Math.max(1, Math.round(w * dpr));
-    cv.height = Math.max(1, Math.round(h * dpr));
-    cv.style.width = `${w}px`;
-    cv.style.height = `${h}px`;
+    for (const cv of [opts.canvasEl.value, opts.overlayEl.value]) {
+      if (!cv) continue;
+      cv.width = Math.max(1, Math.round(w * dpr));
+      cv.height = Math.max(1, Math.round(h * dpr));
+      cv.style.width = `${w}px`;
+      cv.style.height = `${h}px`;
+    }
     setViewport(w, Math.max(1, h - RULER_H));
   }
 
@@ -101,11 +125,11 @@ export function useTimelineCanvas(opts: {
     } else {
       lastTs = 0;
     }
-    // playback effects decay over time, which no reactive value tracks, so drive
-    // those frames explicitly (the initial frame is painted by the paint effect).
-    // One extra frame after they end clears the residual animation.
+    // Playback effects decay over time, which no reactive value tracks, so
+    // drive those frames explicitly. One extra frame after they end clears the
+    // residual animation.
     const fxActive = hasActiveFx();
-    if (fxActive || wasFxActive) paint();
+    if (transport.playing || fxActive || wasFxActive) scheduleOverlay();
     wasFxActive = fxActive;
     if (transport.playing || fxActive) raf = requestAnimationFrame(loop);
   }
@@ -119,15 +143,38 @@ export function useTimelineCanvas(opts: {
 
   onMounted(() => {
     setupCanvas();
-    // Registered after setupCanvas so the first run has a live canvas to track
-    // against and paint into.
-    stopPaint = watchEffect(() => {
+    // Static scene: tracks every document/viewport/theme value the base reads.
+    stopBase = watchEffect(() => {
+      paintBase();
+    });
+    // Overlay: gesture state + position + palette/fx toggles. The actual paint
+    // is deferred to the next frame so a burst of updates draws once.
+    stopOverlay = watchEffect(() => {
       void renderNonce.value;
-      paint();
+      void transport.positionMs;
+      const scene = opts.getScene();
+      void scene.boxRect;
+      void scene.ghost;
+      // Palette / effect values are read inside the deferred paint, so touch
+      // them here to keep this effect subscribed to their changes.
+      void COLORS.playhead;
+      void COLORS.markerSelected;
+      void COLORS.markerGhostOk;
+      void COLORS.markerGhostBad;
+      void COLORS.labelBg;
+      const ui = useUiStore();
+      void ui.fxMasterOn;
+      void ui.fxPulses;
+      void ui.fxUntil;
+      void useSettingsStore().settings.beatFx;
+      void useSelectionStore().selected;
+      void useProjectStore().markers;
+      scheduleOverlay();
     });
     ro = new ResizeObserver(() => {
       setupCanvas();
-      paint();
+      paintBase();
+      paintOverlay();
     });
     if (opts.rootEl.value) ro.observe(opts.rootEl.value);
     requestLoop();
@@ -135,8 +182,13 @@ export function useTimelineCanvas(opts: {
 
   onBeforeUnmount(() => {
     cancelAnimationFrame(raf);
-    stopPaint?.();
-    stopPaint = null;
+    cancelAnimationFrame(overlayFrame);
+    overlayFrame = 0;
+    raf = 0;
+    stopBase?.();
+    stopBase = null;
+    stopOverlay?.();
+    stopOverlay = null;
     ro?.disconnect();
   });
 

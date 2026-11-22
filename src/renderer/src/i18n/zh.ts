@@ -178,6 +178,9 @@ export default {
     audioMissing: "音频文件不存在，请重新选择音频",
     audioMismatch: "音频与工程记录的 MD5 不一致，请重新选择歌曲并校准偏移",
     audioDecodeFail: "音频解码失败，请换一个文件试试",
+    loadingAudio: "正在载入音频…",
+    dropHint: "松开以载入音频或打开工程",
+    dropUnsupported: "仅支持音频文件或 .bdg 工程文件",
     analysisWindowLimited:
       "音频较长，分析仅覆盖前 {minutes} 分钟（可在设置 → 音频 调整）。",
     deletedMarkers: "已删除 {n} 个踩点",

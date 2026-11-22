@@ -189,6 +189,9 @@ export default {
     audioMismatch:
       "오디오가 프로젝트 MD5와 일치하지 않아요. 노래를 다시 선택하고 오프셋을 다시 보정하세요.",
     audioDecodeFail: "오디오 디코딩에 실패했어요. 다른 파일을 시도해 보세요.",
+    loadingAudio: "오디오를 불러오는 중…",
+    dropHint: "놓으면 오디오를 불러오거나 프로젝트를 엽니다",
+    dropUnsupported: "오디오 파일 또는 .bdg 프로젝트만 지원해요",
     analysisWindowLimited:
       "긴 오디오: 분석은 처음 {minutes}분만 적용돼요 (설정 → 오디오에서 조정).",
     deletedMarkers: "마커 {n}개를 삭제했어요",

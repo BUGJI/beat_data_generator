@@ -1,7 +1,8 @@
 import { beatOfTime, timeOfBeat } from "../../services/timeline";
-import { useProjectStore } from "../../stores/project";
+import { markersInTrack, useProjectStore } from "../../stores/project";
 import { useTransportStore } from "../../stores/transport";
-import { timeToScreenX, useViewStore } from "../../stores/view";
+import { screenToTime, timeToScreenX, useViewStore } from "../../stores/view";
+import { lowerBound } from "../../utils/search";
 
 const THRESHOLD_PX = 9;
 
@@ -30,11 +31,26 @@ export function magnetBeat(
     consider(transport.loopEndMs);
   }
   for (const note of project.notes) consider(note.timeMs);
-  for (const marker of project.markers) {
-    const track = project.tracksById.get(marker.trackId);
-    if (track?.hidden) continue;
-    if (excludeMarkerIds?.has(marker.id)) continue;
-    consider(timeOfBeat(marker.beat));
+
+  // Only markers whose beat can land within the pixel threshold are candidates.
+  // Each track's marker list is sorted by beat, so a binary search turns the old
+  // O(all markers) scan into O(tracks × log n + few candidates) per pointer move.
+  const beatLo = beatOfTime(screenToTime(x - THRESHOLD_PX));
+  const beatHi = beatOfTime(screenToTime(x + THRESHOLD_PX));
+  for (const track of project.tracks) {
+    if (track.hidden) continue;
+    const list = markersInTrack(track.id);
+    if (!list.length) continue;
+    for (
+      let i = lowerBound(list, (m) => m.beat, beatLo);
+      i < list.length;
+      i++
+    ) {
+      const marker = list[i]!;
+      if (marker.beat > beatHi) break;
+      if (excludeMarkerIds?.has(marker.id)) continue;
+      consider(timeOfBeat(marker.beat));
+    }
   }
   return bestBeat;
 }
