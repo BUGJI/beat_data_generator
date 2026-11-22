@@ -79,8 +79,9 @@ export function useTimelineWheel() {
     const dx = e.deltaX !== 0 ? e.deltaX : e.shiftKey ? e.deltaY : 0;
     const dy = e.deltaX !== 0 || e.shiftKey ? 0 : e.deltaY;
     // 普通滚轮（无 Shift、非横向）：像 FL Studio 一样推动播放头，
-    // 改变当前轨道进度。Ctrl/⌘ 缩放、Shift/横向平移仍走下面的分支。
-    if (dx === 0 && dy !== 0) {
+    // 改变当前轨道进度。关闭设置后恢复原来的时间线滚动。
+    // Ctrl/⌘ 缩放、Shift/横向平移始终走下面的分支。
+    if (settings.settings.wheelSeek && dx === 0 && dy !== 0) {
       const t = useTransportStore();
       const limit = Math.max(engine.durationMs(), contentEndMs());
       const next = Math.min(

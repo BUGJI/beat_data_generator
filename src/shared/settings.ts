@@ -284,6 +284,8 @@ const createSettingsSchema = (policy: NumberPolicy) =>
     defaultZoom: intInRange(policy, 90, 6, 4000),
     /** wheel zoom multiplier per notch (Ctrl/Cmd + wheel). */
     wheelZoomStep: numInRange(policy, 1.25, 1.05, 2),
+    /** ordinary wheel moves the playhead (FL Studio style) instead of scrolling. */
+    wheelSeek: bool(true),
     /** maximum undo steps kept in memory. */
     undoLimit: intInRange(policy, 100, 20, 1000),
     /** hold Ctrl when pressing Space to play at the current rate; plain Space plays at 1x. */

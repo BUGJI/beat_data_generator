@@ -156,6 +156,11 @@ export function useTimelineCanvas(opts: {
     stopOverlay = watchEffect(() => {
       void renderNonce.value;
       void transport.positionMs;
+      // Overlay geometry is screen-space, so zoom/pan must repaint it too;
+      // otherwise the playhead / ghost stays at the old x after Ctrl+wheel.
+      void view.x;
+      void view.y;
+      void view.pxPerSec;
       const scene = opts.getScene();
       void scene.boxRect;
       void scene.ghost;
@@ -173,6 +178,7 @@ export function useTimelineCanvas(opts: {
       void useSettingsStore().settings.beatFx;
       void useSelectionStore().selected;
       void useProjectStore().markers;
+      void useProjectStore().tracks;
       scheduleOverlay();
     });
     ro = new ResizeObserver(() => {

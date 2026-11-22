@@ -460,6 +460,9 @@ export default {
       wheelZoomStep: "휠 확대 단계",
       wheelZoomStepDesc:
         "Ctrl / ⌘ + 휠 한 칸당 확대 비율. 클수록 빠르게 확대돼요.",
+      wheelSeek: "휠로 재생 위치 이동",
+      wheelSeekDesc:
+        "일반 휠로 재생 헤드를 옮겨요 (FL Studio 스타일). 끄면 타임라인 스크롤로 돌아가며, Ctrl / ⌘ 확대와 Shift 이동은 그대로예요.",
       undoLimit: "실행 취소 한도",
       undoLimitDesc:
         "메모리에 보관하는 실행 취소 단계 수 (20–1000). 초과하면 가장 오래된 기록부터 버려요.",

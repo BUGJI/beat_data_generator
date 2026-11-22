@@ -68,6 +68,7 @@ describe("defaultSettings", () => {
     expect(s.defaultRate).toBe(1);
     expect(s.defaultZoom).toBe(90);
     expect(s.wheelZoomStep).toBe(1.25);
+    expect(s.wheelSeek).toBe(true);
     expect(s.undoLimit).toBe(100);
   });
 

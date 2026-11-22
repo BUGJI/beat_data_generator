@@ -467,6 +467,9 @@ export default {
       wheelZoomStep: "Wheel zoom step",
       wheelZoomStepDesc:
         "Zoom factor per Ctrl/⌘ + wheel notch; larger zooms faster.",
+      wheelSeek: "Wheel seeks the playhead",
+      wheelSeekDesc:
+        "Move the playhead with a plain wheel (FL Studio style). Turn off to scroll the timeline instead; Ctrl/⌘ zoom and Shift pan still work.",
       undoLimit: "Undo step limit",
       undoLimitDesc:
         "Undo steps kept in memory (20–1000); the oldest are dropped beyond that.",

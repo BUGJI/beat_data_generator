@@ -185,7 +185,11 @@ const selectionAnnounce = computed(() => {
     @contextmenu.prevent="onContext"
   >
     <canvas ref="canvasEl" class="editor-canvas" aria-hidden="true" />
-    <canvas ref="overlayEl" class="editor-canvas editor-overlay" aria-hidden="true" />
+    <canvas
+      ref="overlayEl"
+      class="editor-canvas editor-overlay"
+      aria-hidden="true"
+    />
 
     <div class="sr-only" role="status" aria-live="polite">
       {{ selectionAnnounce }}

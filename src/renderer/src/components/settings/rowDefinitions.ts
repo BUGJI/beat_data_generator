@@ -49,6 +49,7 @@ export interface SettingsRowBindings {
   defaultRate: RefLike<number>;
   defaultZoom: RefLike<number>;
   wheelZoomStep: RefLike<number>;
+  wheelSeek: RefLike<boolean>;
   undoLimit: RefLike<number>;
   audioAutoBpm: RefLike<boolean>;
   audioAutoBeats: RefLike<boolean>;
@@ -133,6 +134,7 @@ export function buildFieldGroups(
     defaultRate,
     defaultZoom,
     wheelZoomStep,
+    wheelSeek,
     undoLimit,
     audioAutoBpm,
     audioAutoBeats,
@@ -375,6 +377,11 @@ export function buildFieldGroups(
               max: freeMax(2),
               step: 0.05,
             }),
+          },
+          {
+            kind: "field",
+            key: "wheelSeek",
+            control: sw(wheelSeek),
           },
         ],
       },

@@ -428,6 +428,9 @@ export default {
       defaultZoomUnit: "像素/秒",
       wheelZoomStep: "滚轮缩放步进",
       wheelZoomStepDesc: "Ctrl / ⌘ + 滚轮每格缩放的比例，越大缩放越快。",
+      wheelSeek: "滚轮调节播放进度",
+      wheelSeekDesc:
+        "普通滚轮直接移动播放头（FL Studio 风格）。关闭后恢复为滚动时间线；Ctrl / ⌘ 缩放与 Shift 平移始终有效。",
       undoLimit: "撤销步数上限",
       undoLimitDesc: "内存中保留的撤销步数（20–1000），超出后丢弃最早的记录。",
       undoLimitUnit: "步",
