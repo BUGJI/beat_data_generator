@@ -27,6 +27,10 @@ interface FlashEvent {
 let flashEvents: FlashEvent[] = [];
 let flashIdx = 0;
 let flashReady = false;
+// Clicks are pre-scheduled on the audio clock; this is how far ahead we queue.
+const SCHEDULE_AHEAD_MS = 120;
+// Next event to hand to the audio scheduler (leads flashIdx).
+let schedIdx = 0;
 // Last observed playhead position, used to detect a suspended tick loop.
 let lastPosMs = 0;
 // A forward jump larger than this means frames were suspended (the window was
@@ -85,6 +89,7 @@ export function refreshBeatFlash(posMs: number): void {
     }))
     .sort((a, b) => a.t - b.t);
   flashIdx = firstEventAtOrAfter(flashEvents, posMs);
+  schedIdx = flashIdx;
   flashReady = flashIdx < flashEvents.length;
   lastPosMs = posMs;
 }
@@ -99,6 +104,23 @@ export function tickBeatFlash(): void {
   // together (that is what produced the overlapping-click burst / clipping).
   const suspended = pos - lastPosMs > SUSPEND_GAP_MS;
   lastPosMs = pos;
+
+  // Audio: queue clicks ahead on the audio clock. Frame-rate jitter and short
+  // main-thread stalls then no longer shift the click off its beat.
+  const rate = t.rate > 0 ? t.rate : 1;
+  const aheadMs = SCHEDULE_AHEAD_MS * rate;
+  while (schedIdx < flashEvents.length) {
+    const evA = flashEvents[schedIdx] as FlashEvent;
+    const dtMs = evA.t - pos;
+    if (dtMs > aheadMs) break;
+    if (suspended && dtMs < 0) {
+      schedIdx++;
+      continue; // 跳过的旧事件不再补播，避免爆音
+    }
+    engine.scheduleMetronomeSample(Math.max(0, dtMs) / 1000 / rate, evA.n >= 3);
+    schedIdx++;
+  }
+
   while (
     flashIdx < flashEvents.length &&
     pos >= (flashEvents[flashIdx] as FlashEvent).t
@@ -107,7 +129,7 @@ export function tickBeatFlash(): void {
     flashIdx++;
     if (suspended) continue;
     ui.beatPulse++;
-    engine.playMetronome(ev.n);
+    // Click audio is already queued by the scheduler above.
     if (ev.n >= 2) {
       ui.overlapPulse++;
       ui.overlapCount = ev.n;

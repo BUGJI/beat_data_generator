@@ -77,7 +77,7 @@ export class PlaybackEngine {
   private metronomeGain: GainNode | null = null;
   private metronomeVolume = 0.85;
   private metronomeFollowsMaster = true;
-  private scheduledClicks: OscillatorNode[] = [];
+  private scheduledClicks: AudioScheduledSourceNode[] = [];
   private loopEnabled = false;
   private loopStartMs = 0;
   private loopEndMs = 0;
@@ -179,24 +179,51 @@ export class PlaybackEngine {
     }
   }
 
-  /** play the metronome click `count` times simultaneously (overlapping markers). */
-  playMetronome(count: number, accent = false): void {
-    if (!this.metronome || count < 1) return;
-    const ctx = this.ensureCtx();
-    if (!ctx || !this.metronomeGain) return;
-    for (let i = 0; i < count; i++) {
-      const src = ctx.createBufferSource();
-      src.buffer = this.metronome;
-      if (accent) {
-        const gain = ctx.createGain();
-        gain.gain.value = 1.45;
-        src.connect(gain);
-        gain.connect(this.metronomeGain);
-      } else {
-        src.connect(this.metronomeGain);
-      }
-      src.start();
+  /**
+   * Play the metronome click once.
+   *
+   * Coincident markers used to start `count` copies at the same instant, which
+   * summed on the bus and clipped ("harsh" clicks). One source is enough: the
+   * copies are identical, so stacking only adds level. `count` is kept for the
+   * visual overlap indicator.
+   */
+  playMetronome(_count: number, accent = false): void {
+    if (!this.metronome) return;
+    this.startMetronomeSample(0, accent);
+  }
+
+  /**
+   * Schedule the metronome click `delaySec` from now on the audio clock, so
+   * frame-rate jitter no longer affects when the click is heard.
+   */
+  scheduleMetronomeSample(delaySec: number, accent = false): void {
+    if (!this.metronome) {
+      this.scheduleClick(delaySec, accent);
+      return;
     }
+    this.startMetronomeSample(delaySec, accent);
+  }
+
+  private startMetronomeSample(delaySec: number, accent: boolean): void {
+    const ctx = this.ensureCtx();
+    if (!ctx || !this.metronomeGain || !this.metronome) return;
+    const src = ctx.createBufferSource();
+    src.buffer = this.metronome;
+    const when = ctx.currentTime + Math.max(0, delaySec);
+    if (accent) {
+      const gain = ctx.createGain();
+      gain.gain.value = 1.35;
+      src.connect(gain);
+      gain.connect(this.metronomeGain);
+    } else {
+      src.connect(this.metronomeGain);
+    }
+    src.start(when);
+    this.scheduledClicks.push(src);
+    src.onended = () => {
+      const i = this.scheduledClicks.indexOf(src);
+      if (i >= 0) this.scheduledClicks.splice(i, 1);
+    };
   }
 
   /** Play a grid/beat click; falls back to the oscillator when no sample is set. */
