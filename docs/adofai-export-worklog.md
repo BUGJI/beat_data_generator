@@ -315,6 +315,28 @@
   - `scheduledClicks` 改为 `AudioScheduledSourceNode[]`，buffer 源与振荡器共用取消路径。
 - 验证：`typecheck` ✓、`test`(300) ✓、`lint` ✓、`build` ✓；改动已追加到宿主 PR #6。
 
+### 2026-11-22 · 合并上游 v0.3.16（解决宿主 PR 冲突）
+- 背景：作者 BUGJI 的 `origin/main`（6aa7996 / v0.3.16）与我们的
+  `feat/adofai-export-and-perf` 有冲突，主要是「编辑器那部分」，作者表示冲突量很大。
+- 冲突文件与处理：
+  - `timeline/magnet.ts`：保留上游新增的 `magnetNotes / magnetMarkers / magnetThresholdPx`
+    设置门控，同时保留我们的「按拍二分查找候选标记」优化。
+  - `timeline/renderer.ts`（3 处）：**保留双 canvas 分层 + Path2D 批量绘制**。
+    上游把 `laneGlow` / `markerFlash` 画在主绘制流程里（单 canvas 每帧重绘），
+    我们已有 `drawOverlay` 专画逐帧特效，因此**不把这两个特效搬进 `drawBase`**，
+    只把上游的**时长处理**移植进 overlay：
+    - `drawLaneGlow` / `drawMarkerFlash` 读取 `pulse.dur`（`motionMs()` 结果），
+      `dur <= 0`（reduce-motion 或时长归零）直接跳过，速度档位/减弱动效随之生效；
+    - `drawMarkerFlash` 用 `reduceMotionActive()` 替代旧的模块级 `reduceMotion` 常量；
+    - 特效开关门控从已删除的 `ui.fxMasterOn` 改为上游的 `settings.beatFxMaster`。
+  - `timeline/useTimelineCanvas.ts`（1 处）：保留 `drawBase / drawOverlay / DrawScene`，
+    同时引入上游 `motionMs`，用于跟随滚动的 `FOLLOW_TAU_MS` 速度缩放；
+    overlay 订阅项补上 `settings.beatFxMaster`（原 `ui.fxMasterOn` 已移除）。
+- 结果：merge commit `38cbbc7`，`typecheck` ✓、`test`(310) ✓、`lint` ✓、`build` ✓；
+  已推送 `fork feat/adofai-export-and-perf`，宿主 **PR #6** 自动更新。
+- 结论：我们的性能重构（分层 canvas + 一次路径批量填充）与上游的动效细化并不冲突，
+  只是**落点不同**（上游在主绘制、我们在 overlay），合并不需要放弃任何一方。
+
 ---
 
 ## 四、待确认 / 风险
