@@ -31,17 +31,26 @@ export function resolveMotionScale(
   return MOTION_SPEED_SCALE[speed as MotionSpeed] ?? 1;
 }
 
+// Creating a MediaQueryList is not free, and `motionMs` runs on hot paths
+// (every follow frame, every wheel event, every playback effect). The list is
+// live — `.matches` reflects later changes — so create it once and reuse it.
+const reduceMotionQuery: MediaQueryList | null =
+  typeof window !== "undefined" && typeof window.matchMedia === "function"
+    ? window.matchMedia("(prefers-reduced-motion: reduce)")
+    : null;
+
 function osPrefersReduced(): boolean {
-  if (typeof window === "undefined" || !window.matchMedia) return false;
-  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return reduceMotionQuery?.matches ?? false;
 }
 
 /** Whether animations are allowed under the current reduce-motion setting. */
 export function reduceMotionActive(): boolean {
-  return resolveReduceMotion(
-    useSettingsStore().settings.reduceMotion,
-    osPrefersReduced(),
-  );
+  const preference = useSettingsStore().settings.reduceMotion;
+  // Skip the media query entirely when the user forced a mode; the old code
+  // evaluated it eagerly on every call for `on`/`off` too.
+  if (preference === "on") return true;
+  if (preference === "off") return false;
+  return osPrefersReduced();
 }
 
 /** Convenience predicate for code that only cares whether motion is allowed. */
@@ -83,14 +92,14 @@ export function applyMotionPreferences(): void {
 
 // Re-apply when the OS preference changes (unless the user forced a mode, the
 // stored setting still decides).
-if (typeof window !== "undefined" && window.matchMedia) {
-  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-  media.addEventListener?.("change", () => {
-    try {
-      applyMotionPreferences();
-    } catch {
-      // The app is not ready yet (no active Pinia); the next settings apply
-      // call will pick up the new OS preference.
-    }
-  });
+if (typeof window !== "undefined" && typeof window.matchMedia === "function") {
+  if (reduceMotionQuery)
+    reduceMotionQuery.addEventListener("change", () => {
+      try {
+        applyMotionPreferences();
+      } catch {
+        // The app is not ready yet (no active Pinia); the next settings apply
+        // call will pick up the new OS preference.
+      }
+    });
 }
