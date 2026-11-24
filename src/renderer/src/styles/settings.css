@@ -67,6 +67,19 @@
 .settings-panel .sub-head:first-of-type {
   border-top: none;
 }
+/* Group headings inside the scrollable column carry slightly more weight than
+   the same class when it is used as an aside label. */
+.settings-panel .settings-page-main > .sub-head {
+  margin: 22px 0 4px;
+  padding-top: 16px;
+  font-size: var(--bdg-fs-13);
+  color: var(--bdg-text);
+}
+.settings-panel .settings-page-main > .sub-head:first-child {
+  margin-top: 4px;
+  padding-top: 0;
+  border-top: none;
+}
 
 /* Second-level category tabs (chips) above the grouped rows. */
 .settings-panel .subnav {
@@ -190,5 +203,17 @@
     position: static;
     flex-basis: 100%;
     max-width: none;
+  }
+  /* The collapse toggle already names the preview; the inner heading would
+     duplicate it once the panel is stacked. */
+  .settings-panel .settings-page-aside .aside-body > .sub-head {
+    display: none;
+  }
+}
+
+@container (max-width: 480px) {
+  .settings-panel .field-row {
+    gap: 12px;
+    padding: 10px 0;
   }
 }
