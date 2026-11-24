@@ -1,3 +1,4 @@
+import { ref } from "vue";
 import { engine } from "../engine";
 import { i18n } from "../i18n";
 import { resetStretchFallback } from "../stretch";
@@ -80,6 +81,12 @@ export function previewSettings(patch: Partial<SettingsData>): void {
 }
 
 let settingsTimer: number | undefined;
+let pendingSettingsWrites = 0;
+let settingsDebouncePending = false;
+
+/** Reactive write status for the settings footer ("saving…" / "saved"). */
+export const settingsSaving = ref(false);
+export const settingsSavedAt = ref(0);
 
 /**
  * Apply a patch right away so the UI stays snappy, but defer the (comparatively
@@ -89,6 +96,8 @@ let settingsTimer: number | undefined;
  */
 export function patchSettings(patch: Partial<SettingsData>): void {
   previewSettings(patch);
+  settingsDebouncePending = true;
+  settingsSaving.value = true;
   if (settingsTimer !== undefined) clearTimeout(settingsTimer);
   settingsTimer = window.setTimeout(commitSettings, 180);
 }
@@ -96,15 +105,28 @@ export function patchSettings(patch: Partial<SettingsData>): void {
 /** Sanitize the in-memory settings and flush them to the main process now. */
 function commitSettings(): void {
   settingsTimer = undefined;
+  settingsDebouncePending = false;
   const store = useSettingsStore();
   store.settings = sanitizeSettings(store.settings);
   // IPC uses structured clone, which cannot serialize the reactive Proxies
   // held by nested settings values (e.g. themeOverrides). Settings are plain
   // JSON, so snapshot through JSON to send a clone-safe payload.
   const snapshot = JSON.parse(JSON.stringify(store.settings)) as SettingsData;
-  void window.api.updateSettings(snapshot).catch((err) => {
-    console.error("persist settings failed", err);
-  });
+  pendingSettingsWrites++;
+  settingsSaving.value = true;
+  void window.api
+    .updateSettings(snapshot)
+    .then(() => {
+      settingsSavedAt.value = Date.now();
+    })
+    .catch((err) => {
+      console.error("persist settings failed", err);
+    })
+    .finally(() => {
+      pendingSettingsWrites = Math.max(0, pendingSettingsWrites - 1);
+      if (pendingSettingsWrites === 0 && !settingsDebouncePending)
+        settingsSaving.value = false;
+    });
 }
 
 /** Flush a pending debounced write so a change isn't lost when the app closes. */

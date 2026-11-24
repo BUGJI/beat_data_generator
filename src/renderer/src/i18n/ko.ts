@@ -223,6 +223,8 @@ export default {
     close: "닫기",
     simpleModeHint: "모든 설정 표시",
     autoSave: "변경 사항은 즉시 저장돼요",
+    saving: "저장 중…",
+    saved: "저장됨",
     recovery: {
       backupRestored: "설정 파일을 읽을 수 없어 백업에서 복원했어요.",
       defaultsRestored:

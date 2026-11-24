@@ -198,11 +198,13 @@ export function buildFieldGroups(
           {
             kind: "field",
             key: "language",
+            col: true,
             control: radio(language, () => languageOptions.value),
           },
           {
             kind: "field",
             key: "closeMode",
+            col: true,
             control: radio(
               closeMode,
               () => closeModeOptions.value,
@@ -607,12 +609,14 @@ export function buildFieldGroups(
           {
             kind: "field",
             key: "motionSpeed",
+            col: true,
             expert: true,
             control: radio(motionSpeed, () => motionSpeedOptions.value),
           },
           {
             kind: "field",
             key: "reduceMotion",
+            col: true,
             control: radio(reduceMotion, () => reduceMotionOptions.value),
           },
         ],

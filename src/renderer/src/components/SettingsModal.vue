@@ -27,6 +27,10 @@ import {
   X,
 } from "@lucide/vue";
 import { setSettingsOpen, useSettingsStore } from "../stores/settings";
+import {
+  settingsSavedAt,
+  settingsSaving,
+} from "../services/settingsPersistence";
 import SettingsCategorySection from "./settings/SettingsCategorySection.vue";
 import SettingsPage from "./settings/SettingsPage.vue";
 import ShortcutsPanel from "./settings/ShortcutsPanel.vue";
@@ -46,7 +50,7 @@ const rows = useSettingsRowsStore();
 const { simpleMode, uiMotion } = storeToRefs(rows);
 const panelMotion = computed(() => uiMotion.value && animationsEnabled());
 const { groupsOf, rowsInGroup, activeGroup, setSubCat, fieldCats } = rows;
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const cat = ref<CatKey>("general");
 
 type NavSection = "app" | "edit" | "extras";
@@ -103,6 +107,9 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   window.removeEventListener("keydown", onWindowKeydown);
+  navObserver?.disconnect();
+  navObserver = null;
+  if (savedTimer !== undefined) window.clearTimeout(savedTimer);
 });
 
 watch(
@@ -113,6 +120,10 @@ watch(
       // hand focus back to whatever opened the dialog
       lastFocused?.focus?.();
       lastFocused = null;
+      navObserver?.disconnect();
+      navObserver = null;
+      navCanLeft.value = false;
+      navCanRight.value = false;
       return;
     }
     lastFocused =
@@ -121,6 +132,8 @@ watch(
         : null;
     await nextTick();
     (searchEl.value ?? panelEl.value)?.focus();
+    observeNav();
+    refreshNav("auto");
   },
 );
 
@@ -145,12 +158,93 @@ watch(simpleMode, (on) => {
 const contentEl = ref<HTMLElement | null>(null);
 const searchEl = ref<HTMLInputElement | null>(null);
 const panelEl = ref<HTMLElement | null>(null);
+const navEl = ref<HTMLElement | null>(null);
 let lastFocused: HTMLElement | null = null;
+
+// Narrow panels turn the category list into a horizontal strip. Track whether
+// it can still scroll in each direction so the edges can advertise it.
+const navCanLeft = ref(false);
+const navCanRight = ref(false);
+let navObserver: ResizeObserver | null = null;
+
+// Settings persist a moment after the change; surface that briefly in the
+// footer instead of only showing the static auto-save wording.
+const showSaved = ref(false);
+let savedTimer: number | undefined;
+watch(settingsSavedAt, () => {
+  showSaved.value = true;
+  if (savedTimer !== undefined) window.clearTimeout(savedTimer);
+  savedTimer = window.setTimeout(() => {
+    showSaved.value = false;
+  }, 1600);
+});
+const autoSaveText = computed(() => {
+  if (settingsSaving.value) return t("settings.saving");
+  if (showSaved.value) return t("settings.saved");
+  return t("settings.autoSave");
+});
+
+function updateNavScroll(): void {
+  const nav = navEl.value;
+  if (!nav) return;
+  const max = nav.scrollWidth - nav.clientWidth;
+  navCanLeft.value = max > 1 && nav.scrollLeft > 1;
+  navCanRight.value = max > 1 && nav.scrollLeft < max - 1;
+}
+
+/** Centre the active category inside a horizontal nav without moving ancestors. */
+function revealActiveNav(behavior: ScrollBehavior = "smooth"): void {
+  const nav = navEl.value;
+  if (!nav || nav.scrollWidth <= nav.clientWidth + 1) return;
+  const active = nav.querySelector<HTMLElement>(".nav-item.active");
+  if (!active) return;
+  const navRect = nav.getBoundingClientRect();
+  const activeRect = active.getBoundingClientRect();
+  // Leave an already visible item alone; only fetch it when it is clipped.
+  if (
+    activeRect.left >= navRect.left - 1 &&
+    activeRect.right <= navRect.right + 1
+  )
+    return;
+  const centered =
+    activeRect.left -
+    navRect.left +
+    nav.scrollLeft -
+    (nav.clientWidth - activeRect.width) / 2;
+  nav.scrollTo({
+    left: Math.max(0, centered),
+    behavior: animationsEnabled() ? behavior : "auto",
+  });
+}
+
+function refreshNav(behavior: ScrollBehavior = "smooth"): void {
+  updateNavScroll();
+  revealActiveNav(behavior);
+}
+
+function observeNav(): void {
+  navObserver?.disconnect();
+  const nav = navEl.value;
+  if (!nav || typeof ResizeObserver === "undefined") return;
+  navObserver = new ResizeObserver(() => updateNavScroll());
+  navObserver.observe(nav);
+}
 
 // Switching categories starts the new page at the top. Search-driven jumps
 // still scroll to their target afterwards.
 watch(cat, () => {
   if (contentEl.value) contentEl.value.scrollTop = 0;
+  void nextTick(() => refreshNav());
+});
+
+// The strip appears/disappears with layout and simple-mode changes; re-evaluate
+// the edge fades and bring the active item back into view.
+watch([layout, simpleMode], () => {
+  void nextTick(() => refreshNav("auto"));
+});
+// Label width changes as well, so the overflow state may change with them.
+watch([locale, () => settings.settings.uiFontScale], () => {
+  void nextTick(() => refreshNav("auto"));
 });
 
 const {
@@ -358,10 +452,16 @@ function onPanelKeydown(e: KeyboardEvent): void {
             </div>
 
             <nav
+              ref="navEl"
               class="nav"
+              :class="{
+                'can-left': navCanLeft,
+                'can-right': navCanRight,
+              }"
               :aria-label="t('settings.navLabel')"
               :inert="searching"
               :aria-hidden="searching || undefined"
+              @scroll.passive="updateNavScroll"
             >
               <template v-for="group in navGroups" :key="group.titleKey">
                 <div class="nav-group-title">{{ t(group.titleKey) }}</div>
@@ -429,7 +529,9 @@ function onPanelKeydown(e: KeyboardEvent): void {
           </div>
 
           <footer class="foot">
-            <span class="autosave">{{ t("settings.autoSave") }}</span>
+            <span class="autosave" role="status" aria-live="polite">
+              {{ autoSaveText }}
+            </span>
             <UiButton variant="solid" size="sm" @click="setSettingsOpen(false)">
               {{ t("settings.done") }}
             </UiButton>
@@ -595,6 +697,12 @@ function onPanelKeydown(e: KeyboardEvent): void {
 }
 .search-input:focus {
   border-color: var(--bdg-border-strong);
+}
+/* The dialog removes the native outline globally; give the keyboard focus a
+   visible ring so the search field is clearly the active control. */
+.search-input:focus-visible {
+  outline: 2px solid var(--bdg-accent);
+  outline-offset: 1px;
 }
 .search-input::placeholder {
   color: var(--bdg-text-faint);
@@ -876,6 +984,23 @@ function onPanelKeydown(e: KeyboardEvent): void {
     overflow-x: auto;
     overflow-y: hidden;
   }
+  /* Fade the edge that still has off-screen categories so the strip reads as
+     horizontally scrollable; classes are toggled from the scroll handler. */
+  .nav.can-left:not(.can-right) {
+    mask-image: linear-gradient(to right, transparent 0, #000 28px);
+  }
+  .nav.can-right:not(.can-left) {
+    mask-image: linear-gradient(to left, transparent 0, #000 28px);
+  }
+  .nav.can-left.can-right {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 28px,
+      #000 calc(100% - 28px),
+      transparent 100%
+    );
+  }
   .nav-group-title {
     display: none;
   }
@@ -899,7 +1024,12 @@ function onPanelKeydown(e: KeyboardEvent): void {
     padding: 10px 12px;
   }
   .title {
-    display: none;
+    display: block;
+    flex: none;
+    font-size: var(--bdg-fs-12);
+    font-weight: 600;
+    color: var(--bdg-text-dim);
+    white-space: nowrap;
   }
   .search {
     margin: 0 8px 0 0;

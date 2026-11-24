@@ -223,6 +223,8 @@ export default {
     close: "Close",
     simpleModeHint: "Show all settings",
     autoSave: "Changes are saved immediately",
+    saving: "Saving…",
+    saved: "Saved",
     recovery: {
       backupRestored: "The settings file was unreadable; restored from backup.",
       defaultsRestored:

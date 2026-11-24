@@ -212,6 +212,8 @@ export default {
     close: "关闭",
     simpleModeHint: "显示全部设置",
     autoSave: "修改即时保存",
+    saving: "正在保存…",
+    saved: "已保存",
     recovery: {
       backupRestored: "设置文件损坏，已从备份恢复。",
       defaultsRestored: "设置文件损坏，已恢复默认设置。旧文件已保存到 {path}。",
