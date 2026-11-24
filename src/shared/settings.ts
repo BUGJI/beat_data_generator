@@ -132,6 +132,16 @@ export const BeatFxDensitySchema = z
   .default("full");
 export type BeatFxDensity = z.infer<typeof BeatFxDensitySchema>;
 
+/**
+ * Project-bar readout chips: "auto" folds the secondary readouts on narrow
+ * windows, "all" always shows them, "core" keeps only markers and follow.
+ */
+export const ProjectBarChipsSchema = z
+  .enum(["auto", "all", "core"])
+  .catch("auto")
+  .default("auto");
+export type ProjectBarChips = z.infer<typeof ProjectBarChipsSchema>;
+
 /** Global animation duration tier (slow = longer, fast = shorter). */
 export const MotionSpeedSchema = z
   .enum(["slow", "normal", "fast"])
@@ -172,6 +182,14 @@ const createSettingsSchema = (policy: NumberPolicy) =>
     stretchCacheMb: intInRange(policy, 256, 32, 4096),
     /** animate timeline zoom/pan and wheel scrolling. */
     animEnabled: bool(true),
+    /** crossfade the time-ruler label set when zoom changes the tick step. */
+    rulerLabelCrossfade: bool(true),
+    /** fade sub-second digits in when zoom raises tick precision. */
+    rulerLabelFractionFade: bool(true),
+    /** fade ruler labels in and out near the viewport edges. */
+    rulerEdgeFade: bool(true),
+    /** crossfade ruler tick marks along with their labels. */
+    rulerTickTransition: bool(true),
     /** smoothly ease the viewport while playback follow moves it. */
     followSmooth: bool(true),
     /** animate the settings panel (drawer/overlay) and other panel transitions. */
@@ -224,6 +242,8 @@ const createSettingsSchema = (policy: NumberPolicy) =>
     bpmSegmentIntensity: intInRange(policy, 55, 0, 100),
     /** show a text label beside each project-bar quick-action icon. */
     quickBarLabels: bool(false),
+    /** which project-bar readout chips stay visible. */
+    projectBarChips: ProjectBarChipsSchema,
     /** silently check for updates on startup and notify when one is available. */
     checkUpdates: bool(true),
     /** how long the cached plugin-market index stays fresh before a refetch. */

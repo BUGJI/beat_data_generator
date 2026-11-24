@@ -24,7 +24,6 @@ import {
 } from "../../theme";
 import { useSettingsRowsStore } from "./useSettingsRows";
 import ThemePreview from "../ThemePreview.vue";
-import ThemeAppearancePanel from "./ThemeAppearancePanel.vue";
 import SettingsPage from "./SettingsPage.vue";
 import SettingsSubnav from "./SettingsSubnav.vue";
 import UiButton from "../ui/UiButton.vue";
@@ -61,18 +60,17 @@ const themeGroups: Array<{ key: string; tokens: (keyof ThemeSpec)[] }> = [
 
 // Theme page sub-tabs (presets / custom colors, incl. share & import).
 // The active sub-tab lives in the shared rows store so settings search can
-// jump straight into "custom" / "appearance".
+// jump straight into "custom".
 const { themeSub } = storeToRefs(useSettingsRowsStore());
-const themeSubs = computed<
-  Array<{ key: "preset" | "custom" | "appearance"; label: string }>
->(() => [
-  { key: "preset", label: t("settings.theme.subs.preset") },
-  { key: "custom", label: t("settings.theme.subs.custom") },
-  { key: "appearance", label: t("settings.theme.subs.appearance") },
-]);
+const themeSubs = computed<Array<{ key: "preset" | "custom"; label: string }>>(
+  () => [
+    { key: "preset", label: t("settings.theme.subs.preset") },
+    { key: "custom", label: t("settings.theme.subs.custom") },
+  ],
+);
 
 function setThemeSub(key: string): void {
-  themeSub.value = key as "preset" | "custom" | "appearance";
+  themeSub.value = key as "preset" | "custom";
 }
 
 const contrastIssues = computed(() => themeContrastIssues(themeSpec.value));
@@ -307,8 +305,6 @@ function onImportTheme(): void {
         </div>
       </div>
     </template>
-
-    <ThemeAppearancePanel v-else-if="themeSub === 'appearance'" />
 
     <template #aside>
       <div class="sub-head">{{ t("settings.theme.preview") }}</div>

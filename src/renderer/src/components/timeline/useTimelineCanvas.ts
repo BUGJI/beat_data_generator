@@ -18,6 +18,8 @@ import {
   smoothScrollX,
 } from "../../services/follow";
 import { motionMs } from "../../services/motion";
+import { rulerLabelDigits, timeRulerStepSec } from "./geometry";
+import { noteRulerTier, resetRulerTier, rulerTierActive } from "./rulerFx";
 import { drawBase, drawOverlay, hasActiveFx, type DrawScene } from "./renderer";
 
 /**
@@ -46,6 +48,7 @@ export function useTimelineCanvas(opts: {
   let ro: ResizeObserver | null = null;
   let stopBase: (() => void) | null = null;
   let stopOverlay: (() => void) | null = null;
+  let stopRuler: (() => void) | null = null;
   let wasFxActive = false;
   let lastTs = 0;
 
@@ -123,7 +126,10 @@ export function useTimelineCanvas(opts: {
     const fxActive = hasActiveFx();
     if (!transport.playing && (fxActive || wasFxActive)) paintOverlay();
     wasFxActive = fxActive;
-    if (transport.playing || fxActive) raf = requestAnimationFrame(loop);
+    const rulerActive = rulerTierActive();
+    if (rulerActive) paintBase();
+    if (transport.playing || fxActive || rulerActive)
+      raf = requestAnimationFrame(loop);
   }
 
   watch(
@@ -135,6 +141,15 @@ export function useTimelineCanvas(opts: {
 
   onMounted(() => {
     setupCanvas();
+    resetRulerTier();
+    stopRuler = watch(
+      () => view.pxPerSec,
+      (pps) => {
+        const step = timeRulerStepSec(pps);
+        if (noteRulerTier(step, rulerLabelDigits(step))) requestLoop();
+      },
+      { immediate: true },
+    );
     // Static scene: tracks every document/viewport/theme value the base reads.
     stopBase = watchEffect(() => {
       paintBase();
@@ -165,6 +180,8 @@ export function useTimelineCanvas(opts: {
     stopBase = null;
     stopOverlay?.();
     stopOverlay = null;
+    stopRuler?.();
+    stopRuler = null;
     ro?.disconnect();
   });
 

@@ -26,9 +26,17 @@ describe("useSettingsRowsStore / search index", () => {
     expect(keys).toContain("edit.undoLimit");
     expect(keys.some((k) => k.startsWith("theme.tokens."))).toBe(true);
     expect(keys).toContain("network.proxy"); // hand-written extra entry
-    expect(keys).toContain("theme.appearance.bgImage");
-    expect(keys).toContain("theme.appearance.surfaceOpacity");
+    expect(keys).toContain("display.appearance.bgImage");
+    expect(keys).toContain("display.appearance.surfaceOpacity");
+    expect(keys).toContain("display.scale.uiZoom");
+    expect(keys).toContain("display.scale.uiFontScale");
+    expect(keys).toContain("display.quickBarLabels");
+    expect(keys).toContain("display.projectBarChips");
     expect(keys).toContain("display.followSmooth");
+    expect(keys).toContain("display.rulerLabelCrossfade");
+    expect(keys).toContain("display.rulerLabelFractionFade");
+    expect(keys).toContain("display.rulerEdgeFade");
+    expect(keys).toContain("display.rulerTickTransition");
     expect(keys).toContain("display.performancePreset");
     expect(keys).toContain("display.beatFxMaster");
     expect(keys).toContain("display.beatFxDensity");
@@ -88,6 +96,48 @@ describe("useSettingsRowsStore / grouping", () => {
     ).toBe(true);
   });
 
+  it("orders the display sub-tabs by area", () => {
+    useSettingsStore().settings.simpleMode = false;
+    const rows = useSettingsRowsStore();
+    const displayGroups = rows.groupsOf("display").map((g) => g.key);
+    expect(displayGroups).toEqual([
+      "timeline",
+      "projectBar",
+      "appearance",
+      "scale",
+      "motion",
+    ]);
+  });
+
+  it("orders the motion sections and hides expert-only headings in simple mode", () => {
+    const settings = useSettingsStore();
+    const rows = useSettingsRowsStore();
+    settings.settings.simpleMode = false;
+    rows.setSubCat("display", "motion");
+
+    const sectionKeys = (): string[] =>
+      rows
+        .rowsInGroup("display")
+        .filter((r) => r.kind === "subhead")
+        .map((r) => (r.kind === "subhead" ? r.key : ""));
+    expect(sectionKeys()).toEqual([
+      "motionGlobal",
+      "motionInterface",
+      "motionEditor",
+      "motionRuler",
+      "motionFx",
+    ]);
+
+    settings.settings.simpleMode = true;
+    // The ruler section is entirely expert, so its heading collapses away.
+    expect(sectionKeys()).toEqual([
+      "motionGlobal",
+      "motionInterface",
+      "motionEditor",
+      "motionFx",
+    ]);
+  });
+
   it("shows the motion group in simple mode but hides expert rows", () => {
     const settings = useSettingsStore();
     const rows = useSettingsRowsStore();
@@ -106,9 +156,21 @@ describe("useSettingsRowsStore / grouping", () => {
   it("falls back to the first group and honours setSubCat", () => {
     useSettingsStore().settings.simpleMode = false;
     const rows = useSettingsRowsStore();
-    expect(rows.activeGroup("edit")).toBe("follow");
-    rows.setSubCat("edit", "align");
-    expect(rows.activeGroup("edit")).toBe("align");
+    expect(rows.activeGroup("edit")).toBe("grid");
+    rows.setSubCat("edit", "autosave");
+    expect(rows.activeGroup("edit")).toBe("autosave");
+  });
+
+  it("collapses the edit sub-tabs into five groups", () => {
+    useSettingsStore().settings.simpleMode = false;
+    const rows = useSettingsRowsStore();
+    expect(rows.groupsOf("edit").map((g) => g.key)).toEqual([
+      "grid",
+      "placement",
+      "playback",
+      "advanced",
+      "autosave",
+    ]);
   });
 
   it("exposes the data & backup group", () => {

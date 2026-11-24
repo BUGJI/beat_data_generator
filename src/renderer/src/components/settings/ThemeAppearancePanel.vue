@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from "vue";
+import { computed } from "vue";
 import { storeToRefs } from "pinia";
 import { useI18n } from "vue-i18n";
 import { useSettingsStore } from "../../stores/settings";
@@ -34,7 +34,7 @@ const BG_IMAGE_FILTERS = [
 ];
 async function pickBackgroundImage(): Promise<void> {
   const path = await window.api.pickFile(
-    t("settings.theme.appearance.bgPick"),
+    t("settings.display.appearance.bgPick"),
     BG_IMAGE_FILTERS,
   );
   if (path) backgroundImage.value = path;
@@ -47,9 +47,9 @@ const backgroundFit = computed<string>({
   set: (v: string) => void patchSettings({ backgroundFit: v as BackgroundFit }),
 });
 const backgroundFitOptions = computed(() => [
-  { value: "cover", label: t("settings.theme.appearance.fitCover") },
-  { value: "contain", label: t("settings.theme.appearance.fitContain") },
-  { value: "tile", label: t("settings.theme.appearance.fitTile") },
+  { value: "cover", label: t("settings.display.appearance.fitCover") },
+  { value: "contain", label: t("settings.display.appearance.fitContain") },
+  { value: "tile", label: t("settings.display.appearance.fitTile") },
 ]);
 const backgroundBlur = computed({
   get: () => settings.settings.backgroundBlur,
@@ -64,45 +64,6 @@ const surfaceOpacity = computed({
   set: (v: number) => void patchSettings({ surfaceOpacity: v }),
 });
 
-// Page zoom reflows the whole UI (including this panel), so applying it on
-// every tick would make the slider jump under the pointer. Hold the value
-// locally while dragging and commit once on release.
-const uiZoomDraft = ref(settings.settings.uiZoom);
-watch(
-  () => settings.settings.uiZoom,
-  (v) => {
-    uiZoomDraft.value = v;
-  },
-);
-function commitUiZoom(v: number): void {
-  if (v !== settings.settings.uiZoom) void patchSettings({ uiZoom: v });
-}
-
-const uiFontScale = computed({
-  get: () => settings.settings.uiFontScale,
-  set: (v: number) => void patchSettings({ uiFontScale: v }),
-});
-
-// Text scale drives every `--bdg-fs-*` token, so repainting on every
-// pointermove reflows the whole UI. Coalesce previews to one per frame while
-// keeping the slider live; the final value is committed on release.
-let fontPreviewRaf = 0;
-let pendingFontScale: number | null = null;
-function previewFontScale(v: number): void {
-  pendingFontScale = v;
-  if (fontPreviewRaf) return;
-  fontPreviewRaf = window.requestAnimationFrame(() => {
-    fontPreviewRaf = 0;
-    if (pendingFontScale === null) return;
-    previewSettings({ uiFontScale: pendingFontScale });
-    pendingFontScale = null;
-  });
-}
-onBeforeUnmount(() => {
-  if (fontPreviewRaf) window.cancelAnimationFrame(fontPreviewRaf);
-  fontPreviewRaf = 0;
-  pendingFontScale = null;
-});
 const uiBlur = computed({
   get: () => settings.settings.uiBlur,
   set: (v: boolean) => void patchSettings({ uiBlur: v }),
@@ -124,14 +85,14 @@ const uiShadow = computed({
 <template>
   <div
     class="field-row col"
-    :data-search="t('settings.theme.appearance.bgImage')"
+    :data-search="t('settings.display.appearance.bgImage')"
   >
     <div class="field-info">
       <span class="field-name">{{
-        t("settings.theme.appearance.bgImage")
+        t("settings.display.appearance.bgImage")
       }}</span>
       <span class="field-desc">{{
-        t("settings.theme.appearance.bgImageDesc")
+        t("settings.display.appearance.bgImageDesc")
       }}</span>
     </div>
     <div class="bg-pick">
@@ -142,7 +103,7 @@ const uiShadow = computed({
         >{{ backgroundName }}</span
       >
       <UiButton size="sm" @click="pickBackgroundImage()">
-        {{ t("settings.theme.appearance.bgPick") }}
+        {{ t("settings.display.appearance.bgPick") }}
       </UiButton>
       <UiButton
         v-if="settings.settings.backgroundImage"
@@ -150,7 +111,7 @@ const uiShadow = computed({
         variant="soft"
         @click="clearBackgroundImage()"
       >
-        {{ t("settings.theme.appearance.bgClear") }}
+        {{ t("settings.display.appearance.bgClear") }}
       </UiButton>
     </div>
   </div>
@@ -159,142 +120,116 @@ const uiShadow = computed({
     v-if="backgroundImageUrl"
     class="bg-preview"
     role="img"
-    :aria-label="t('settings.theme.appearance.bgImage')"
+    :aria-label="t('settings.display.appearance.bgImage')"
   />
 
   <template v-if="settings.settings.backgroundImage">
     <div
       class="field-row col"
-      :data-search="t('settings.theme.appearance.bgFit')"
+      :data-search="t('settings.display.appearance.bgFit')"
     >
       <div class="field-info">
         <span class="field-name">{{
-          t("settings.theme.appearance.bgFit")
+          t("settings.display.appearance.bgFit")
         }}</span>
         <span class="field-desc">{{
-          t("settings.theme.appearance.bgFitDesc")
+          t("settings.display.appearance.bgFitDesc")
         }}</span>
       </div>
       <UiRadioGroup
         :model-value="backgroundFit"
         :options="backgroundFitOptions"
-        :aria-label="t('settings.theme.appearance.bgFit')"
+        :aria-label="t('settings.display.appearance.bgFit')"
         @update:model-value="(v: string) => (backgroundFit = v)"
       />
     </div>
 
     <AppearanceSliderRow
-      :label="t('settings.theme.appearance.bgBlur')"
-      :desc="t('settings.theme.appearance.bgBlurDesc')"
+      :label="t('settings.display.appearance.bgBlur')"
+      :desc="t('settings.display.appearance.bgBlurDesc')"
       :model-value="backgroundBlur"
       :min="0"
       :max="40"
       suffix="px"
-      :search="t('settings.theme.appearance.bgBlur')"
+      :search="t('settings.display.appearance.bgBlur')"
       @preview="(v: number) => previewSettings({ backgroundBlur: v })"
       @commit="(v: number) => patchSettings({ backgroundBlur: v })"
     />
 
     <AppearanceSliderRow
-      :label="t('settings.theme.appearance.bgDim')"
-      :desc="t('settings.theme.appearance.bgDimDesc')"
+      :label="t('settings.display.appearance.bgDim')"
+      :desc="t('settings.display.appearance.bgDimDesc')"
       :model-value="backgroundDim"
       :min="0"
       :max="100"
       suffix="%"
-      :search="t('settings.theme.appearance.bgDim')"
+      :search="t('settings.display.appearance.bgDim')"
       @preview="(v: number) => previewSettings({ backgroundDim: v })"
       @commit="(v: number) => patchSettings({ backgroundDim: v })"
     />
   </template>
 
   <AppearanceSliderRow
-    :label="t('settings.theme.appearance.surfaceOpacity')"
-    :desc="t('settings.theme.appearance.surfaceOpacityDesc')"
+    :label="t('settings.display.appearance.surfaceOpacity')"
+    :desc="t('settings.display.appearance.surfaceOpacityDesc')"
     :model-value="surfaceOpacity"
     :min="20"
     :max="100"
     suffix="%"
-    :search="t('settings.theme.appearance.surfaceOpacity')"
+    :search="t('settings.display.appearance.surfaceOpacity')"
     @preview="(v: number) => previewSettings({ surfaceOpacity: v })"
     @commit="(v: number) => patchSettings({ surfaceOpacity: v })"
-  />
-
-  <AppearanceSliderRow
-    :label="t('settings.theme.appearance.uiZoom')"
-    :desc="t('settings.theme.appearance.uiZoomDesc')"
-    :model-value="uiZoomDraft"
-    :min="75"
-    :max="150"
-    :step="5"
-    suffix="%"
-    :search="t('settings.theme.appearance.uiZoom')"
-    @update:model-value="(v: number) => (uiZoomDraft = v)"
-    @commit="commitUiZoom"
-  />
-
-  <AppearanceSliderRow
-    :label="t('settings.theme.appearance.uiFontScale')"
-    :desc="t('settings.theme.appearance.uiFontScaleDesc')"
-    :model-value="uiFontScale"
-    :min="85"
-    :max="150"
-    :step="5"
-    suffix="%"
-    :search="t('settings.theme.appearance.uiFontScale')"
-    @preview="previewFontScale"
-    @commit="(v: number) => patchSettings({ uiFontScale: v })"
   />
 
   <div class="field-row">
     <div class="field-info">
       <span class="field-name">{{
-        t("settings.theme.appearance.uiBlur")
+        t("settings.display.appearance.uiBlur")
       }}</span>
       <span class="field-desc">{{
-        t("settings.theme.appearance.uiBlurDesc")
+        t("settings.display.appearance.uiBlurDesc")
       }}</span>
     </div>
     <UiSwitch
       :model-value="uiBlur"
-      :aria-label="t('settings.theme.appearance.uiBlur')"
+      :aria-label="t('settings.display.appearance.uiBlur')"
       @update:model-value="(v: boolean) => (uiBlur = v)"
     />
   </div>
 
   <AppearanceSliderRow
     v-if="uiBlur && !simpleMode"
-    :label="t('settings.theme.appearance.uiBlurAmount')"
-    :desc="t('settings.theme.appearance.uiBlurAmountDesc')"
+    :label="t('settings.display.appearance.uiBlurAmount')"
+    :desc="t('settings.display.appearance.uiBlurAmountDesc')"
     :model-value="uiBlurAmount"
     :min="0"
     :max="24"
     suffix="px"
-    :search="t('settings.theme.appearance.uiBlurAmount')"
+    :search="t('settings.display.appearance.uiBlurAmount')"
     @preview="(v: number) => previewSettings({ uiBlurAmount: v })"
     @commit="(v: number) => patchSettings({ uiBlurAmount: v })"
   />
 
   <AppearanceSliderRow
-    :label="t('settings.theme.appearance.uiRadius')"
-    :desc="t('settings.theme.appearance.uiRadiusDesc')"
+    :label="t('settings.display.appearance.uiRadius')"
+    :desc="t('settings.display.appearance.uiRadiusDesc')"
     :model-value="uiRadius"
     :min="0"
     :max="20"
     suffix="px"
-    :search="t('settings.theme.appearance.uiRadius')"
+    :search="t('settings.display.appearance.uiRadius')"
     @preview="(v: number) => previewSettings({ uiRadius: v })"
     @commit="(v: number) => patchSettings({ uiRadius: v })"
   />
 
   <AppearanceSliderRow
-    :label="t('settings.theme.appearance.uiShadow')"
-    :desc="t('settings.theme.appearance.uiShadowDesc')"
+    :label="t('settings.display.appearance.uiShadow')"
+    :desc="t('settings.display.appearance.uiShadowDesc')"
     :model-value="uiShadow"
     :min="0"
     :max="100"
     suffix="%"
-    :search="t('settings.theme.appearance.uiShadow')"
+    :search="t('settings.display.appearance.uiShadow')"
     @preview="(v: number) => previewSettings({ uiShadow: v })"
     @commit="(v: number) => patchSettings({ uiShadow: v })"
   />

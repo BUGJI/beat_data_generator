@@ -114,6 +114,8 @@ export default {
     grid: "Grid",
     gridShows: "Grid: bar / beat",
     tracks: "Tracks",
+    collapseTracks: "Collapse track panel",
+    expandTracks: "Expand track panel",
     audioTrack: "Audio",
     markerTrack: "Markers",
     bpmTrack: "BPM Track",
@@ -131,10 +133,13 @@ export default {
     markers: "Markers",
     count: "Count",
     lastMark: "Last",
+    foldedReadouts:
+      "Zoom {zoom} · Duration {duration} · Sample rate {sampleRate} · Last {lastBeat} · Grid {grid}",
   },
   timeline: {
     editorLabel: "Timeline editor",
     none: "No project or audio loaded. Import from the File menu.",
+    importAudio: "Import audio",
     hintNew:
       "Click the BPM / marker lane to place points (snapped to the beat axis by default)",
     hintBeatAxis:
@@ -263,14 +268,10 @@ export default {
         data: "Data & Backup",
       },
       edit: {
-        follow: "Follow",
         grid: "Grid & snapping",
-        magnet: "Magnet targets",
         placement: "Placement & selection",
-        playback: "Playback",
-        viewport: "Viewport",
-        history: "Undo",
-        align: "Align",
+        playback: "Playback & follow",
+        advanced: "View & advanced",
         autosave: "Auto-save",
       },
       audio: {
@@ -278,7 +279,13 @@ export default {
         metronome: "Metronome",
         playback: "Playback",
       },
-      display: { grid: "Grid", motion: "Motion" },
+      display: {
+        timeline: "Timeline",
+        projectBar: "Project bar",
+        appearance: "Appearance",
+        scale: "Scale",
+        motion: "Motion",
+      },
       advanced: {
         developer: "Developer",
       },
@@ -289,7 +296,7 @@ export default {
       replay: "Replay animation",
     },
     theme: {
-      subs: { preset: "Presets", custom: "Custom", appearance: "Appearance" },
+      subs: { preset: "Presets", custom: "Custom" },
       preset: "Preset themes",
       custom: "Custom colors",
       hint: "Tweak any color on top of the preset; changes are kept when you switch presets. Click ↺ to restore a color.",
@@ -343,43 +350,6 @@ export default {
         laneMarkerAlt: "Marker lane stripe",
         markerDim: "Marker dim",
         bpmPointSelected: "BPM selected",
-      },
-      appearance: {
-        bgImage: "Background image",
-        bgImageDesc:
-          "Pick a local image as the app background; tune it with the blur, dim and panel opacity controls below.",
-        bgPick: "Choose image",
-        bgClear: "Clear",
-        bgFit: "Fill mode",
-        bgFitDesc: "How the image fills the window",
-        fitCover: "Cover",
-        fitContain: "Contain",
-        fitTile: "Tile",
-        bgBlur: "Background blur",
-        bgBlurDesc: "Gaussian blur applied to the background image (0–40px)",
-        bgDim: "Background dim",
-        bgDimDesc:
-          "Darken the image with the theme surface for readability (0–100%)",
-        surfaceOpacity: "Panel opacity",
-        surfaceOpacityDesc:
-          "How visible panels are over the background (20–100%); lower shows more of the image",
-        uiZoom: "Interface scale",
-        uiZoomDesc:
-          "Scale the whole UI including the timeline and all panels (75–150%)",
-        uiFontScale: "Text scale",
-        uiFontScaleDesc:
-          "Scale text only, leaving control and layout sizes unchanged (85–150%)",
-        uiBlur: "Interface blur",
-        uiBlurDesc:
-          "Backdrop blur behind overlays. Turn off to remove all blur effects",
-        uiBlurAmount: "Blur strength",
-        uiBlurAmountDesc: "Backdrop blur radius in px (0–24)",
-        uiRadius: "Corner radius",
-        uiRadiusDesc:
-          "Corner radius of buttons, inputs, cards and panels (0–20px)",
-        uiShadow: "Shadow strength",
-        uiShadowDesc:
-          "Depth of panel and overlay shadows; 0 is completely flat",
       },
     },
     general: {
@@ -591,13 +561,32 @@ export default {
       quickBarLabels: "Quick button labels",
       quickBarLabelsDesc:
         "Show each quick-action button's name beside its icon in the project bar; turn off to show icons only.",
-      motionEditor: "Editor",
+      projectBarChips: "Project bar readouts",
+      projectBarChipsDesc:
+        "How many readouts the project bar shows; Auto folds secondary ones (zoom, duration, sample rate) on narrow windows. The quick-action row is unaffected.",
+      projectBarChipsAuto: "Auto",
+      projectBarChipsAll: "Show all",
+      projectBarChipsCore: "Core only",
+      motionGlobal: "Global",
       motionInterface: "Interface",
+      motionEditor: "Timeline & editor",
+      motionRuler: "Time ruler labels",
       motionFx: "Playback FX",
-      motionFeel: "Feel & accessibility",
       editor: "Zoom / pan animations",
       editorDesc:
         "Ease the timeline when zooming or panning (interruptible, never blocks input)",
+      rulerLabelCrossfade: "Label tier crossfade",
+      rulerLabelCrossfadeDesc:
+        "Fade the old ruler labels out and the new set in when zoom crosses a tick step; bar numbers also fade in with their slot width.",
+      rulerLabelFractionFade: "Fraction fade-in",
+      rulerLabelFractionFadeDesc:
+        "At sub-second zoom the fractional digits fade down into place instead of the text jumping longer.",
+      rulerEdgeFade: "Edge fade",
+      rulerEdgeFadeDesc:
+        "Fade labels near the left and right viewport edges so scrolling never pops them in.",
+      rulerTickTransition: "Tick transition",
+      rulerTickTransitionDesc:
+        "Crossfade the tick marks with the labels when the step changes.",
       followSmooth: "Smooth playback follow",
       followSmoothDesc:
         "Ease the viewport while it follows the playhead during playback; turn off to snap",
@@ -645,6 +634,45 @@ export default {
       reduceMotionSystem: "Follow system",
       reduceMotionOn: "Always reduce",
       reduceMotionOff: "Full motion",
+      appearance: {
+        bgImage: "Background image",
+        bgImageDesc:
+          "Pick a local image as the app background; tune it with the blur, dim and panel opacity controls below.",
+        bgPick: "Choose image",
+        bgClear: "Clear",
+        bgFit: "Fill mode",
+        bgFitDesc: "How the image fills the window",
+        fitCover: "Cover",
+        fitContain: "Contain",
+        fitTile: "Tile",
+        bgBlur: "Background blur",
+        bgBlurDesc: "Gaussian blur applied to the background image (0–40px)",
+        bgDim: "Background dim",
+        bgDimDesc:
+          "Darken the image with the theme surface for readability (0–100%)",
+        surfaceOpacity: "Panel opacity",
+        surfaceOpacityDesc:
+          "How visible panels are over the background (20–100%); lower shows more of the image",
+        uiBlur: "Interface blur",
+        uiBlurDesc:
+          "Backdrop blur behind overlays. Turn off to remove all blur effects",
+        uiBlurAmount: "Blur strength",
+        uiBlurAmountDesc: "Backdrop blur radius in px (0–24)",
+        uiRadius: "Corner radius",
+        uiRadiusDesc:
+          "Corner radius of buttons, inputs, cards and panels (0–20px)",
+        uiShadow: "Shadow strength",
+        uiShadowDesc:
+          "Depth of panel and overlay shadows; 0 is completely flat",
+      },
+      scale: {
+        uiZoom: "Interface scale",
+        uiZoomDesc:
+          "Scale the whole UI including the timeline and all panels (75–150%)",
+        uiFontScale: "Text scale",
+        uiFontScaleDesc:
+          "Scale text only, leaving control and layout sizes unchanged (85–150%)",
+      },
     },
     shortcuts: {
       page: "Keyboard shortcuts",

@@ -164,10 +164,6 @@ function onPluginCmd(cmd: string): void {
   if (item) onPluginItem(item);
 }
 
-const dirtyTitle = computed(() =>
-  project.dirty ? ` • ${t("toolbar.unsavedDot")}` : "",
-);
-
 const recents = ref<Array<{ path: string; title: string }>>([]);
 
 async function loadRecents(): Promise<void> {
@@ -424,10 +420,13 @@ onMounted(() => {
     </UiDropdownMenu>
 
     <span
-      v-if="dirtyTitle"
+      v-if="project.dirty"
       class="top-dirty"
       :title="t('toolbar.unsavedDot')"
-    />
+    >
+      <span class="top-dirty-dot" aria-hidden="true" />
+      {{ t("toolbar.unsavedDot") }}
+    </span>
 
     <div class="grow" />
 
@@ -490,13 +489,27 @@ onMounted(() => {
   border-bottom: 1px solid var(--bdg-border);
   flex: none;
 }
+/* Visible text, not just a colour dot, so the state does not rely on hue. */
 .top-dirty {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid rgb(var(--bdg-amber-rgb) / 0.35);
+  border-radius: 999px;
+  background: rgb(var(--bdg-amber-rgb) / 0.12);
+  color: var(--bdg-amber);
+  font-size: var(--bdg-fs-10);
+  white-space: nowrap;
+  cursor: default;
+}
+.top-dirty-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--bdg-amber);
-  cursor: default;
+  background: currentColor;
 }
 .menu-btn {
   display: inline-flex;

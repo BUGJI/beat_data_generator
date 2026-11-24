@@ -28,6 +28,8 @@ import { BEAT_FX_DURATION_MS } from "@shared/beatFx";
 import { RULER_H, BPM_LANE_H, MARKER_LANE_H } from "../metrics";
 import type { MarkerTrack } from "../types";
 import {
+  ChevronLeft,
+  ChevronRight,
   Eye,
   EyeOff,
   GripVertical,
@@ -237,25 +239,45 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :class="{ collapsed: ui.sidebarCollapsed }">
     <div class="corner" :style="{ height: RULER_H + 'px' }">
       <div class="corner-row">
         <span class="corner-text">{{ t("sidebar.tracks") }}</span>
-        <button
-          class="add-btn note-btn"
-          :title="t('sidebar.addNote')"
-          @click="onAddNote"
-        >
-          <StickyNote class="size-3.5" />
-        </button>
-        <button
-          class="add-btn"
-          :class="{ on: addMenuOpen }"
-          :title="addBtnText"
-          @click="toggleAddMenu"
-        >
-          <Plus class="size-3.5" />
-        </button>
+        <span class="corner-btns">
+          <button
+            class="add-btn note-btn"
+            :title="t('sidebar.addNote')"
+            @click="onAddNote"
+          >
+            <StickyNote class="size-3.5" />
+          </button>
+          <button
+            class="add-btn"
+            :class="{ on: addMenuOpen }"
+            :title="addBtnText"
+            @click="toggleAddMenu"
+          >
+            <Plus class="size-3.5" />
+          </button>
+          <button
+            class="add-btn collapse-btn"
+            :title="
+              ui.sidebarCollapsed
+                ? t('sidebar.expandTracks')
+                : t('sidebar.collapseTracks')
+            "
+            :aria-label="
+              ui.sidebarCollapsed
+                ? t('sidebar.expandTracks')
+                : t('sidebar.collapseTracks')
+            "
+            :aria-expanded="!ui.sidebarCollapsed"
+            @click="ui.sidebarCollapsed = !ui.sidebarCollapsed"
+          >
+            <ChevronRight v-if="ui.sidebarCollapsed" class="size-3.5" />
+            <ChevronLeft v-else class="size-3.5" />
+          </button>
+        </span>
       </div>
       <div v-if="addMenuOpen" class="add-menu">
         <button class="add-item" @click="onPickAdd('')">
@@ -437,6 +459,19 @@ onBeforeUnmount(() => {
   align-items: center;
   justify-content: space-between;
 }
+.corner-btns {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.collapse-btn {
+  background: rgb(var(--bdg-neutral) / 0.12);
+  color: var(--bdg-text-dim);
+}
+.collapse-btn:hover {
+  background: rgb(var(--bdg-neutral) / 0.22);
+  color: var(--bdg-text);
+}
 .corner-text {
   font-size: var(--bdg-fs-10);
   color: var(--bdg-text-dim);
@@ -447,8 +482,8 @@ onBeforeUnmount(() => {
   border: none;
   background: rgb(var(--bdg-accent-rgb) / 0.16);
   color: var(--bdg-accent);
-  width: var(--bdg-ctl-xs);
-  height: var(--bdg-ctl-xs);
+  width: 22px;
+  height: 22px;
   border-radius: var(--bdg-radius, 6px);
   font-size: var(--bdg-fs-14);
   cursor: pointer;
@@ -653,11 +688,11 @@ onBeforeUnmount(() => {
 .h-actions {
   flex: none;
   display: flex;
-  gap: 1px;
+  gap: 2px;
 }
 .mini {
-  width: var(--bdg-ctl-2xs);
-  height: var(--bdg-ctl-2xs);
+  width: 22px;
+  height: 22px;
   border: none;
   background: transparent;
   color: var(--bdg-text-dim);
@@ -717,6 +752,58 @@ onBeforeUnmount(() => {
   justify-content: center;
   color: var(--bdg-text-dim);
   font-size: var(--bdg-fs-12);
+}
+/* Collapsed rail: width is reclaimed for the timeline, but every track keeps a
+   colour swatch and its active outline so navigation still works. */
+.sidebar.collapsed {
+  width: 56px;
+  /* The add-track menu is wider than the rail; the rows container still clips
+     the virtualised track list on its own. */
+  overflow: visible;
+}
+.sidebar.collapsed .corner {
+  padding: 0 4px;
+}
+.sidebar.collapsed .corner-row {
+  justify-content: center;
+}
+.sidebar.collapsed .corner-text,
+.sidebar.collapsed .note-btn {
+  display: none;
+}
+.sidebar.collapsed .head {
+  justify-content: center;
+  gap: 0;
+  padding: 0 4px;
+}
+.sidebar.collapsed .drag-grip,
+.sidebar.collapsed .t-body,
+.sidebar.collapsed .h-actions,
+.sidebar.collapsed .h-count,
+.sidebar.collapsed .h-icon,
+.sidebar.collapsed .mini {
+  display: none;
+}
+.sidebar.collapsed .bpm-row {
+  justify-content: center;
+}
+.sidebar.collapsed .bpm-row .h-icon {
+  display: flex;
+}
+/* The swatch still shows the track colour, but clicks fall through to the row
+   so the collapsed rail selects tracks instead of opening the colour picker. */
+.sidebar.collapsed .color-pick {
+  width: 26px;
+  height: 26px;
+  pointer-events: none;
+}
+.sidebar.collapsed .add-menu {
+  left: 4px;
+  right: auto;
+  width: 220px;
+}
+.sidebar.collapsed .empty-tracks {
+  display: none;
 }
 /* The per-row glow is purely decorative; skip it when motion is reduced. */
 @media (prefers-reduced-motion: reduce) {

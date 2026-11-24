@@ -4,6 +4,8 @@ import MetronomeBlock from "./MetronomeBlock.vue";
 import DevToolsBlock from "./DevToolsBlock.vue";
 import SettingsDataBlock from "./SettingsDataBlock.vue";
 import PerformancePresetBlock from "./PerformancePresetBlock.vue";
+import ThemeAppearancePanel from "../ThemeAppearancePanel.vue";
+import DisplayScalePanel from "../DisplayScalePanel.vue";
 
 /** Declarative custom rows (`{ kind: "custom", id }`) → their component. */
 const CUSTOM_ROW_COMPONENTS: Record<string, Component> = {
@@ -12,6 +14,8 @@ const CUSTOM_ROW_COMPONENTS: Record<string, Component> = {
   "advanced.devTools": DevToolsBlock,
   "general.data": SettingsDataBlock,
   "display.performancePreset": PerformancePresetBlock,
+  "display.appearance": ThemeAppearancePanel,
+  "display.scale": DisplayScalePanel,
 };
 
 export function customRowComponent(id: string): Component | null {
