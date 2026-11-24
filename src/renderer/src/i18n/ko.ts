@@ -114,6 +114,8 @@ export default {
     grid: "그리드",
     gridShows: "그리드: 마디 / 박자",
     tracks: "트랙",
+    collapseTracks: "트랙 패널 접기",
+    expandTracks: "트랙 패널 펼치기",
     audioTrack: "오디오",
     markerTrack: "마커",
     bpmTrack: "BPM 트랙",
@@ -131,10 +133,13 @@ export default {
     markers: "마커",
     count: "개수",
     lastMark: "마지막",
+    foldedReadouts:
+      "확대 {zoom} · 길이 {duration} · 샘플 레이트 {sampleRate} · 마지막 {lastBeat} · 그리드 {grid}",
   },
   timeline: {
     editorLabel: "타임라인 편집기",
     none: "프로젝트나 오디오가 로드되지 않았어요. 파일 메뉴에서 가져오세요.",
+    importAudio: "오디오 가져오기",
     hintNew:
       "BPM / 마커 레인을 클릭해 포인트를 놓으세요 (기본적으로 박자축에 스냅)",
     hintBeatAxis:
@@ -262,14 +267,10 @@ export default {
         data: "데이터 및 백업",
       },
       edit: {
-        follow: "따라가기",
         grid: "그리드 및 스냅",
-        magnet: "자석 대상",
         placement: "배치 및 선택",
-        playback: "재생",
-        viewport: "뷰포트",
-        history: "실행 취소",
-        align: "정렬",
+        playback: "재생 및 따라가기",
+        advanced: "보기 및 고급",
         autosave: "자동 저장",
       },
       audio: {
@@ -277,7 +278,13 @@ export default {
         metronome: "메트로놈",
         playback: "재생",
       },
-      display: { grid: "그리드", motion: "모션" },
+      display: {
+        timeline: "타임라인",
+        projectBar: "프로젝트 바",
+        appearance: "모양",
+        scale: "크기",
+        motion: "모션",
+      },
       advanced: {
         developer: "개발자",
       },
@@ -288,7 +295,7 @@ export default {
       replay: "애니메이션 재생",
     },
     theme: {
-      subs: { preset: "프리셋", custom: "사용자 지정", appearance: "모양" },
+      subs: { preset: "프리셋", custom: "사용자 지정" },
       preset: "프리셋 테마",
       custom: "사용자 지정 색상",
       hint: "프리셋 위에 원하는 색을 조정할 수 있고, 프리셋을 바꿔도 변경 사항이 유지돼요. ↺를 누르면 색이 복원돼요.",
@@ -343,40 +350,6 @@ export default {
         laneMarkerAlt: "마커 레인 줄무늬",
         markerDim: "마커 흐림",
         bpmPointSelected: "BPM 선택됨",
-      },
-      appearance: {
-        bgImage: "배경 이미지",
-        bgImageDesc:
-          "로컬 이미지를 앱 배경으로 선택하세요. 아래 흐림, 어둡게, 패널 불투명도로 조정할 수 있어요.",
-        bgPick: "이미지 선택",
-        bgClear: "지우기",
-        bgFit: "채우기 모드",
-        bgFitDesc: "이미지가 창을 채우는 방식",
-        fitCover: "채우기",
-        fitContain: "맞추기",
-        fitTile: "타일",
-        bgBlur: "배경 흐림",
-        bgBlurDesc: "배경 이미지에 적용되는 가우시안 흐림 (0–40px)",
-        bgDim: "배경 어둡게",
-        bgDimDesc:
-          "가독성을 위해 테마 표면 색으로 이미지를 어둡게 해요 (0–100%)",
-        surfaceOpacity: "패널 불투명도",
-        surfaceOpacityDesc:
-          "배경 위에서 패널이 보이는 정도 (20–100%); 낮을수록 이미지가 더 보여요",
-        uiZoom: "인터페이스 배율",
-        uiZoomDesc:
-          "타임라인과 모든 패널을 포함해 UI 전체를 확대 / 축소해요 (75–150%)",
-        uiFontScale: "텍스트 배율",
-        uiFontScaleDesc:
-          "컨트롤과 레이아웃 크기는 그대로 두고 텍스트만 확대 / 축소해요 (85–150%)",
-        uiBlur: "인터페이스 흐림",
-        uiBlurDesc: "오버레이 뒤 배경 흐림. 끄면 모든 흐림 효과가 제거돼요",
-        uiBlurAmount: "흐림 강도",
-        uiBlurAmountDesc: "오버레이 배경 흐림 반경 (px, 0–24)",
-        uiRadius: "모서리 반경",
-        uiRadiusDesc: "버튼, 입력란, 카드, 패널의 모서리 반경 (0–20px)",
-        uiShadow: "그림자 강도",
-        uiShadowDesc: "패널과 오버레이 그림자의 깊이; 0이면 완전히 평평해요",
       },
     },
     general: {
@@ -581,13 +554,32 @@ export default {
       quickBarLabels: "빠른 버튼 라벨",
       quickBarLabelsDesc:
         "프로젝트 바의 빠른 작업 버튼 아이콘 옆에 이름을 표시해 알아보기 쉽게 해요; 끄면 아이콘만 표시해요.",
-      motionEditor: "편집기",
+      projectBarChips: "프로젝트 바 정보",
+      projectBarChipsDesc:
+        "프로젝트 바 상단에 표시할 정보 수를 정해요; 자동은 좁은 창에서 확대, 길이, 샘플레이트 같은 보조 정보를 접어요. 빠른 작업 줄에는 영향이 없어요.",
+      projectBarChipsAuto: "자동",
+      projectBarChipsAll: "모두 표시",
+      projectBarChipsCore: "핵심만",
+      motionGlobal: "전역",
       motionInterface: "인터페이스",
+      motionEditor: "타임라인 및 편집기",
+      motionRuler: "시간 눈금 라벨",
       motionFx: "재생 효과",
-      motionFeel: "감각 및 접근성",
       editor: "확대 / 이동 애니메이션",
       editorDesc:
         "타임라인 확대·이동 시 이즈 애니메이션을 사용해요 (중단 가능, 입력 차단 없음)",
+      rulerLabelCrossfade: "라벨 단계 크로스페이드",
+      rulerLabelCrossfadeDesc:
+        "확대가 눈금 단계를 넘으면 이전 라벨이 사라지고 새 라벨이 나타나요; 마디 번호도 표시 폭에 맞춰 서서히 나타나요.",
+      rulerLabelFractionFade: "소수 자릿수 페이드 인",
+      rulerLabelFractionFadeDesc:
+        "초 미만 확대 시 소수 자릿수가 위에서 아래로 나타나 글자가 갑자기 길어지지 않아요.",
+      rulerEdgeFade: "가장자리 페이드",
+      rulerEdgeFadeDesc:
+        "좌우 가장자리 근처에서 라벨이 서서히 사라져 스크롤 시 갑자기 나타나지 않아요.",
+      rulerTickTransition: "눈금 전환",
+      rulerTickTransitionDesc:
+        "단계가 바뀔 때 눈금도 라벨과 함께 크로스페이드돼요.",
       followSmooth: "재생 팔로우 부드럽게",
       followSmoothDesc:
         "재생 중 재생 헤드를 따라갈 때 뷰포트를 부드럽게 이동해요; 끄면 즉시 맞춰요",
@@ -635,6 +627,42 @@ export default {
       reduceMotionSystem: "시스템 따르기",
       reduceMotionOn: "항상 줄이기",
       reduceMotionOff: "전체 모션",
+      appearance: {
+        bgImage: "배경 이미지",
+        bgImageDesc:
+          "로컬 이미지를 앱 배경으로 선택하세요. 아래 흐림, 어둡게, 패널 불투명도로 조정할 수 있어요.",
+        bgPick: "이미지 선택",
+        bgClear: "지우기",
+        bgFit: "채우기 모드",
+        bgFitDesc: "이미지가 창을 채우는 방식",
+        fitCover: "채우기",
+        fitContain: "맞추기",
+        fitTile: "타일",
+        bgBlur: "배경 흐림",
+        bgBlurDesc: "배경 이미지에 적용되는 가우시안 흐림 (0–40px)",
+        bgDim: "배경 어둡게",
+        bgDimDesc:
+          "가독성을 위해 테마 표면 색으로 이미지를 어둡게 해요 (0–100%)",
+        surfaceOpacity: "패널 불투명도",
+        surfaceOpacityDesc:
+          "배경 위에서 패널이 보이는 정도 (20–100%); 낮을수록 이미지가 더 보여요",
+        uiBlur: "인터페이스 흐림",
+        uiBlurDesc: "오버레이 뒤 배경 흐림. 끄면 모든 흐림 효과가 제거돼요",
+        uiBlurAmount: "흐림 강도",
+        uiBlurAmountDesc: "오버레이 배경 흐림 반경 (px, 0–24)",
+        uiRadius: "모서리 반경",
+        uiRadiusDesc: "버튼, 입력란, 카드, 패널의 모서리 반경 (0–20px)",
+        uiShadow: "그림자 강도",
+        uiShadowDesc: "패널과 오버레이 그림자의 깊이; 0이면 완전히 평평해요",
+      },
+      scale: {
+        uiZoom: "인터페이스 배율",
+        uiZoomDesc:
+          "타임라인과 모든 패널을 포함해 UI 전체를 확대 / 축소해요 (75–150%)",
+        uiFontScale: "텍스트 배율",
+        uiFontScaleDesc:
+          "컨트롤과 레이아웃 크기는 그대로 두고 텍스트만 확대 / 축소해요 (85–150%)",
+      },
     },
     shortcuts: {
       page: "키보드 단축키",

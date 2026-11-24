@@ -129,6 +129,15 @@ textarea {
   background: transparent;
 }
 
+/* Page zoom shrinks the CSS viewport, so a 1024px window at 125–150% behaves
+   like a much narrower one. Trim the fixed track column together with the
+   sidebar so they keep sharing one edge instead of squeezing the stage. */
+@media (max-width: 900px) {
+  :root {
+    --bdg-left-w: 250px;
+  }
+}
+
 .app-root {
   display: flex;
   flex-direction: column;

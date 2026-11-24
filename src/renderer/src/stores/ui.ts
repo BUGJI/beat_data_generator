@@ -36,6 +36,8 @@ export const useUiStore = defineStore("ui", () => {
   const timeAlign = ref(false);
   /** session-only: track that keyboard placement and new notes target. */
   const activeTrackId = ref<string | null>(null);
+  /** session-only: collapse the track sidebar to a narrow colour strip. */
+  const sidebarCollapsed = ref(false);
   const exportOpen = ref(false);
   const exportKind = ref<"timestamps" | "edl">("timestamps");
   const positionFocus = ref(0);
@@ -60,6 +62,7 @@ export const useUiStore = defineStore("ui", () => {
     quickPlace,
     timeAlign,
     activeTrackId,
+    sidebarCollapsed,
     exportOpen,
     exportKind,
     openExport: openExportImpl,

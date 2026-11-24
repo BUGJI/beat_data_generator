@@ -30,6 +30,9 @@ import TimelineNotes from "./timeline/TimelineNotes.vue";
 import PluginTimelineOverlays from "./timeline/PluginTimelineOverlays.vue";
 import TimelineScrollbars from "./timeline/TimelineScrollbars.vue";
 import TimelinePropCard from "./timeline/TimelinePropCard.vue";
+import UiButton from "./ui/UiButton.vue";
+import { FileAudio } from "@lucide/vue";
+import { openAudioDialog } from "../services/audioIO";
 import { undo } from "../services/history";
 import { toast } from "../ui/toast";
 
@@ -208,6 +211,13 @@ const selectionAnnounce = computed(() => {
         {{ t("timeline.hintNew") }}
         <br />{{ t("timeline.hintBeatAxis") }}
       </div>
+      <UiButton
+        variant="solid"
+        class="editor-hint-action"
+        @click="openAudioDialog()"
+      >
+        <FileAudio class="size-4" />{{ t("timeline.importAudio") }}
+      </UiButton>
     </div>
 
     <TimelineScrollbars />
@@ -269,6 +279,11 @@ const selectionAnnounce = computed(() => {
 .editor-hint-sub {
   font-size: var(--bdg-fs-12);
   opacity: 0.8;
+}
+/* The hint layer ignores pointer events; the import action must opt back in. */
+.editor-hint-action {
+  pointer-events: auto;
+  margin-top: 6px;
 }
 .editor-statusbar {
   position: absolute;

@@ -49,11 +49,16 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const stretchCacheMb = settingModel("stretchCacheMb");
   const closeMode = settingModel("closeMode");
   const animEnabled = settingModel("animEnabled");
+  const rulerLabelCrossfade = settingModel("rulerLabelCrossfade");
+  const rulerLabelFractionFade = settingModel("rulerLabelFractionFade");
+  const rulerEdgeFade = settingModel("rulerEdgeFade");
+  const rulerTickTransition = settingModel("rulerTickTransition");
   const followSmooth = settingModel("followSmooth");
   const gridAutoHide = settingModel("gridAutoHide");
   const bpmSegmentColors = settingModel("bpmSegmentColors");
   const bpmSegmentIntensity = settingModel("bpmSegmentIntensity");
   const quickBarLabels = settingModel("quickBarLabels");
+  const projectBarChips = settingModel("projectBarChips");
   const uiMotion = settingModel("uiMotion");
   const themeCrossfade = settingModel("themeCrossfade");
   const menuMotion = settingModel("menuMotion");
@@ -128,6 +133,12 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     { value: "slow", label: t("settings.display.motionSlow") },
     { value: "normal", label: t("settings.display.motionNormal") },
     { value: "fast", label: t("settings.display.motionFast") },
+  ]);
+
+  const projectBarChipsOptions = computed<ColOption[]>(() => [
+    { value: "auto", label: t("settings.display.projectBarChipsAuto") },
+    { value: "all", label: t("settings.display.projectBarChipsAll") },
+    { value: "core", label: t("settings.display.projectBarChipsCore") },
   ]);
 
   const reduceMotionOptions = computed<ColOption[]>(() => [
@@ -305,7 +316,13 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     bpmSegmentColors,
     bpmSegmentIntensity,
     quickBarLabels,
+    projectBarChips,
+    projectBarChipsOptions,
     animEnabled,
+    rulerLabelCrossfade,
+    rulerLabelFractionFade,
+    rulerEdgeFade,
+    rulerTickTransition,
     followSmooth,
     uiMotion,
     themeCrossfade,
@@ -337,7 +354,7 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   }
 
   // Theme page sub-tab, shared so the settings search can jump into it.
-  const themeSub = ref<"preset" | "custom" | "appearance">("preset");
+  const themeSub = ref<"preset" | "custom">("preset");
 
   // Selected sub-tab per category; falls back to the first group when unset.
   const subCat = ref<Partial<Record<CatKey, string>>>({});
@@ -354,9 +371,15 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   function rowsInGroup(key: CatKey): RowDef[] {
     const g = groupsOf(key).find((x) => x.key === activeGroup(key));
     const rows = g?.rows ?? [];
-    return simpleMode.value
-      ? rows.filter((r) => r.kind !== "field" || !r.expert)
-      : rows;
+    if (!simpleMode.value) return rows;
+    const visible = rows.filter((r) => r.kind !== "field" || !r.expert);
+    // Drop a section heading when every row under it was hidden (an expert-only
+    // section would otherwise leave an empty title behind in simple mode).
+    return visible.filter((row, index) => {
+      if (row.kind !== "subhead") return true;
+      const next = visible[index + 1];
+      return next !== undefined && next.kind !== "subhead";
+    });
   }
 
   // ---- search index ----
@@ -455,6 +478,10 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     stretchCacheMb,
     language,
     animEnabled,
+    rulerLabelCrossfade,
+    rulerLabelFractionFade,
+    rulerEdgeFade,
+    rulerTickTransition,
     followSmooth,
     gridAutoHide,
     bpmSegmentColors,

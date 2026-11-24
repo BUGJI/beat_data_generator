@@ -68,6 +68,8 @@ const FX_LABEL_KEY: Record<BeatFxId, string> = {
   laneGlow: "follow.fxLaneGlow",
   markerFlash: "follow.fxMarkerFlash",
 };
+/** Secondary readouts follow the settings toggle; the quick row always shows. */
+const chipsMode = computed(() => settings.settings.projectBarChips);
 const fxMenuOpen = ref(false);
 const fxSelectedAny = computed(() => BEAT_FX_IDS.some(beatFxSelected));
 const fxActive = computed(
@@ -154,6 +156,19 @@ const {
   zoomLabel,
   followPctLabel,
 } = useProjectStats();
+
+/** When the chips are forced to "core", keep the hidden readouts discoverable. */
+const foldedChipsTip = computed(() =>
+  chipsMode.value === "core"
+    ? t("sidebar.foldedReadouts", {
+        zoom: zoomLabel.value,
+        duration: durationLabel.value,
+        sampleRate: sampleRateLabel.value,
+        lastBeat: lastBeatLabel.value,
+        grid: barMsLabel.value,
+      })
+    : undefined,
+);
 
 function wheelOffset(e: WheelEvent): void {
   const step = Math.sign(e.deltaY) * 5;
@@ -350,30 +365,14 @@ async function onDetectBpm(): Promise<void> {
     </div>
 
     <div class="pb-right">
-      <div class="pb-chips">
-        <div class="chip chip-opt">
-          <span class="chip-k">{{ t("sidebar.zoom") }}</span>
-          <span class="chip-v num">{{ zoomLabel }}</span>
-        </div>
-        <div class="chip">
-          <span class="chip-k">{{ t("sidebar.duration") }}</span>
-          <span class="chip-v num">{{ durationLabel }}</span>
-        </div>
-        <div class="chip chip-opt">
-          <span class="chip-k">{{ t("sidebar.sampleRate") }}</span>
-          <span class="chip-v num">{{ sampleRateLabel }}</span>
-        </div>
+      <div
+        class="pb-chips"
+        :class="`chips-${chipsMode}`"
+        :title="foldedChipsTip"
+      >
         <div class="chip">
           <span class="chip-k">{{ t("sidebar.markers") }}</span>
           <span class="chip-v num">{{ markersLabel }}</span>
-        </div>
-        <div class="chip">
-          <span class="chip-k">{{ t("sidebar.lastMark") }}</span>
-          <span class="chip-v num">{{ lastBeatLabel }}</span>
-        </div>
-        <div class="chip chip-opt">
-          <span class="chip-k">{{ t("sidebar.gridShows") }}</span>
-          <span class="chip-v num">{{ barMsLabel }}</span>
         </div>
         <div class="chip">
           <span class="chip-k" :title="t('follow.pctTip')">{{
@@ -382,6 +381,26 @@ async function onDetectBpm(): Promise<void> {
           <span class="chip-v num" :title="t('follow.pctTip')">{{
             followPctLabel
           }}</span>
+        </div>
+        <div class="chip chip-extra">
+          <span class="chip-k">{{ t("sidebar.zoom") }}</span>
+          <span class="chip-v num">{{ zoomLabel }}</span>
+        </div>
+        <div class="chip chip-extra">
+          <span class="chip-k">{{ t("sidebar.duration") }}</span>
+          <span class="chip-v num">{{ durationLabel }}</span>
+        </div>
+        <div class="chip chip-extra">
+          <span class="chip-k">{{ t("sidebar.sampleRate") }}</span>
+          <span class="chip-v num">{{ sampleRateLabel }}</span>
+        </div>
+        <div class="chip chip-extra">
+          <span class="chip-k">{{ t("sidebar.lastMark") }}</span>
+          <span class="chip-v num">{{ lastBeatLabel }}</span>
+        </div>
+        <div class="chip chip-extra">
+          <span class="chip-k">{{ t("sidebar.gridShows") }}</span>
+          <span class="chip-v num">{{ barMsLabel }}</span>
         </div>
       </div>
 
@@ -396,36 +415,6 @@ async function onDetectBpm(): Promise<void> {
           :style="overlapStyle"
           :title="t('follow.overlapTip')"
         />
-        <span
-          class="fx-quick"
-          @click.capture="onFxClick"
-          @keydown.capture="onFxKeydown"
-          @contextmenu.prevent="fxMenuOpen = true"
-        >
-          <UiDropdownMenu v-model:open="fxMenuOpen" @select="onFxSelect">
-            <template #trigger>
-              <UiIconButton
-                :title="fxTitle"
-                :active="fxActive"
-                :pressed="fxActive"
-                :label="quickLabel('follow.lblFx')"
-              >
-                <Sparkles :size="15" />
-              </UiIconButton>
-            </template>
-            <UiDropdownItem
-              v-for="fx in BEAT_FX_IDS"
-              :key="fx"
-              :value="fx"
-              keep-open
-              :title="t('follow.fxTip')"
-            >
-              <Check v-if="beatFxSelected(fx)" :size="14" />
-              <span v-else class="w-[14px]" />
-              <span>{{ t(FX_LABEL_KEY[fx]) }}</span>
-            </UiDropdownItem>
-          </UiDropdownMenu>
-        </span>
         <UiIconButton
           :title="followTip"
           :active="followOn"
@@ -465,6 +454,37 @@ async function onDetectBpm(): Promise<void> {
         >
           <ListChecks :size="15" />
         </UiIconButton>
+        <span class="quick-divider" />
+        <span
+          class="fx-quick"
+          @click.capture="onFxClick"
+          @keydown.capture="onFxKeydown"
+          @contextmenu.prevent="fxMenuOpen = true"
+        >
+          <UiDropdownMenu v-model:open="fxMenuOpen" @select="onFxSelect">
+            <template #trigger>
+              <UiIconButton
+                :title="fxTitle"
+                :active="fxActive"
+                :pressed="fxActive"
+                :label="quickLabel('follow.lblFx')"
+              >
+                <Sparkles :size="15" />
+              </UiIconButton>
+            </template>
+            <UiDropdownItem
+              v-for="fx in BEAT_FX_IDS"
+              :key="fx"
+              :value="fx"
+              keep-open
+              :title="t('follow.fxTip')"
+            >
+              <Check v-if="beatFxSelected(fx)" :size="14" />
+              <span v-else class="w-[14px]" />
+              <span>{{ t(FX_LABEL_KEY[fx]) }}</span>
+            </UiDropdownItem>
+          </UiDropdownMenu>
+        </span>
         <UiIconButton
           :title="t('follow.timeAlignTip')"
           :active="ui.timeAlign"
@@ -638,6 +658,11 @@ async function onDetectBpm(): Promise<void> {
   margin: 0 2px;
   flex: none;
 }
+/* Readout chips: "core" always folds the secondary ones; "auto" folds them on
+   narrow windows, where the quick row already wraps. */
+.pb-chips.chips-core .chip-extra {
+  display: none;
+}
 .chip {
   display: flex;
   flex-direction: column;
@@ -652,18 +677,22 @@ async function onDetectBpm(): Promise<void> {
   color: var(--bdg-text);
   font-weight: 600;
 }
-/* Narrow windows: drop the least-critical readouts before the layout squeezes. */
+/* Narrow windows: tighten gaps, then let the quick row wrap instead of
+   squeezing the stage controls. "auto" readouts fold at the same breakpoint. */
 @media (max-width: 1280px) {
   .pb-chips {
     gap: 12px;
   }
 }
 @media (max-width: 1120px) {
-  .chip-opt {
-    display: none;
-  }
   .pb-right {
     padding: 6px 10px;
+  }
+  .pb-chips {
+    gap: 10px;
+  }
+  .pb-chips.chips-auto .chip-extra {
+    display: none;
   }
 }
 @media (max-width: 1024px) {

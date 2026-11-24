@@ -146,9 +146,7 @@ export function useSettingsSearch(opts: {
   function goToSetting(hit: SearchEntry & { label: string }): void {
     opts.cat.value = hit.cat;
     if (hit.cat === "theme") {
-      if (hit.group === "appearance") rows.themeSub = "appearance";
-      else if (hit.group === "preset") rows.themeSub = "preset";
-      else rows.themeSub = "custom";
+      rows.themeSub = hit.group === "preset" ? "preset" : "custom";
     } else if (hit.group) {
       rows.setSubCat(hit.cat, hit.group);
     }

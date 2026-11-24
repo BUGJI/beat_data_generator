@@ -534,4 +534,80 @@ button:disabled {
     width: 76px;
   }
 }
+
+/* Dropping the text labels keeps the rate cluster on one line; the number
+   input, switch and buttons keep their tooltips and accessible names. */
+@media (max-width: 1100px) {
+  .transport {
+    gap: 8px;
+    padding: 0 10px;
+  }
+  .rate-zone {
+    gap: 6px;
+    padding-right: 8px;
+    margin-right: 0;
+  }
+  .rate-label {
+    display: none;
+  }
+  /* Keep the one-click 1× reset; it is narrow and often used. */
+  .reset-rate {
+    display: inline-block;
+  }
+  .live-bpm {
+    display: none;
+  }
+  .rate-input {
+    width: 64px;
+  }
+  .tr-controls {
+    gap: 6px;
+  }
+  .tr-right {
+    width: min(200px, 26vw);
+  }
+}
+
+/* Below this the single row would clip, so stack the volume under the
+   transport instead of shrinking every control. */
+@media (max-width: 950px) {
+  .transport {
+    height: auto;
+    min-height: var(--bdg-transport-h);
+    grid-template-columns: auto minmax(0, 1fr);
+    grid-template-areas:
+      "rate controls"
+      "right right";
+    gap: 6px 10px;
+    padding: 6px 10px;
+  }
+  .rate-zone {
+    grid-area: rate;
+    justify-self: start;
+    border-right: none;
+    height: auto;
+  }
+  .tr-controls {
+    grid-area: controls;
+    justify-content: flex-end;
+  }
+  .tr-right {
+    grid-area: right;
+    width: 100%;
+    justify-self: stretch;
+  }
+  .tr-time {
+    font-size: var(--bdg-fs-14);
+  }
+  .position-input {
+    width: 100px;
+  }
+}
+
+@media (max-width: 760px) {
+  .tr-time .sep,
+  .tr-time .total {
+    display: none;
+  }
+}
 </style>

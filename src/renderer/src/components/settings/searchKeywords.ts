@@ -227,6 +227,24 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "text",
     "icon",
   ],
+  "display.projectBarChips": [
+    "工程栏",
+    "信息",
+    "读数",
+    "折叠",
+    "收起",
+    "更多",
+    "缩放",
+    "时长",
+    "采样率",
+    "project bar",
+    "readout",
+    "chip",
+    "fold",
+    "more",
+    "zoom",
+    "duration",
+  ],
   "display.editor": [
     "动画",
     "动效",
@@ -236,6 +254,47 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "editor",
     "animation",
     "zoom",
+  ],
+  "display.rulerLabelCrossfade": [
+    "时间尺",
+    "标签",
+    "刻度",
+    "淡入",
+    "交叉",
+    "小节号",
+    "ruler",
+    "label",
+    "tick",
+    "crossfade",
+    "fade",
+  ],
+  "display.rulerLabelFractionFade": [
+    "小数",
+    "毫秒",
+    "精度",
+    "时间尺",
+    "fraction",
+    "millisecond",
+    "precision",
+    "fade",
+  ],
+  "display.rulerEdgeFade": [
+    "边缘",
+    "淡入",
+    "淡出",
+    "时间尺",
+    "edge",
+    "fade",
+    "ruler",
+  ],
+  "display.rulerTickTransition": [
+    "刻度线",
+    "刻度",
+    "过渡",
+    "时间尺",
+    "tick",
+    "transition",
+    "ruler",
   ],
   "display.followSmooth": [
     "跟随",
@@ -356,7 +415,7 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "reduce motion",
     "a11y",
   ],
-  "theme.appearance.bgImage": [
+  "display.appearance.bgImage": [
     "背景",
     "背景图",
     "壁纸",
@@ -365,7 +424,7 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "wallpaper",
     "image",
   ],
-  "theme.appearance.bgFit": [
+  "display.appearance.bgFit": [
     "背景",
     "填充",
     "铺满",
@@ -377,8 +436,14 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "contain",
     "tile",
   ],
-  "theme.appearance.bgBlur": ["背景", "背景模糊", "模糊", "background", "blur"],
-  "theme.appearance.bgDim": [
+  "display.appearance.bgBlur": [
+    "背景",
+    "背景模糊",
+    "模糊",
+    "background",
+    "blur",
+  ],
+  "display.appearance.bgDim": [
     "背景",
     "压暗",
     "变暗",
@@ -387,7 +452,7 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "dim",
     "darken",
   ],
-  "theme.appearance.surfaceOpacity": [
+  "display.appearance.surfaceOpacity": [
     "面板",
     "不透明",
     "透明度",
@@ -396,7 +461,7 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "opacity",
     "panel",
   ],
-  "theme.appearance.uiZoom": [
+  "display.scale.uiZoom": [
     "缩放",
     "界面缩放",
     "整体缩放",
@@ -405,7 +470,7 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "scale",
     "dpi",
   ],
-  "theme.appearance.uiFontScale": [
+  "display.scale.uiFontScale": [
     "字号",
     "字体",
     "文字大小",
@@ -414,8 +479,8 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "text",
     "scale",
   ],
-  "theme.appearance.uiBlur": ["模糊", "毛玻璃", "blur", "背景"],
-  "theme.appearance.uiBlurAmount": [
+  "display.appearance.uiBlur": ["模糊", "毛玻璃", "blur", "背景"],
+  "display.appearance.uiBlurAmount": [
     "模糊",
     "模糊强度",
     "毛玻璃",
@@ -423,7 +488,7 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "radius",
     "强度",
   ],
-  "theme.appearance.uiRadius": [
+  "display.appearance.uiRadius": [
     "圆角",
     "圆角半径",
     "radius",
@@ -431,7 +496,7 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
     "外观",
     "appearance",
   ],
-  "theme.appearance.uiShadow": [
+  "display.appearance.uiShadow": [
     "阴影",
     "投影",
     "立体",
@@ -449,27 +514,28 @@ export const SEARCH_KEYWORDS: Record<string, string[]> = {
   "network.ghProxyHost": ["加速地址", "镜像", "地址", "host", "mirror"],
 };
 
-// Hand-written entries for sections rendered outside FIELD_GROUPS (their label
-// keys live under `settings.network.*`, so the same lookup still works).
+// Hand-written entries for sections rendered outside FIELD_GROUPS. Their label
+// keys use the same `settings.<cat>.<key>` lookup (network, theme accent and
+// the display appearance panel), so search and scroll-to still work.
 export const EXTRA_SEARCH: SearchEntry[] = [
   { cat: "network", key: "proxy" },
   { cat: "network", key: "ghProxy" },
   { cat: "network", key: "ghProxyHost" },
   { cat: "theme", key: "accentPick", group: "custom" },
-  { cat: "theme", key: "appearance.bgImage", group: "appearance" },
-  { cat: "theme", key: "appearance.bgFit", group: "appearance" },
-  { cat: "theme", key: "appearance.bgBlur", group: "appearance" },
-  { cat: "theme", key: "appearance.bgDim", group: "appearance" },
-  { cat: "theme", key: "appearance.surfaceOpacity", group: "appearance" },
-  { cat: "theme", key: "appearance.uiZoom", group: "appearance" },
-  { cat: "theme", key: "appearance.uiFontScale", group: "appearance" },
-  { cat: "theme", key: "appearance.uiBlur", group: "appearance" },
+  { cat: "display", key: "appearance.bgImage", group: "appearance" },
+  { cat: "display", key: "appearance.bgFit", group: "appearance" },
+  { cat: "display", key: "appearance.bgBlur", group: "appearance" },
+  { cat: "display", key: "appearance.bgDim", group: "appearance" },
+  { cat: "display", key: "appearance.surfaceOpacity", group: "appearance" },
+  { cat: "display", key: "scale.uiZoom", group: "scale" },
+  { cat: "display", key: "scale.uiFontScale", group: "scale" },
+  { cat: "display", key: "appearance.uiBlur", group: "appearance" },
   {
-    cat: "theme",
+    cat: "display",
     key: "appearance.uiBlurAmount",
     group: "appearance",
     expert: true,
   },
-  { cat: "theme", key: "appearance.uiRadius", group: "appearance" },
-  { cat: "theme", key: "appearance.uiShadow", group: "appearance" },
+  { cat: "display", key: "appearance.uiRadius", group: "appearance" },
+  { cat: "display", key: "appearance.uiShadow", group: "appearance" },
 ];

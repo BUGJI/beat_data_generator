@@ -24,11 +24,16 @@ import {
 } from "../../bpmSegments";
 import {
   MIN_SUB_PX,
+  barLabelAlpha,
   beatStr,
   cappedSnapDiv,
   fmtTick,
+  rulerEdgeAlpha,
+  rulerLabelDigits,
+  timeRulerStepSec,
   visibleRows,
 } from "./geometry";
+import { rulerTierFrame } from "./rulerFx";
 import { drawMarkerBloom } from "./bloom";
 import { BEAT_FX_DURATION_MS, BEAT_FX_IDS } from "@shared/beatFx";
 import type { Marker } from "../../types";
@@ -154,24 +159,49 @@ function drawRulers(
   ctx.fillRect(0, TIME_RULER_H, W, BEAT_RULER_H);
 
   // time ruler
-  const steps = [
-    0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 15, 30, 60, 120, 300, 600,
-  ];
+  const settings = useSettingsStore().settings;
+  const motionOn = settings.animEnabled && !reduceMotionActive();
+  const edgeFade = settings.rulerEdgeFade && motionOn;
   const pps = view.pxPerSec;
-  const stepSec = steps.find((s) => s * pps >= 70) ?? 600;
-  const stepMs = stepSec * 1000;
+  const stepSec = timeRulerStepSec(pps);
+  const digits = rulerLabelDigits(stepSec);
+  const frame = rulerTierFrame();
+  const crossfade = frame.active && settings.rulerLabelCrossfade && motionOn;
+  const fractionFade =
+    frame.active &&
+    settings.rulerLabelFractionFade &&
+    motionOn &&
+    digits > frame.fromDigits;
+  const fracAlpha = fractionFade ? frame.progress : 1;
+  const tickAlpha =
+    crossfade && settings.rulerTickTransition ? frame.progress : 1;
+
   ctx.font = "9px Consolas, monospace";
-  ctx.fillStyle = COLORS.rulerText;
-  const k0 = Math.floor(t0 / stepMs);
-  const k1 = Math.ceil(t1 / stepMs);
-  for (let k = k0; k <= k1; k++) {
-    const x = X(k * stepMs);
-    if (x < -2 || x > W + 2) continue;
-    ctx.fillStyle = COLORS.rulerTick;
-    ctx.fillRect(x, TIME_RULER_H - 6, 1, 6);
-    ctx.fillStyle = COLORS.rulerText;
-    ctx.fillText(fmtTick(k * stepSec), x + 2, TIME_RULER_H - 2);
+  if (crossfade) {
+    drawTimeLabels(
+      ctx,
+      W,
+      t0,
+      t1,
+      X,
+      frame.fromStepSec,
+      1 - frame.progress,
+      settings.rulerTickTransition ? 1 - frame.progress : null,
+      edgeFade,
+    );
   }
+  drawTimeLabels(
+    ctx,
+    W,
+    t0,
+    t1,
+    X,
+    stepSec,
+    crossfade ? frame.progress : 1,
+    tickAlpha,
+    edgeFade,
+    fracAlpha,
+  );
 
   // beat ruler (variable spacing via tempo map)
   const project = useProjectStore();
@@ -196,14 +226,79 @@ function drawRulers(
     ctx.fillStyle = COLORS.gridBar;
     ctx.fillRect(x, beatY, 1.5, BEAT_RULER_H);
     const perBar = beatsPerBarAt(segments, bar.beat);
-    if ((timeOfBeat(bar.beat + perBar) - tm) * pps > 44) {
-      ctx.fillStyle = COLORS.barText;
+    const slotW = (timeOfBeat(bar.beat + perBar) - tm) * pps;
+    const baseAlpha =
+      settings.rulerLabelCrossfade && motionOn
+        ? barLabelAlpha(slotW)
+        : slotW > 44
+          ? 1
+          : 0;
+    if (baseAlpha > 0) {
+      const label = String(bar.bar);
       ctx.font = "10px Consolas, monospace";
-      ctx.fillText(String(bar.bar), x + 3, beatY + BEAT_RULER_H - 5);
+      const edge = edgeFade
+        ? rulerEdgeAlpha(x + 3, W, ctx.measureText(label).width)
+        : 1;
+      const a = Math.min(1, baseAlpha * edge);
+      if (a > 0) {
+        ctx.fillStyle = COLORS.barText;
+        ctx.globalAlpha = a;
+        ctx.fillText(label, x + 3, beatY + BEAT_RULER_H - 5);
+      }
+      ctx.globalAlpha = 1;
       ctx.font = "9px Consolas, monospace";
     }
   }
   void endMs;
+}
+
+function drawTimeLabels(
+  ctx: CanvasRenderingContext2D,
+  W: number,
+  t0: number,
+  t1: number,
+  X: (t: number) => number,
+  stepSec: number,
+  alpha: number,
+  tickAlpha: number | null,
+  edgeFade: boolean,
+  fracAlpha = 1,
+): void {
+  const stepMs = stepSec * 1000;
+  const k0 = Math.floor(t0 / stepMs);
+  const k1 = Math.ceil(t1 / stepMs);
+  const labelY = TIME_RULER_H - 2;
+  ctx.font = "9px Consolas, monospace";
+  for (let k = k0; k <= k1; k++) {
+    const x = X(k * stepMs);
+    if (x < -2 || x > W + 2) continue;
+    if (tickAlpha !== null && tickAlpha > 0) {
+      ctx.globalAlpha = Math.min(1, tickAlpha);
+      ctx.fillStyle = COLORS.rulerTick;
+      ctx.fillRect(x, TIME_RULER_H - 6, 1, 6);
+    }
+    const text = fmtTick(k * stepSec, stepSec);
+    const tw = ctx.measureText(text).width;
+    const edge = edgeFade ? rulerEdgeAlpha(x, W, tw) : 1;
+    const a = Math.min(1, Math.max(0, alpha * edge));
+    if (a <= 0) continue;
+    const dot = text.indexOf(".");
+    if (dot > 0 && fracAlpha < 1) {
+      const head = text.slice(0, dot);
+      const frac = text.slice(dot);
+      const headW = ctx.measureText(head).width;
+      ctx.fillStyle = COLORS.rulerText;
+      ctx.globalAlpha = a;
+      ctx.fillText(head, x + 2, labelY);
+      ctx.globalAlpha = a * fracAlpha;
+      ctx.fillText(frac, x + 2 + headW, labelY - (1 - fracAlpha));
+      continue;
+    }
+    ctx.fillStyle = COLORS.rulerText;
+    ctx.globalAlpha = a;
+    ctx.fillText(text, x + 2, labelY);
+  }
+  ctx.globalAlpha = 1;
 }
 
 function drawLoopRegion(
