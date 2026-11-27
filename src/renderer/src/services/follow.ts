@@ -94,18 +94,22 @@ export function clearFollowHold(): void {
   holdUntil = 0;
 }
 
-/** Bring the playhead into the safe zone before playback starts. */
+/**
+ * Bring the playhead into the safe zone before playback starts, but only when
+ * it is off-screen. A playhead that is already visible must be left alone: the
+ * smooth follow eases toward its anchor over the first frames, while snapping
+ * it here would collapse the previous run's follow lag in a single frame and
+ * read as the timeline jumping backwards on every pause/resume.
+ */
 export function alignViewForPlayback(playheadMs: number): void {
   const view = useViewStore();
+  if (view.vw <= 0) return;
+  const playheadPx = (playheadMs / 1000) * view.pxPerSec;
+  const s = playheadPx - view.x;
+  if (s >= 0 && s <= view.vw) return;
   const { left, right } = followBounds(
     view.vw,
     useSettingsStore().settings.followPercent,
   );
-  const playheadPx = (playheadMs / 1000) * view.pxPerSec;
-  const s = playheadPx - view.x;
-  if (s > right) {
-    setScroll(playheadPx - right, view.y);
-  } else if (s < left) {
-    setScroll(playheadPx - left, view.y);
-  }
+  setScroll(playheadPx - (s > right ? right : left), view.y);
 }

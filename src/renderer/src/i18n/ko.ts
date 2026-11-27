@@ -18,6 +18,11 @@ export default {
     quickTip:
       "빠른 배치: 마우스 왼쪽 버튼을 누른 채 레인 위를 쓸면 마커가 놓이고, 오른쪽 버튼으로 쓸면 해당 위치의 마커가 지워져요",
     pctTip: "자동 따라가기 안전 영역 오른쪽 경계 (왼쪽 경계는 대칭)",
+    stepValue: "박 ×{beats}",
+    stepTip:
+      "박 단위 건너뛰기: {beats}박마다 애니메이션 없이 타임라인이 즉시 이동해요; 재생 헤드는 왼쪽 안전 영역 가장자리로 돌아가요",
+    pageTip:
+      "페이지 단위 건너뛰기: 재생 헤드가 오른쪽 안전 영역에 닿으면 타임라인이 한 페이지만큼 즉시 이동하고 재생 헤드는 왼쪽 가장자리로 가요",
     timeAlignTip:
       "시간 정렬: 켜면 BPM/오프셋을 수정할 때 각 마커의 박자를 다시 써서 현재 절대 시간을 유지하고 그리드를 따라 움직이지 않아요; 박자는 현재 템포 맵과 항상 동기화되어 저장된 파일이 타임라인과 일치해요",
     alignTip:
@@ -240,6 +245,8 @@ export default {
     collapse: "사이드 패널로 접기",
     searchPlaceholder: "설정 검색…",
     searchNoResults: "일치하는 설정이 없어요",
+    searchUnavailable:
+      "지금은 사용할 수 없어요 — 클릭하면 관련 설정으로 이동해요",
     searchClear: "검색 지우기",
     navLabel: "설정 섹션",
     searchResults: "검색 결과",
@@ -383,6 +390,18 @@ export default {
       followPercent: "자동 스크롤 안전 영역 오른쪽 경계",
       followPercentDesc:
         "재생 헤드가 이 %를 넘으면 스크롤하고, 왼쪽 대칭 경계로 돌아오면 다시 맞춰요",
+      followMode: "팔로우 방식",
+      followModeDesc:
+        "부드러운 팔로우는 재생 헤드를 향해 화면을 부드럽게 이동하고, 박 단위 건너뛰기는 설정한 박마다, 페이지 단위 건너뛰기는 재생 헤드가 오른쪽 안전 영역에 닿을 때 한 페이지씩 애니메이션 없이 이동해요",
+      followModeSmooth: "부드러운 팔로우",
+      followModeStep: "박 단위로 건너뛰기",
+      followModePage: "페이지 단위로 건너뛰기",
+      followStepBeats: "건너뛸 박 수",
+      followStepBeatsDesc:
+        "건너뛰기 모드에서는 한 번에 이 박 수만큼 화면이 이동하고 재생 헤드가 왼쪽 안전 영역 가장자리로 돌아가요",
+      followStepBeatsUnit: "박 (1–16)",
+      followStepPresetBeat: "{n}박",
+      followStepPresetBar: "1마디",
       autoSave: "자동 저장",
       autoSaveDesc: "일정 간격으로 프로젝트를 자동 저장해요",
       autoSaveMinutes: "자동 저장 간격",
@@ -583,6 +602,7 @@ export default {
       followSmooth: "재생 팔로우 부드럽게",
       followSmoothDesc:
         "재생 중 재생 헤드를 따라갈 때 뷰포트를 부드럽게 이동해요; 끄면 즉시 맞춰요",
+      followSmoothHint: "부드러운 팔로우 모드에서만 사용해요",
       uiMotion: "패널 전환",
       uiMotionDesc:
         "설정 패널(슬라이드 / 페이드)과 기타 패널 전환을 애니메이션으로 처리해요",
@@ -598,7 +618,7 @@ export default {
       performanceLight: "경량",
       performanceActive: "사용 중",
       performancePresetHint:
-        "경량은 레인 글로우, 마커 빛무리, 부드러운 따라가기를 끄고 동시 효과 수를 제한해요; 재생과 클릭은 정상 동작해요.",
+        "경량은 레인 글로우와 마커 빛무리를 끄고 팔로우를 페이지 단위 건너뛰기로 바꾸며 동시 효과 수를 제한해요; 재생과 클릭은 정상 동작해요.",
       beatFxDensity: "효과 밀도",
       beatFxDensityDesc:
         "한 순간에 그릴 수 있는 글로우 / 점등 대상 수예요; 경량은 상한이 더 낮아 밀집 프로젝트에서 안정적이에요.",

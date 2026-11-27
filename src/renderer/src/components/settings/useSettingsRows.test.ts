@@ -18,6 +18,8 @@ describe("useSettingsRowsStore / search index", () => {
     expect(keys).toContain("audio.outputProtection");
     expect(keys).toContain("general.simpleMode");
     expect(keys).toContain("edit.defaultGridDiv");
+    expect(keys).toContain("edit.followMode");
+    expect(keys).toContain("edit.followStepBeats");
     expect(keys).toContain("edit.snapByDefault");
     expect(keys).toContain("edit.selectAfterPlace");
     expect(keys).toContain("edit.nudgeStep");
@@ -58,6 +60,24 @@ describe("useSettingsRowsStore / search index", () => {
       (e) => `${e.cat}.${e.key}`,
     );
     expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("exposes showIf gates so search can mark hidden rows", () => {
+    const settings = useSettingsStore();
+    const rows = useSettingsRowsStore();
+    const entry = (key: string) =>
+      rows.searchIndex.find((e) => e.cat === "edit" && e.key === key);
+
+    settings.settings.followScroll = false;
+    expect(entry("followMode")?.visible?.()).toBe(false);
+
+    settings.settings.followScroll = true;
+    settings.settings.followMode = "step";
+    expect(entry("followMode")?.visible?.()).toBe(true);
+    expect(entry("followStepBeats")?.visible?.()).toBe(true);
+
+    settings.settings.followMode = "page";
+    expect(entry("followStepBeats")?.visible?.()).toBe(false);
   });
 
   it("marks expert entries so simple mode can hide them", () => {

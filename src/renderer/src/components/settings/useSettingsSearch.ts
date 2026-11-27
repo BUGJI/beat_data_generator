@@ -5,7 +5,12 @@ import { CAT_ORDER, type CatKey, type SearchEntry } from "./types";
 import { useSettingsRowsStore } from "./useSettingsRows";
 import { animationsEnabled } from "../../services/motion";
 
-type Hit = SearchEntry & { label: string; desc: string };
+type Hit = SearchEntry & {
+  label: string;
+  desc: string;
+  /** False when a showIf gate currently hides the row. */
+  available: boolean;
+};
 
 /**
  * Settings search: builds the result list from the declarative row index and
@@ -54,7 +59,13 @@ export function useSettingsSearch(opts: {
       ]
         .join(" ")
         .toLowerCase();
-      if (haystack.includes(q)) hits.push({ ...entry, label, desc });
+      if (haystack.includes(q))
+        hits.push({
+          ...entry,
+          label,
+          desc,
+          available: !entry.visible || entry.visible(),
+        });
     }
     return hits;
   });
@@ -143,7 +154,17 @@ export function useSettingsSearch(opts: {
     setActive((activeIndex.value + delta + count) % count);
   }
 
+  function revealRow(row: HTMLElement): void {
+    row.scrollIntoView({
+      block: "center",
+      behavior: uiMotion.value && animationsEnabled() ? "smooth" : "auto",
+    });
+    row.classList.add("search-hit");
+    window.setTimeout(() => row.classList.remove("search-hit"), 1600);
+  }
+
   function goToSetting(hit: SearchEntry & { label: string }): void {
+    const available = !hit.visible || hit.visible();
     opts.cat.value = hit.cat;
     if (hit.cat === "theme") {
       rows.themeSub = hit.group === "preset" ? "preset" : "custom";
@@ -154,21 +175,26 @@ export function useSettingsSearch(opts: {
     opts.searchEl.value?.focus();
     if (hit.page) return;
     void nextTick(() => {
+      const content = opts.contentEl.value;
+      if (!content) return;
+      if (!available) {
+        // The row is gated by another setting (showIf). Land on the first row
+        // of its group so the switch that enables it is in view, instead of
+        // scrolling to a row that is not rendered.
+        const first = content.querySelector<HTMLElement>(".field-row");
+        if (first) revealRow(first);
+        return;
+      }
       // Prefer explicit `data-search` targets (preset cards, metronome chips…);
       // fall back to matching a regular field row by its visible text.
-      const nodes = opts.contentEl.value?.querySelectorAll<HTMLElement>(
+      const nodes = content.querySelectorAll<HTMLElement>(
         "[data-search], .field-row",
       );
       if (!nodes) return;
       for (const row of nodes) {
         const label = row.getAttribute("data-search") ?? row.textContent ?? "";
         if (label.includes(hit.label)) {
-          row.scrollIntoView({
-            block: "center",
-            behavior: uiMotion.value && animationsEnabled() ? "smooth" : "auto",
-          });
-          row.classList.add("search-hit");
-          window.setTimeout(() => row.classList.remove("search-hit"), 1600);
+          revealRow(row);
           break;
         }
       }

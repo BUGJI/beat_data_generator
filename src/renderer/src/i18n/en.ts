@@ -18,6 +18,11 @@ export default {
     quickTip:
       "Quick place: hold the left button and sweep over lanes to place markers; hold the right button and sweep to delete markers there",
     pctTip: "Auto-follow safe-zone right edge (left edge mirrors it)",
+    stepValue: "Step ×{beats}",
+    stepTip:
+      "Jump by beats: shifts the timeline instantly every {beats} beat(s), with no animation; the playhead returns to the left safe-zone edge",
+    pageTip:
+      "Jump by page: when the playhead reaches the right safe zone, the timeline shifts one page instantly and the playhead lands on the left edge",
     timeAlignTip:
       "Time align: when on, editing BPM / offset rewrites each marker's beat so it keeps its current absolute time instead of moving with the grid; beats stay in sync with the current tempo map, so the saved file always matches the timeline",
     alignTip:
@@ -241,6 +246,7 @@ export default {
     collapse: "Collapse to side panel",
     searchPlaceholder: "Search settings…",
     searchNoResults: "No matching settings",
+    searchUnavailable: "Unavailable — click to open related settings",
     searchClear: "Clear search",
     navLabel: "Settings sections",
     searchResults: "Search results",
@@ -384,6 +390,18 @@ export default {
       followPercent: "Auto-scroll safe-zone right edge",
       followPercentDesc:
         "Follow once the playhead passes this % from the left; re-anchor when it returns to the symmetric left edge",
+      followMode: "Follow behaviour",
+      followModeDesc:
+        "Smooth eases the viewport toward the playhead; jump-by-beats moves it instantly every N beats; jump-by-page shifts one page once the playhead reaches the right safe zone — jumps never animate",
+      followModeSmooth: "Smooth follow",
+      followModeStep: "Jump by beats",
+      followModePage: "Jump by page",
+      followStepBeats: "Beats per jump",
+      followStepBeatsDesc:
+        "In jump mode, advance the view by this many beats per step; the playhead snaps back to the left safe-zone edge each time",
+      followStepBeatsUnit: "beats (1–16)",
+      followStepPresetBeat: "{n} beat(s)",
+      followStepPresetBar: "1 bar",
       autoSave: "Auto-save",
       autoSaveDesc: "Automatically save the project on an interval",
       autoSaveMinutes: "Auto-save interval",
@@ -590,6 +608,7 @@ export default {
       followSmooth: "Smooth playback follow",
       followSmoothDesc:
         "Ease the viewport while it follows the playhead during playback; turn off to snap",
+      followSmoothHint: "Only used in smooth-follow mode",
       uiMotion: "Panel transitions",
       uiMotionDesc:
         "Animate the settings panel (slide / fade) and other panel transitions",
@@ -605,7 +624,7 @@ export default {
       performanceLight: "Light",
       performanceActive: "Active",
       performancePresetHint:
-        "Light turns off lane glow, marker bloom and smooth follow, and caps effects per instant; playback and clicks keep working.",
+        "Light turns off lane glow and marker bloom, switches follow to jump-by-page, and caps effects per instant; playback and clicks keep working.",
       beatFxDensity: "Effect density",
       beatFxDensityDesc:
         "How many glow / flash targets may draw at once; light caps it lower for dense projects.",

@@ -435,6 +435,9 @@ function onPanelKeydown(e: KeyboardEvent): void {
                     </span>
                     <span class="sr-cat">{{ catLabel(hit.cat) }}</span>
                   </span>
+                  <span v-if="!hit.available" class="sr-unavailable">
+                    {{ t("settings.searchUnavailable") }}
+                  </span>
                   <span v-if="hit.desc" class="sr-desc">
                     <template
                       v-for="(p, pi) in highlightParts(hit.desc, searchQuery)"
@@ -798,6 +801,12 @@ function onPanelKeydown(e: KeyboardEvent): void {
   flex: none;
   font-size: var(--bdg-fs-11);
   color: var(--bdg-text-dim);
+}
+.sr-unavailable {
+  flex: none;
+  font-size: var(--bdg-fs-10);
+  font-weight: 600;
+  color: var(--bdg-amber);
 }
 .sr-desc {
   font-size: var(--bdg-fs-11);

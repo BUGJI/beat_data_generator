@@ -91,7 +91,7 @@ export function useTimelineCanvas(opts: {
       const now = performance.now();
       const dt = lastTs ? Math.min(50, now - lastTs) : 0;
       lastTs = now;
-      if (!isFollowHeld(now)) {
+      if (!isFollowHeld(now) && settings.settings.followMode === "smooth") {
         const decision = followDecision({
           active: transport.followActive,
           locked: transport.followLocked,

@@ -16,6 +16,8 @@ describe("defaultSettings", () => {
     expect(s.stretchEngine).toBe("signalsmith");
     expect(s.stretchCacheMb).toBe(256);
     expect(s.followPercent).toBe(90);
+    expect(s.followMode).toBe("smooth");
+    expect(s.followStepBeats).toBe(1);
     expect(s.beatFx).toEqual({});
     expect(s.autoSave).toBe(true);
     expect(s.autoSaveMinutes).toBe(5);
@@ -176,6 +178,15 @@ describe("sanitizeSettings", () => {
     expect(s.alignRounding).toBe("round");
     expect(s.devEnabled).toBe(false);
     expect(s.autoSave).toBe(true);
+  });
+
+  it("validates follow mode and beat-step size", () => {
+    expect(sanitizeSettings({ followMode: "step" }).followMode).toBe("step");
+    expect(sanitizeSettings({ followMode: "page" }).followMode).toBe("page");
+    expect(sanitizeSettings({ followMode: "nope" }).followMode).toBe("smooth");
+    expect(sanitizeSettings({ followStepBeats: 2 }).followStepBeats).toBe(2);
+    expect(sanitizeSettings({ followStepBeats: 0 }).followStepBeats).toBe(1);
+    expect(sanitizeSettings({ followStepBeats: 99 }).followStepBeats).toBe(16);
   });
 
   it("validates animation preferences", () => {

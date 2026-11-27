@@ -159,6 +159,18 @@ export const ReduceMotionSchema = z
   .default("system");
 export type ReduceMotion = z.infer<typeof ReduceMotionSchema>;
 
+/**
+ * Playback follow behaviour:
+ * - "smooth" eases the viewport toward the playhead,
+ * - "step" jumps forward at fixed beat boundaries with no animation,
+ * - "page" shifts one page when the playhead reaches the right safe zone.
+ */
+export const FollowModeSchema = z
+  .enum(["smooth", "step", "page"])
+  .catch("smooth")
+  .default("smooth");
+export type FollowMode = z.infer<typeof FollowModeSchema>;
+
 const createSettingsSchema = (policy: NumberPolicy) =>
   z.object({
     closeMode: CloseModeSchema.catch("ask").default("ask"),
@@ -261,6 +273,9 @@ const createSettingsSchema = (policy: NumberPolicy) =>
         (s) => normalizeProxyHost(s.slice(0, 120)) ?? GH_PROXY_DEFAULT_HOST,
       ),
     followScroll: bool(true),
+    followMode: FollowModeSchema,
+    /** Beats advanced per discrete follow jump ("step" mode). */
+    followStepBeats: intInRange(policy, 1, 1, 16),
     followPercent: intInRange(policy, 90, 0, 100),
     followPreset: bool(false),
     /**

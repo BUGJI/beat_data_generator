@@ -154,7 +154,8 @@ const {
   lastBeatLabel,
   markersLabel,
   zoomLabel,
-  followPctLabel,
+  followValueLabel,
+  followValueTip,
 } = useProjectStats();
 
 /** When the chips are forced to "core", keep the hidden readouts discoverable. */
@@ -375,11 +376,11 @@ async function onDetectBpm(): Promise<void> {
           <span class="chip-v num">{{ markersLabel }}</span>
         </div>
         <div class="chip">
-          <span class="chip-k" :title="t('follow.pctTip')">{{
+          <span class="chip-k" :title="followValueTip">{{
             t("sidebar.followTrigger")
           }}</span>
-          <span class="chip-v num" :title="t('follow.pctTip')">{{
-            followPctLabel
+          <span class="chip-v num" :title="followValueTip">{{
+            followValueLabel
           }}</span>
         </div>
         <div class="chip chip-extra">

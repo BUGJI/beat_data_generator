@@ -14,6 +14,11 @@ export default {
     quickTip:
       "快速放置：开启后按住左键扫过即可在轨道上放点，按住右键扫过即可删除该处的点",
     pctTip: "自动跟随安全区右边界（左边界自动对称）",
+    stepValue: "逐拍 ×{beats}",
+    stepTip:
+      "逐拍跳进：每跨过 {beats} 拍瞬时平移一次时间线，无动画；播放头回到左侧安全区边缘",
+    pageTip:
+      "整页跳进：播放头到达右侧安全区时时间线瞬时平移一页，播放头回到左侧安全区",
     timeAlignTip:
       "时间轴对齐：开启后修改 BPM 或偏移会改写踩点的拍位，使踩点保持当前绝对时间不变、不随网格移动；拍位始终与当前速度图一致，保存的工程与时间轴所见始终相同",
     alignTip:
@@ -228,6 +233,7 @@ export default {
     collapse: "收起为侧栏",
     searchPlaceholder: "搜索设置…",
     searchNoResults: "没有匹配的设置项",
+    searchUnavailable: "当前不可用，点击跳到相关设置",
     searchClear: "清除搜索",
     navLabel: "设置分区",
     searchResults: "搜索结果",
@@ -359,6 +365,18 @@ export default {
       followPercent: "自动滚动安全区右边界",
       followPercentDesc:
         "播放头越过该右边界后滚动跟随；回到左侧对称边界时重新定位",
+      followMode: "跟随方式",
+      followModeDesc:
+        "平滑跟随会缓动逼近播放头；逐拍跳进每跨过设定拍数就瞬时平移一次；整页跳进在播放头到达右侧安全区时整页平移，均无动画",
+      followModeSmooth: "平滑跟随",
+      followModeStep: "逐拍跳进",
+      followModePage: "整页跳进",
+      followStepBeats: "每次跳进拍数",
+      followStepBeatsDesc:
+        "逐拍模式下每次前进该拍数，并把播放头瞬间弹回左侧安全区边缘",
+      followStepBeatsUnit: "拍（1–16）",
+      followStepPresetBeat: "{n} 拍",
+      followStepPresetBar: "1 小节",
       autoSave: "自动保存",
       autoSaveDesc: "每隔一段时间自动保存当前工程",
       autoSaveMinutes: "自动保存间隔",
@@ -541,6 +559,7 @@ export default {
       followSmooth: "播放跟随平滑",
       followSmoothDesc:
         "播放时视图跟随播放头滚动使用平滑缓动；关闭后改为直接对齐。",
+      followSmoothHint: "仅在平滑跟随模式下生效",
       uiMotion: "面板过渡动画",
       uiMotionDesc: "设置面板滑入滑出与淡入淡出等面板过渡动画。",
       themeCrossfade: "主题切换渐变",
@@ -554,7 +573,7 @@ export default {
       performanceLight: "轻量",
       performanceActive: "当前使用",
       performancePresetHint:
-        "轻量模式关闭轨道高亮、踩点光晕与平滑跟随，并限制同刻特效数量；播放与打拍音照常工作。",
+        "轻量模式关闭轨道高亮与踩点光晕，并把跟随改为整页跳进，同时限制同刻特效数量；播放与打拍音照常工作。",
       beatFxDensity: "特效密度",
       beatFxDensityDesc:
         "同一时刻最多绘制多少个高亮 / 闪光目标；轻量上限更低，密集工程更稳。",

@@ -1,6 +1,8 @@
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
 import { useSettingsStore } from "../../stores/settings";
+import { useProjectStore } from "../../stores/project";
+import { beatsPerBarAt } from "../../meter";
 import { applyAppName } from "../../services/settingsEffects";
 import { patchSettings } from "../../services/settingsPersistence";
 import { i18n, isLocale, LOCALES, setLocale } from "../../i18n";
@@ -68,6 +70,8 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
   const motionSpeed = settingModel("motionSpeed");
   const reduceMotion = settingModel("reduceMotion");
   const followScroll = settingModel("followScroll");
+  const followMode = settingModel("followMode");
+  const followStepBeats = settingModel("followStepBeats");
   const followPercent = settingModel("followPercent");
   const rememberWindow = settingModel("rememberWindow");
   const showWelcome = settingModel("showWelcome");
@@ -173,6 +177,34 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     { value: "32", label: "1/32" },
   ]);
 
+  const followModeOptions = computed<ColOption[]>(() => [
+    { value: "smooth", label: t("settings.edit.followModeSmooth") },
+    { value: "step", label: t("settings.edit.followModeStep") },
+    { value: "page", label: t("settings.edit.followModePage") },
+  ]);
+
+  /** Shown under the smooth-follow switch while a discrete mode is active. */
+  const followSmoothHint = (): string =>
+    followMode.value === "smooth" ? "" : t("settings.display.followSmoothHint");
+
+  /** Quick-pick step sizes; "1 bar" follows the project's meter. */
+  const followStepPresetOptions = computed(() => {
+    const bar = Math.min(
+      16,
+      Math.max(
+        1,
+        Math.round(beatsPerBarAt(useProjectStore().meterSegments, 0)),
+      ),
+    );
+    return [
+      ...[1, 2, 4, 8, 16].map((n) => ({
+        value: n,
+        label: t("settings.edit.followStepPresetBeat", { n }),
+      })),
+      { value: bar, label: t("settings.edit.followStepPresetBar") },
+    ];
+  });
+
   const stretchEngineOptions = computed<
     Array<{ value: string; label: string }>
   >(() => [
@@ -265,6 +297,11 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     rememberWindow,
     checkUpdates,
     followScroll,
+    followMode,
+    followModeOptions,
+    followStepBeats,
+    followStepPresetOptions,
+    followSmoothHint,
     followPercent,
     ctrlSpeedPlay,
     countInBars,
@@ -400,6 +437,7 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
             key: row.key,
             keywords: SEARCH_KEYWORDS[`${catKey}.${row.key}`],
             expert,
+            visible: row.showIf,
           });
         else if (row.kind === "custom" && row.searchKey)
           searchIndex.push({
@@ -495,6 +533,9 @@ export const useSettingsRowsStore = defineStore("settingsRows", () => {
     reduceMotion,
     reduceMotionOptions,
     followScroll,
+    followMode,
+    followModeOptions,
+    followStepBeats,
     followPercent,
     rememberWindow,
     showWelcome,

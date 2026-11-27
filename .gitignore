@@ -15,6 +15,7 @@ plugins/*
 # local debug / temp artefacts
 errs.txt
 *.tsbuildinfo
+*.bak
 .acl-recovery/
 Trace-*.json
 lic_scan.txt

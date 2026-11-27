@@ -5,6 +5,7 @@ import { ensureDefaultTrack, useProjectStore } from "../stores/project";
 import { initPluginEvents } from "../plugins/events";
 import { tickBeatFlash } from "./flash";
 import { tickGridClick } from "./gridClick";
+import { tickDiscreteFollow } from "./followStep";
 import {
   autoSaveTick,
   maybeOfferRecovery,
@@ -26,6 +27,7 @@ export function initEditorRuntime(): void {
     }
     tickBeatFlash();
     tickGridClick();
+    tickDiscreteFollow(t.positionMs);
   };
   engine.setVolume(t.volume);
   initPluginEvents();

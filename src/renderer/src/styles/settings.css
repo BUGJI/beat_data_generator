@@ -187,6 +187,35 @@
   width: 84px;
   flex: none;
 }
+/* Quick-pick chips for numeric settings (step size presets). */
+.settings-panel .preset-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+  max-width: 240px;
+}
+.settings-panel .preset-chip {
+  padding: 2px 8px;
+  border: 1px solid var(--bdg-border);
+  border-radius: var(--bdg-radius-sm, 4px);
+  background: transparent;
+  color: var(--bdg-text-dim);
+  font: inherit;
+  font-size: var(--bdg-fs-11);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.settings-panel .preset-chip:hover {
+  color: var(--bdg-text);
+  border-color: var(--bdg-border-strong);
+  background: rgb(var(--bdg-neutral) / 0.12);
+}
+.settings-panel .preset-chip.active {
+  color: var(--bdg-accent);
+  border-color: rgb(var(--bdg-accent-rgb) / 0.55);
+  background: rgb(var(--bdg-accent-rgb) / 0.14);
+}
 /* Theme color rows live inside a card; the card already draws its own border. */
 .settings-panel .theme-card .field-row:last-child {
   border-bottom: none;

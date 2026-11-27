@@ -49,8 +49,8 @@ See [`CHANGELOG.md`](CHANGELOG.md) (Chinese) for the per-version history.
 - **Tap tempo**: click Tap or press T to tap the tempo into the base BPM.
 - **Quick navigation**: click the transport time or press Ctrl+G to jump with `1:23.456`, `83.456` or `b12.3`; reset speed to 1× and mute from the transport.
 - **Metronome click**: plays a tick each time a marker is passed; a custom audio file can be selected (empty disables it). Coincident markers can be merged, gain-limited or stacked, with a bar-start accent and output protection. Clicks are scheduled ahead on the audio clock, so pause, seek, loop and speed changes leave no stale or duplicated clicks.
-- **Auto-follow**: the timeline scrolls once the playhead passes a configurable threshold. The plain wheel scrolls by default; an option makes it move the playhead instead (FL Studio style).
-- **Performance presets**: switch between Standard and Light in one click; Light disables lane glow, marker bloom and smooth follow and caps effects per instant, while playback and clicks are untouched. The timeline uses layered canvases, so a static view is no longer repainted every frame.
+- **Auto-follow**: the timeline scrolls once the playhead passes a configurable threshold, as a **smooth follow** (eased), a **jump-by-beats step** (an instant shift every N beats, playhead back at the left safe-zone edge) or a **jump-by-page** (one page shift when the playhead reaches the right safe zone). The plain wheel scrolls by default; an option makes it move the playhead instead (FL Studio style).
+- **Performance presets**: switch between Standard and Light in one click; Light disables lane glow and marker bloom, switches follow to jump-by-page and caps effects per instant, while playback and clicks are untouched. The timeline uses layered canvases, so a static view is no longer repainted every frame.
 
 ### Project & export
 

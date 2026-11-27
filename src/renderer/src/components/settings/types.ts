@@ -45,6 +45,8 @@ export type SearchEntry = {
   expert?: boolean;
   /** A whole-page target: jumping to it switches category without scrolling. */
   page?: boolean;
+  /** Visibility predicate for rows gated by another setting (showIf). */
+  visible?: () => boolean;
 };
 
 export type FieldControl =
@@ -53,6 +55,8 @@ export type FieldControl =
       get: () => boolean;
       set: (v: boolean) => void;
       disabled?: () => boolean;
+      /** Optional one-line note shown under the control. */
+      hint?: () => string;
     }
   | {
       type: "radio";
@@ -70,6 +74,8 @@ export type FieldControl =
       max?: () => number | undefined;
       step?: number;
       unitKey?: string;
+      /** Quick-pick values rendered as chips under the input. */
+      presets?: () => Array<{ value: number; label: string }>;
     }
   | {
       type: "slider";
@@ -105,6 +111,7 @@ export type GroupDef = {
 export const sw = (
   m: RefLike<boolean>,
   disabled?: () => boolean,
+  hint?: () => string,
 ): FieldControl => ({
   type: "switch",
   get: () => m.value,
@@ -112,6 +119,7 @@ export const sw = (
     m.value = v;
   },
   disabled,
+  hint,
 });
 
 export const radio = (
@@ -135,6 +143,7 @@ export const num = (
     max?: () => number | undefined;
     step?: number;
     unitKey?: string;
+    presets?: () => Array<{ value: number; label: string }>;
   } = {},
 ): FieldControl => ({
   type: "number",

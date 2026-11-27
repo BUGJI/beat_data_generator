@@ -41,12 +41,14 @@ describe("performance presets", () => {
     expect(light.beatFx.markerFlash).toBe(false);
     expect(light.beatFxDensity).toBe("light");
     expect(light.beatPulse).toBe(true);
+    expect(light.followMode).toBe("page");
 
     const standard = withPreset("standard");
     expect(standard.beatFxMaster).toBe(true);
     expect(standard.beatFx.laneGlow).toBe(true);
     expect(standard.beatFx.markerFlash).toBe(true);
     expect(standard.beatFxDensity).toBe("full");
+    expect(standard.followMode).toBe("smooth");
   });
 
   it("reports no preset after a manual edit", () => {

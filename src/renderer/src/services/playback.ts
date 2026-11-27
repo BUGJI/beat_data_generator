@@ -21,23 +21,12 @@ import {
 import { msPerBeat } from "../tempo";
 import { currentNumberPolicy } from "../utils/numberPolicy";
 import { alignViewForPlayback, clearFollowHold } from "./follow";
+import { resetStepFollow, startStepFollow } from "./followStep";
 
 /**
  * Playback orchestration around the audio engine: play / pause / stop / seek,
  * plus speed changes and the optional pitch-preserving stretch buffer.
  */
-
-export function setPosition(ms: number): void {
-  const t = useTransportStore();
-  if (t.countingIn) {
-    cancelCountIn();
-    t.playing = false;
-  }
-  t.positionMs = ms;
-  if (!engine.playing) engine.seek(ms);
-  resetGridClick(ms);
-  refreshBeatFlash(ms);
-}
 
 let countInTimer = 0;
 let countInToken = 0;
@@ -211,6 +200,31 @@ async function switchToStretched(rate: number, token: number): Promise<void> {
   resetGridClick(pos);
 }
 
+/**
+ * Seed the follow state for a new playback run. Keeping both modes here means
+ * the session flags (`followActive` / `followLocked`) can never drift between
+ * the smooth and step branches.
+ */
+function prepareFollowForPlayback(posMs: number): void {
+  const tr = useTransportStore();
+  const s = useSettingsStore().settings;
+  tr.followLocked = false;
+  if (s.followMode === "step") {
+    tr.followActive = tr.followManual || s.followScroll;
+    if (tr.followActive) startStepFollow(posMs);
+    else resetStepFollow(posMs);
+    return;
+  }
+  // Leave no stale step cursor behind when the other modes start a run.
+  resetStepFollow(posMs);
+  if (s.followMode === "page") {
+    tr.followActive = tr.followManual || s.followScroll;
+    return;
+  }
+  if (tr.followManual) alignViewForPlayback(posMs);
+  tr.followActive = tr.followManual;
+}
+
 async function playNow(rateOverride?: number): Promise<void> {
   const tr = useTransportStore();
   if (!tr.hasAudio) return;
@@ -223,10 +237,8 @@ async function playNow(rateOverride?: number): Promise<void> {
   }
   refreshBeatFlash(tr.positionMs);
   clearFollowHold();
-  if (tr.followManual) alignViewForPlayback(tr.positionMs);
+  prepareFollowForPlayback(tr.positionMs);
   tr.playing = true;
-  tr.followActive = tr.followManual;
-  tr.followLocked = false;
   const rate = rateOverride ?? tr.rate;
   const orig = engine.sourceBuffer;
   // the transport can report audio before the buffer is swapped in (e.g. right
@@ -294,6 +306,7 @@ export function stop(): void {
   t.followLocked = false;
   resetGridClick(0);
   refreshBeatFlash(0);
+  resetStepFollow(0);
 }
 
 export function seekTo(ms: number): void {
@@ -306,6 +319,7 @@ export function seekTo(ms: number): void {
   t.positionMs = engine.positionMs();
   resetGridClick(t.positionMs);
   refreshBeatFlash(t.positionMs);
+  resetStepFollow(t.positionMs);
 }
 
 /** Smallest positive playback rate representable at the UI's 2-decimal precision. */

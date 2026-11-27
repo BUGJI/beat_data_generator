@@ -16,6 +16,7 @@ export const PERFORMANCE_PRESETS: Record<
     beatPulse: true,
     beatFxDensity: "full",
     followSmooth: true,
+    followMode: "smooth",
     animEnabled: true,
   },
   light: {
@@ -24,6 +25,7 @@ export const PERFORMANCE_PRESETS: Record<
     beatPulse: true,
     beatFxDensity: "light",
     followSmooth: false,
+    followMode: "page",
     animEnabled: false,
   },
 };
@@ -41,6 +43,7 @@ export function matchesPerformancePreset(
       s.beatPulse &&
       s.beatFxDensity === "light" &&
       !s.followSmooth &&
+      s.followMode === "page" &&
       !s.animEnabled
     );
   }
@@ -51,6 +54,7 @@ export function matchesPerformancePreset(
     s.beatPulse &&
     s.beatFxDensity === "full" &&
     s.followSmooth &&
+    s.followMode === "smooth" &&
     s.animEnabled
   );
 }

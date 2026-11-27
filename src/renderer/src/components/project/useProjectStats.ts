@@ -52,6 +52,19 @@ export function useProjectStats() {
   const markersLabel = computed(() => String(markerCount()));
   const zoomLabel = computed(() => `${view.pxPerSec.toFixed(1)} px/s`);
   const followPctLabel = computed(() => `${settings.settings.followPercent}%`);
+  /** The readout chip shows the percent in smooth mode, the step size in step mode. */
+  const followValueLabel = computed(() =>
+    settings.settings.followMode === "step"
+      ? t("follow.stepValue", { beats: settings.settings.followStepBeats })
+      : followPctLabel.value,
+  );
+  const followValueTip = computed(() =>
+    settings.settings.followMode === "step"
+      ? t("follow.stepTip", { beats: settings.settings.followStepBeats })
+      : settings.settings.followMode === "page"
+        ? t("follow.pageTip")
+        : t("follow.pctTip"),
+  );
 
   const followOn = computed(() =>
     transport.playing ? transport.followActive : transport.followManual,
@@ -73,6 +86,8 @@ export function useProjectStats() {
     markersLabel,
     zoomLabel,
     followPctLabel,
+    followValueLabel,
+    followValueTip,
     followOn,
     followTip,
   };

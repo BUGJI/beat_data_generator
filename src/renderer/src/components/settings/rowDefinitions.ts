@@ -21,6 +21,10 @@ export interface SettingsRowBindings {
   rememberWindow: RefLike<boolean>;
   checkUpdates: RefLike<boolean>;
   followScroll: RefLike<boolean>;
+  followMode: RefLike<string>;
+  followModeOptions: RefLike<ColOption[]>;
+  followStepBeats: RefLike<number>;
+  followStepPresetOptions: RefLike<Array<{ value: number; label: string }>>;
   followPercent: RefLike<number>;
   ctrlSpeedPlay: RefLike<boolean>;
   countInBars: RefLike<number>;
@@ -80,6 +84,7 @@ export interface SettingsRowBindings {
   rulerEdgeFade: RefLike<boolean>;
   rulerTickTransition: RefLike<boolean>;
   followSmooth: RefLike<boolean>;
+  followSmoothHint: () => string;
   uiMotion: RefLike<boolean>;
   themeCrossfade: RefLike<boolean>;
   menuMotion: RefLike<boolean>;
@@ -120,6 +125,10 @@ export function buildFieldGroups(
     rememberWindow,
     checkUpdates,
     followScroll,
+    followMode,
+    followModeOptions,
+    followStepBeats,
+    followStepPresetOptions,
     followPercent,
     ctrlSpeedPlay,
     countInBars,
@@ -179,6 +188,7 @@ export function buildFieldGroups(
     rulerEdgeFade,
     rulerTickTransition,
     followSmooth,
+    followSmoothHint,
     uiMotion,
     themeCrossfade,
     menuMotion,
@@ -346,6 +356,26 @@ export function buildFieldGroups(
             control: sw(gridMetronome),
           },
           { kind: "field", key: "autoFollow", control: sw(followScroll) },
+          {
+            kind: "field",
+            key: "followMode",
+            col: true,
+            showIf: () => followScroll.value,
+            control: radio(followMode, () => followModeOptions.value),
+          },
+          {
+            kind: "field",
+            key: "followStepBeats",
+            col: true,
+            showIf: () => followScroll.value && followMode.value === "step",
+            control: num(followStepBeats, {
+              min: freeMin(1),
+              max: freeMax(16),
+              step: 1,
+              unitKey: "followStepBeatsUnit",
+              presets: () => followStepPresetOptions.value,
+            }),
+          },
           {
             kind: "field",
             key: "followPercent",
@@ -618,7 +648,11 @@ export function buildFieldGroups(
           {
             kind: "field",
             key: "followSmooth",
-            control: sw(followSmooth),
+            control: sw(
+              followSmooth,
+              () => followMode.value !== "smooth",
+              followSmoothHint,
+            ),
           },
           { kind: "subhead", key: "motionRuler" },
           {

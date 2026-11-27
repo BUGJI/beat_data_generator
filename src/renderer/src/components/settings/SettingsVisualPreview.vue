@@ -74,6 +74,16 @@ const fxDemoOn = computed(
         :class="{
           fine: cat === 'display' && !s.gridAutoHide,
           motion: cat === 'display' && s.animEnabled && motionOn,
+          jump:
+            cat === 'display' &&
+            s.animEnabled &&
+            motionOn &&
+            s.followMode === 'step',
+          flip:
+            cat === 'display' &&
+            s.animEnabled &&
+            motionOn &&
+            s.followMode === 'page',
         }"
       >
         <div class="vp-motion">
@@ -231,6 +241,14 @@ const fxDemoOn = computed(
   100% {
     transform: translateX(0) scale(1);
   }
+}
+/* Discrete follow modes reuse the pan demo, but step instead of easing so the
+   preview shows the difference between smooth and jump follow at a glance. */
+.vp-canvas.jump .vp-motion {
+  animation-timing-function: steps(4, end);
+}
+.vp-canvas.flip .vp-motion {
+  animation-timing-function: steps(2, end);
 }
 
 .vp-lane {

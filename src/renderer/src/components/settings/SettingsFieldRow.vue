@@ -45,13 +45,17 @@ function onSliderCommit(v: number): void {
       <span v-if="desc" class="field-desc">{{ desc }}</span>
     </div>
 
-    <UiSwitch
-      v-if="control.type === 'switch'"
-      :model-value="control.get()"
-      :disabled="control.disabled?.() ?? false"
-      :aria-label="label"
-      @update:model-value="(v: boolean) => setSwitch(control, v)"
-    />
+    <div v-if="control.type === 'switch'" class="radio-cell">
+      <UiSwitch
+        :model-value="control.get()"
+        :disabled="control.disabled?.() ?? false"
+        :aria-label="label"
+        @update:model-value="(v: boolean) => setSwitch(control, v)"
+      />
+      <span v-if="control.hint?.()" class="field-hint">{{
+        control.hint()
+      }}</span>
+    </div>
     <div v-else-if="control.type === 'radio'" class="radio-cell">
       <UiRadioGroup
         :model-value="control.get()"
@@ -60,6 +64,35 @@ function onSliderCommit(v: number): void {
         @update:model-value="(v: string) => setRadio(control, v)"
       />
       <span v-if="control.hint" class="field-hint">{{ control.hint() }}</span>
+    </div>
+    <div
+      v-else-if="control.type === 'number' && control.presets"
+      class="radio-cell"
+    >
+      <div class="pct-row">
+        <UiNumberInput
+          :model-value="control.get()"
+          :min="control.min?.()"
+          :max="control.max?.()"
+          :step="control.step"
+          :label="label"
+          class="decimals-input"
+          @update:model-value="(v: number) => setNumber(control, v)"
+        />
+        <span v-if="unit" class="muted">{{ unit }}</span>
+      </div>
+      <div class="preset-chips">
+        <button
+          v-for="preset in control.presets()"
+          :key="preset.label"
+          type="button"
+          class="preset-chip"
+          :class="{ active: control.get() === preset.value }"
+          @click="setNumber(control, preset.value)"
+        >
+          {{ preset.label }}
+        </button>
+      </div>
     </div>
     <UiNumberInput
       v-else-if="control.type === 'number' && !control.unitKey"
